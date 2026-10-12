@@ -1,0 +1,108 @@
+@layer components {
+  .flower-petal {
+    transition-property: transform, opacity;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flower-petal {
+      transition: none !important;
+    }
+  }
+
+  .flower-menu-root {
+    --flower-orbit-radius: 108px;
+    --flower-petal-half: 23px;
+    --flower-trigger-half: 29px;
+    --flower-center-shift: calc(var(--flower-orbit-radius) + var(--flower-petal-half) - var(--flower-trigger-half));
+    position: fixed;
+    right: max(1.5rem, env(safe-area-inset-right, 0px));
+    bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    width: 58px;
+    height: 58px;
+    font-family: inherit;
+  }
+  .flower-menu-items { transition: transform 220ms cubic-bezier(.2, 0, 0, 1); }
+  .flower-menu-root[data-open="true"] .flower-menu-items,
+  .flower-menu-root[data-open="true"] .flower-menu-trigger {
+    transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift)));
+  }
+
+  .flower-menu-trigger {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--line, #3c4144) 80%, transparent);
+    border-radius: 50%;
+    background: var(--accent, #9bc4a4);
+    color: #15211a;
+    box-shadow: 0 7px 20px #0003;
+    cursor: pointer;
+    transition: transform 180ms cubic-bezier(.2, 0, 0, 1), box-shadow 180ms ease, background 180ms ease;
+  }
+  .flower-menu-trigger:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0004; }
+  .flower-menu-root[data-open="true"] .flower-menu-trigger:hover { transform: translate(calc(0px - var(--flower-center-shift)), calc(-2px - var(--flower-center-shift))); }
+  .flower-menu-trigger:active { transform: scale(.95); }
+  .flower-menu-root[data-open="true"] .flower-menu-trigger:active { transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift))) scale(.95); }
+  .flower-menu-trigger svg { transition: transform 240ms cubic-bezier(.2, 0, 0, 1); }
+  .flower-menu-trigger[aria-expanded="true"] svg { transform: rotate(45deg); }
+
+  .flower-menu-items {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .flower-menu-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border: 1px solid var(--line, #3c4144);
+    border-radius: 50%;
+    background: var(--surface, #222629);
+    color: var(--text, #e7e9e5);
+    box-shadow: 0 5px 16px #0003;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(.72);
+    transition-duration: 220ms;
+    transition-delay: calc(var(--petal-index) * 38ms);
+    cursor: pointer;
+  }
+  .flower-menu-item:hover { color: var(--accent, #9bc4a4); background: var(--surface-hover, #303638); transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(1.08); }
+  .flower-menu-root[data-open="true"] .flower-menu-item {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(1);
+  }
+  .flower-menu-root[data-open="true"] .flower-menu-item:hover { transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(1.08); }
+  .flower-menu-root:not([data-open="true"]) .flower-menu-item {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(.72);
+    transition-delay: 0ms;
+  }
+  .flower-menu-item[aria-disabled="true"] { cursor: not-allowed; box-shadow: none; }
+  .flower-menu-root[data-open="true"] .flower-menu-item[aria-disabled="true"] { opacity: .58; pointer-events: none; }
+  .flower-menu-item:focus-visible, .flower-menu-trigger:focus-visible { outline: 2px solid var(--accent, #9bc4a4); outline-offset: 4px; }
+
+  @media (max-width: 360px), (max-height: 420px) {
+    .flower-menu-root { --flower-orbit-radius: 84px; --flower-petal-half: 18px; }
+    .flower-menu-root[data-open="true"] .flower-menu-items {
+      transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift))) scale(.78);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flower-menu-trigger, .flower-menu-trigger svg, .flower-menu-item { transition: none !important; }
+  }
+}
