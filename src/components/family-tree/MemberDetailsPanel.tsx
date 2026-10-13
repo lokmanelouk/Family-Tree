@@ -1,28 +1,37 @@
-import { Baby, GitBranch, HeartHandshake, Trash2, UserRoundPlus, UsersRound, X } from 'lucide-react'
-import { useState } from 'react'
+import { Baby, Check, GitBranch, HeartHandshake, Link2, Trash2, UserRoundPlus, UsersRound, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
 import { ProfileAvatarPicker } from './ProfileAvatarPicker'
 import { useLanguage } from '../../i18n/useLanguage'
+import { validateRelationship } from '../../lib/tree-logic'
+import { FamilyMemberPicker } from './FamilyMemberPicker'
 
 type MemberDetailsPanelProps = {
   member: FamilyMember
   members: FamilyMember[]
   onClose: () => void
   onAddRelative: (targetId: string, kind: RelationshipKind) => void
+  onLinkSpouse: (memberId: string, spouseId: string) => void
   onSelectRelative: (member: FamilyMember) => void
   onUpdateProfile: (memberId: string, photo: string | undefined, avatar: FamilyMember['avatar']) => void
   onDelete: () => void
 }
 
-export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onSelectRelative, onUpdateProfile, onDelete }: MemberDetailsPanelProps) {
+export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onLinkSpouse, onSelectRelative, onUpdateProfile, onDelete }: MemberDetailsPanelProps) {
   const { t } = useLanguage()
   const [photoError, setPhotoError] = useState('')
+  const [linkingSpouse, setLinkingSpouse] = useState(false)
+  const [spouseCandidateId, setSpouseCandidateId] = useState('')
   const parents = findMembers(members, member.parentIds)
   const partners = findMembers(members, member.spouseIds)
   const siblings = findMembers(members, member.siblingIds)
   const children = members.filter((entry) => entry.parentIds.includes(member.id))
+  const spouseCandidates = useMemo(() => members.filter((candidate) =>
+    candidate.id !== member.id && !member.spouseIds.includes(candidate.id)
+    && validateRelationship(members, member.id, candidate.id, 'partner') === null,
+  ), [member.id, member.spouseIds, members])
 
   return (
     <aside className="details-panel">
@@ -40,6 +49,17 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
       <div className="details-links">
         <RelationshipGroup icon={<GitBranch size={15} />} title={t('Parents')} people={parents} empty={t('No parents linked')} onSelect={onSelectRelative} />
         <RelationshipGroup icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} empty={t('No partners linked')} onSelect={onSelectRelative} />
+        <section className="link-spouse-control">
+          {!linkingSpouse ? <button type="button" onClick={() => setLinkingSpouse(true)}><Link2 size={14} />{t('Link existing spouse')}</button> : <>
+            {spouseCandidates.length ? <>
+              <FamilyMemberPicker members={spouseCandidates} value={spouseCandidateId} placeholder={t('Select a family member')} onChange={setSpouseCandidateId} />
+              <div className="link-spouse-actions">
+                <button type="button" disabled={!spouseCandidateId} onClick={() => { onLinkSpouse(member.id, spouseCandidateId); setLinkingSpouse(false); setSpouseCandidateId('') }}><Check size={14} />{t('Link spouse')}</button>
+                <button type="button" onClick={() => { setLinkingSpouse(false); setSpouseCandidateId('') }}>{t('Cancel')}</button>
+              </div>
+            </> : <div className="link-spouse-empty"><span>{t('No eligible family members to link')}</span><button type="button" onClick={() => setLinkingSpouse(false)}>{t('Close')}</button></div>}
+          </>}
+        </section>
         <RelationshipGroup icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} empty={t('No siblings linked')} onSelect={onSelectRelative} />
         <RelationshipGroup icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('No children linked')} onSelect={onSelectRelative} />
       </div>

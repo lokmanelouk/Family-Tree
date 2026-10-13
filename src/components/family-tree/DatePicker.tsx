@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useLanguage } from '../../i18n/useLanguage'
+import { getBirthDateError } from '../../lib/birth-date'
 
 type DatePickerProps = {
   id: string
@@ -9,14 +10,40 @@ type DatePickerProps = {
 }
 
 function parseDate(value: string) {
+  const yearOnly = /^(\d{4})$/.exec(value.trim())
+  if (yearOnly) {
+    const date = new Date(0)
+    date.setFullYear(Number(yearOnly[1]), 0, 1)
+    date.setHours(12, 0, 0, 0)
+    return date
+  }
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return null
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)
+  const date = new Date(0)
+  date.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  date.setHours(12, 0, 0, 0)
   return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]) ? date : null
 }
 
 function formatDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function formatDigits(digits: string) {
+  const year = digits.slice(0, 4)
+  if (digits.length <= 4) return year
+  const month = digits.slice(4, 6)
+  return `${year}-${month}${digits.length > 6 ? `-${digits.slice(6, 8)}` : ''}`
+}
+
+function caretAfterDigits(formatted: string, digitCount: number) {
+  if (digitCount <= 0) return 0
+  let seen = 0
+  for (let index = 0; index < formatted.length; index += 1) {
+    if (/\d/.test(formatted[index])) seen += 1
+    if (seen === digitCount) return index + 1
+  }
+  return formatted.length
 }
 
 export function DatePicker({ id, value, onChange }: DatePickerProps) {
@@ -26,12 +53,20 @@ export function DatePicker({ id, value, onChange }: DatePickerProps) {
     const initial = parseDate(value) ?? new Date()
     return new Date(initial.getFullYear(), initial.getMonth(), 1)
   })
+  const [view, setView] = useState<'days' | 'months' | 'years' | 'decades' | 'centuries'>('years')
+  const [decadeCentury, setDecadeCentury] = useState(() => Math.floor((parseDate(value) ?? new Date()).getFullYear() / 100) * 100)
+  const [yearPageStart, setYearPageStart] = useState(() => {
+    const year = (parseDate(value) ?? new Date()).getFullYear()
+    return 1000 + Math.floor((year - 1000) / 12) * 12
+  })
   const pickerId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const selectedDate = parseDate(value)
   const locale = language === 'ar' ? 'ar' : 'en'
-  const monthLabel = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(month)
+  const currentYear = new Date().getFullYear()
+  const dateError = getBirthDateError(value)
   const weekDays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2025, 0, 5 + index)))
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1)
   const leadingDays = firstDay.getDay()
@@ -58,45 +93,141 @@ export function DatePicker({ id, value, onChange }: DatePickerProps) {
   }, [open])
 
   function showCalendar() {
-    const date = selectedDate ?? new Date()
+    const typedYear = value.match(/\b\d{4}\b/)?.[0]
+    const date = selectedDate ?? (typedYear ? new Date(Number(typedYear), 0, 1) : new Date())
     setMonth(new Date(date.getFullYear(), date.getMonth(), 1))
+    setYearPageStart(1000 + Math.floor((date.getFullYear() - 1000) / 12) * 12)
+    setDecadeCentury(Math.floor(date.getFullYear() / 100) * 100)
+    setView('years')
     setOpen((current) => !current)
   }
 
   function moveMonth(delta: number) {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1))
+    setMonth((current) => {
+      const next = new Date(current.getFullYear(), current.getMonth() + delta, 1)
+      const minimum = new Date(1000, 0, 1)
+      const maximum = new Date(currentYear, new Date().getMonth(), 1)
+      const bounded = next < minimum ? minimum : next > maximum ? maximum : next
+      return bounded
+    })
   }
 
+  function moveYearPage(delta: number) {
+    setYearPageStart((current) => Math.min(1000 + Math.floor((currentYear - 1000) / 12) * 12, Math.max(1000, current + delta * 12)))
+  }
+
+  function moveDecade(delta: number) {
+    setDecadeCentury((current) => Math.min(Math.floor(currentYear / 100) * 100, Math.max(1000, current + delta * 100)))
+  }
+
+  function chooseYear(year: number) {
+    setMonth((current) => new Date(year, current.getMonth(), 1))
+    setView('months')
+  }
+
+  function chooseMonth(monthIndex: number) {
+    setMonth((current) => new Date(current.getFullYear(), monthIndex, 1))
+    setView('days')
+  }
+
+  function commitDigits(digits: string, caretDigits: number) {
+    const formatted = formatDigits(digits.slice(0, 8))
+    onChange(formatted)
+    requestAnimationFrame(() => {
+      const input = inputRef.current
+      if (!input) return
+      const caret = caretAfterDigits(formatted, Math.min(caretDigits, digits.length))
+      input.setSelectionRange(caret, caret)
+    })
+  }
+
+  function handleInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    const input = event.currentTarget
+    const start = input.selectionStart ?? 0
+    const end = input.selectionEnd ?? start
+    if (start !== end) return
+    if (event.key === 'Backspace' && start > 0 && value[start - 1] === '-') {
+      event.preventDefault()
+      const digitsBeforeHyphen = value.slice(0, start - 1).replace(/\D/g, '').length
+      const digits = value.replace(/\D/g, '')
+      const removeIndex = Math.max(0, digitsBeforeHyphen - 1)
+      commitDigits(digits.slice(0, removeIndex) + digits.slice(removeIndex + 1), removeIndex)
+    } else if (event.key === 'Delete' && value[start] === '-') {
+      event.preventDefault()
+      const digitsBeforeHyphen = value.slice(0, start).replace(/\D/g, '').length
+      const digits = value.replace(/\D/g, '')
+      commitDigits(digits.slice(0, digitsBeforeHyphen) + digits.slice(digitsBeforeHyphen + 1), digitsBeforeHyphen)
+    }
+  }
+
+  const years = Array.from({ length: 12 }, (_, index) => yearPageStart + index)
+  const centuries = Array.from({ length: Math.floor((currentYear - 1000) / 100) + 1 }, (_, index) => 1000 + index * 100)
+  const decades = Array.from({ length: 10 }, (_, index) => decadeCentury + index * 10)
+  const currentDecade = Math.floor(month.getFullYear() / 10) * 10
+  const months = Array.from({ length: 12 }, (_, index) => new Intl.DateTimeFormat(locale, { month: 'short' }).format(new Date(2024, index, 1)))
+  const monthLimit = month.getFullYear() < currentYear ? 11 : new Date().getMonth()
+  const yearPageEnd = yearPageStart + 11
+
   return <div className="custom-date-picker" ref={rootRef}>
-    <div className="custom-date-field">
-      <input id={id} type="text" value={value} placeholder="YYYY-MM-DD" readOnly aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onClick={showCalendar} />
+    <div className={`custom-date-field${dateError ? ' has-error' : ''}`}>
+      <input ref={inputRef} id={id} type="text" inputMode="numeric" autoComplete="off" value={value} placeholder="YYYY-MM-DD or YYYY" aria-invalid={Boolean(dateError)} aria-describedby={dateError ? `${pickerId}-error` : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onKeyDown={handleInputKeyDown} onChange={(event) => {
+        const raw = event.currentTarget.value
+        const caret = event.currentTarget.selectionStart ?? raw.length
+        const digitOffset = raw.slice(0, caret).replace(/\D/g, '').length
+        commitDigits(raw.replace(/\D/g, ''), digitOffset)
+      }} />
       {value && <button className="custom-date-clear" type="button" aria-label={t('Clear date')} title={t('Clear date')} onClick={() => onChange('')}><X size={14} /></button>}
       <button ref={triggerRef} className="custom-date-trigger" type="button" aria-label={open ? t('Close calendar') : t('Open calendar')} aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onClick={showCalendar}><CalendarDays size={17} /></button>
     </div>
+    {dateError && <p className="custom-date-error" id={`${pickerId}-error`} role="alert">{t(dateError)}</p>}
     {open && <div className="custom-calendar" id={pickerId} role="dialog" aria-label={t('Choose birth date')}>
       <div className="custom-calendar-header">
-        <button type="button" aria-label={t('Previous month')} onClick={() => moveMonth(-1)}><ChevronLeft size={16} /></button>
-        <strong>{monthLabel}</strong>
-        <button type="button" aria-label={t('Next month')} onClick={() => moveMonth(1)}><ChevronRight size={16} /></button>
+        <button type="button" aria-label={t('Previous month')} disabled={view === 'years' ? yearPageStart <= 1000 : view === 'decades' ? decadeCentury <= 1000 : view === 'centuries' || (view === 'months' ? month.getFullYear() <= 1000 : month.getFullYear() === 1000 && month.getMonth() === 0)} onClick={() => {
+          if (view === 'years') moveYearPage(-1)
+          else if (view === 'decades') moveDecade(-1)
+          else if (view === 'months') setMonth((current) => new Date(Math.max(1000, current.getFullYear() - 1), current.getMonth(), 1))
+          else if (view === 'days') moveMonth(-1)
+        }}><ChevronLeft size={16} /></button>
+        {view === 'days' ? <div className="custom-calendar-month-year"><button type="button" className="calendar-view-toggle" onClick={() => setView('months')}>{new Intl.DateTimeFormat(locale, { month: 'long' }).format(month)}</button><button type="button" className="calendar-view-toggle calendar-year-toggle" onClick={() => { setYearPageStart(1000 + Math.floor((month.getFullYear() - 1000) / 12) * 12); setView('years') }}>{month.getFullYear()}</button></div>
+          : view === 'months' ? <div className="custom-calendar-month-year"><button type="button" className="calendar-view-toggle calendar-year-toggle" onClick={() => { setYearPageStart(1000 + Math.floor((month.getFullYear() - 1000) / 12) * 12); setView('years') }}>{month.getFullYear()}</button></div>
+            : view === 'years' ? <div className="custom-calendar-month-year"><button type="button" className="calendar-view-toggle" onClick={() => setView('centuries')}>{yearPageStart}-{yearPageEnd}</button></div>
+              : view === 'decades' ? <div className="custom-calendar-month-year"><button type="button" className="calendar-view-toggle" onClick={() => setView('centuries')}>{decadeCentury}s</button></div>
+                : <div className="custom-calendar-month-year"><strong>Centuries</strong></div>}
+        <button type="button" aria-label={t('Next month')} disabled={view === 'years' ? yearPageStart + 12 > currentYear : view === 'decades' ? decadeCentury + 100 > currentYear : view === 'centuries' || (view === 'months' ? month.getFullYear() >= currentYear : month.getFullYear() === currentYear && month.getMonth() === new Date().getMonth())} onClick={() => {
+          if (view === 'years') moveYearPage(1)
+          else if (view === 'decades') moveDecade(1)
+          else if (view === 'months') setMonth((current) => new Date(Math.min(currentYear, current.getFullYear() + 1), current.getMonth(), 1))
+          else if (view === 'days') moveMonth(1)
+        }}><ChevronRight size={16} /></button>
       </div>
-      <div className="custom-calendar-grid">
+      {view === 'centuries' ? <div className="custom-calendar-choice-grid year-choice-grid">
+        {centuries.map((century) => <button type="button" key={century} className={`custom-calendar-choice${Math.floor(month.getFullYear() / 100) * 100 === century ? ' selected' : ''}`} aria-pressed={Math.floor(month.getFullYear() / 100) * 100 === century} onClick={() => { setDecadeCentury(century); setView('decades') }}>{century}s</button>)}
+      </div> : view === 'decades' ? <div className="custom-calendar-choice-grid year-choice-grid">
+        {decades.map((decade) => <button type="button" key={decade} className={`custom-calendar-choice${currentDecade === decade ? ' selected' : ''}`} aria-pressed={currentDecade === decade} disabled={decade > currentYear} onClick={() => { setYearPageStart(decade); setView('years') }}>{decade}s</button>)}
+      </div> : view === 'years' ? <div className="custom-calendar-choice-grid year-choice-grid">
+        {years.map((year) => <button type="button" key={year} className={`custom-calendar-choice${year === month.getFullYear() ? ' selected' : ''}`} aria-pressed={year === month.getFullYear()} disabled={year > currentYear} onClick={() => chooseYear(year)}>{year}</button>)}
+      </div> : view === 'months' ? <div className="custom-calendar-choice-grid month-choice-grid">
+        {months.map((name, index) => <button type="button" key={index} className={`custom-calendar-choice${index === month.getMonth() ? ' selected' : ''}`} aria-pressed={index === month.getMonth()} disabled={index > monthLimit} onClick={() => chooseMonth(index)}>{name}</button>)}
+      </div> : <div className="custom-calendar-grid">
         {weekDays.map((day, index) => <span className="custom-calendar-weekday" key={`${day}-${index}`} aria-hidden="true">{day}</span>)}
         {days.map((day) => {
           const inMonth = day.getMonth() === month.getMonth()
           const selected = selectedDate?.getTime() === day.getTime()
           const today = formatDate(day) === formatDate(new Date())
+          const futureDate = day.getFullYear() < 1000 || formatDate(day) > formatDate(new Date())
           return <button
-            className={`custom-calendar-day${inMonth ? '' : ' outside-month'}${selected ? ' selected' : ''}${today ? ' today' : ''}`}
+            className={`custom-calendar-day${inMonth ? '' : ' outside-month'}${selected ? ' selected' : ''}${today ? ' today' : ''}${futureDate ? ' future-date' : ''}`}
             type="button"
             key={formatDate(day)}
             aria-pressed={selected}
+            disabled={futureDate}
             aria-label={day.toLocaleDateString(locale, { dateStyle: 'full' })}
             onClick={() => { onChange(formatDate(day)); setOpen(false) }}
           >{day.getDate()}</button>
         })}
-      </div>
+      </div>}
       <div className="custom-calendar-footer">
-        <button type="button" onClick={() => { onChange(formatDate(new Date())); setOpen(false) }}>{t('Today')}</button>
+        {view === 'days' && <button type="button" onClick={() => { onChange(formatDate(new Date())); setOpen(false) }}>{t('Today')}</button>}
         {value && <button type="button" onClick={() => onChange('')}>{t('Clear date')}</button>}
       </div>
     </div>}

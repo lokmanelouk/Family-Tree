@@ -613,6 +613,7 @@
   background:var(--surface-hover);
   color:var(--accent)
 }
+.ancestor-branch-toggle { color:var(--accent-secondary) }
 .node-action span {
   font-size:8px
 }
@@ -790,6 +791,18 @@
 .relationship-person-button:hover,.relationship-person-button:focus-visible { outline:0; border-color:var(--line-soft); background:var(--surface-hover); color:var(--accent) }
 .relationship-person-button:focus-visible { box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 20%,transparent) }
 .relationship-group>p { color:var(--subtle) }
+.link-spouse-control { width:100%; display:grid; gap:7px }
+.link-spouse-control>button,.link-spouse-actions button,.link-spouse-empty button {
+  min-height:29px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding:0 8px; border:1px solid var(--line); border-radius:6px;
+  background:var(--surface-raised); color:var(--muted); font:inherit; font-size:9px; cursor:pointer
+}
+.link-spouse-control>button { justify-self:start }
+.link-spouse-control>button:hover,.link-spouse-actions button:hover,.link-spouse-empty button:hover { border-color:var(--accent-strong); color:var(--accent) }
+.link-spouse-actions { display:flex; gap:6px }
+.link-spouse-actions button:first-child svg,.link-spouse-control>button svg { color:var(--accent) }
+.link-spouse-actions button:disabled { opacity:.45; cursor:not-allowed }
+.link-spouse-empty { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--subtle); font-size:9px }
 .details-actions {
   width:100%;
   margin-top:19px;
@@ -1318,6 +1331,8 @@ to {
 .circle-node .node-copy { align-items:center; max-width:100%; gap:4px }
 .circle-node .node-copy strong { max-width:145px; font-size:10px }
 .circle-node .node-copy small { font-size:8px }
+.circle-node .node-copy .node-age { font-size:9px }
+.circle-node .node-copy .node-gender { padding:2px 7px; font-size:8px }
 .circle-node .node-actions { right:10px; bottom:0 }
 .toolbar-menu-wrap { position:relative; margin-left:auto }
 .toolbar-menu-wrap .theme-toggle { margin-left:0 }
@@ -1340,11 +1355,6 @@ to {
 @media(max-width:900px) { .toolbar-menu-wrap { margin-left:auto } .tree-actions { display:flex } .toolbar-search { min-width:140px } }
 @media(max-width:600px) { .toolbar-search { min-width:0 } .tree-actions { display:none } .mode-actions { margin-left:auto } .tree-toolbar { overflow:visible } }
 @media(prefers-reduced-motion:reduce) { .tree-node-position { animation:none } }
-.tree-lines path.sibling-line {
-  stroke:#6f8c7a;
-  stroke-dasharray:2 3
-}
-
 .person-node.drop-target {
   border-color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 24%,transparent),0 5px 15px #0003
@@ -1353,6 +1363,7 @@ to {
 .tree-app { --branch-0:#82aa8e; --branch-1:#7fa9c1; --branch-2:#d09a74; --branch-3:#a591c5; --branch-4:#ca8c97; --branch-5:#b5a260 }
 .tree-app[data-theme=light] { --branch-0:#467c59; --branch-1:#42769a; --branch-2:#a76039; --branch-3:#745891; --branch-4:#a34e65; --branch-5:#806c20 }
 .tree-lines path.branch-line { opacity:.9 }
+.tree-lines path { stroke-linecap:round; stroke-linejoin:round }
 .person-node.branch-colored { border-top:2px solid var(--branch-color) }
 .circle-node.branch-colored .node-avatar { box-shadow:0 0 0 2px var(--branch-color) }
 .toolbar-select { position:relative; display:flex; align-items:center }
@@ -1492,6 +1503,8 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
   transition:border-color .16s ease,box-shadow .16s ease;
 }
 .custom-date-field:focus-within { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 20%,transparent) }
+.custom-date-field.has-error,.custom-date-field.has-error:focus-within { border-color:#d87878; box-shadow:0 0 0 2px color-mix(in srgb,#d87878 17%,transparent) }
+.custom-date-error { margin:5px 2px 0; color:#e18a8a; font-size:10px; line-height:1.4 }
 .member-dialog .custom-date-field input {
   width:0;
   min-width:0;
@@ -1535,6 +1548,14 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
 }
 .custom-calendar-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; color:var(--text) }
 .custom-calendar-header strong { font-size:12px; font-weight:600 }
+.custom-calendar-month-year { min-width:0; display:flex; align-items:center; justify-content:center; gap:7px }
+.custom-calendar-month-year .calendar-view-toggle { min-width:0; min-height:29px; padding:0 5px; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--text); font-size:12px; font-weight:600; cursor:pointer }
+.custom-calendar-month-year .calendar-view-toggle:hover { border-color:var(--line); background:var(--surface-hover); color:var(--accent) }
+.custom-calendar-month-year .calendar-year-toggle { padding-inline:7px; color:var(--accent) }
+.custom-calendar-header button:disabled { opacity:.3; pointer-events:none; cursor:not-allowed }
+.custom-date-field input { cursor:text }
+.custom-date-field input::placeholder { font-size:11px }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
 .custom-calendar-header button,.custom-calendar-footer button {
   min-width:29px;
   min-height:29px;
@@ -1552,6 +1573,14 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
 }
 .custom-calendar-header button:hover,.custom-calendar-footer button:hover { border-color:var(--line); background:var(--surface-hover); color:var(--text) }
 .custom-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; text-align:center }
+.custom-calendar-choice-grid { min-height:228px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-content:center; gap:6px; animation:calendar-view-in .16s ease both }
+.custom-calendar-choice { min-height:42px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--text); font:inherit; font-size:12px; cursor:pointer; transition:background .14s ease,color .14s ease,border-color .14s ease,transform .14s ease }
+.custom-calendar-choice:hover:not(:disabled) { border-color:var(--line); background:var(--accent-soft); color:var(--accent); transform:translateY(-1px) }
+.custom-calendar-choice.selected { background:var(--accent); color:var(--bg); font-weight:700 }
+.custom-calendar-choice:disabled { color:var(--subtle); opacity:.3; pointer-events:none; cursor:not-allowed }
+.custom-calendar-grid { animation:calendar-view-in .16s ease both }
+@keyframes calendar-view-in { from { opacity:0; transform:translateY(3px) } to { opacity:1; transform:translateY(0) } }
+@media(prefers-reduced-motion:reduce) { .custom-calendar,.custom-calendar-grid,.custom-calendar-choice-grid,.custom-calendar-choice { animation:none; transition:none } }
 .custom-calendar-weekday { padding:5px 0; color:var(--subtle); font-size:9px; font-weight:600 }
 .custom-calendar-day {
   width:100%;
@@ -1570,6 +1599,7 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
 .custom-calendar-day.outside-month { color:var(--subtle); opacity:.6 }
 .custom-calendar-day.today { border-color:color-mix(in srgb,var(--accent) 55%,var(--line)) }
 .custom-calendar-day.selected { background:var(--accent); color:var(--bg); font-weight:700 }
+.custom-calendar-day:disabled { opacity:.3; pointer-events:none; cursor:not-allowed }
 .custom-calendar-footer { display:flex; justify-content:space-between; margin-top:8px; padding-top:7px; border-top:1px solid var(--line-soft) }
 .family-member-picker-trigger {
   width:100%;
@@ -1622,9 +1652,21 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
 .member-name-field label,.member-form-field>label { margin:0 0 6px; color:var(--muted); font-size:9px; font-weight:600 }
 .member-name-field input { height:40px; border-radius:8px }
 .member-name-field input:focus { border-color:var(--accent); outline:0; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent) }
+.gender-field { display:grid; gap:6px; margin-top:10px }
+.gender-field>span,.parent-choice-field>span { color:var(--muted); font-size:9px; font-weight:600 }
+.gender-field>span i { color:var(--accent-secondary); font-style:normal }
+.gender-options { display:flex; gap:7px }
+.gender-options button { min-width:86px; min-height:31px; padding:0 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface-raised); color:var(--muted); font:inherit; font-size:10px; cursor:pointer; transition:background .15s,border-color .15s,color .15s }
+.gender-options button:hover,.gender-options button.selected { border-color:var(--accent); background:var(--accent-soft); color:var(--accent) }
+.gender-options button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
 .member-form-details-row { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:15px }
 .member-form-field { min-width:0 }
 .member-form-field>label { display:block }
+.relationship-creation-fields { display:grid; gap:8px }
+.parent-choice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px }
+.parent-choice-field { min-width:0; display:grid; gap:5px }
+.parent-choice-error { color:#d98e8e; font-size:9px; line-height:1.4 }
+.family-member-picker-trigger:disabled { opacity:.55; cursor:not-allowed }
 .photo-upload-heading .optional-label { margin:0; font-size:8px; font-weight:400 }
 .photo-upload-error { margin:6px 0 0; color:#dc9696; font-size:9px }
 .tree-app[data-theme="light"] .photo-upload-error { color:#aa4348 }
@@ -1659,7 +1701,7 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
 html[dir="rtl"] .profile-avatar-menu { left:auto; right:0 }
 html[dir="rtl"] .profile-avatar-menu-actions .submenu-chevron,html[dir="rtl"] .profile-avatar-menu-heading svg { transform:scaleX(-1) }
 html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { left:auto; right:0 }
-@media(max-width:520px) { .member-dialog { padding:17px; } .member-form-details-row { gap:13px } .relationship-fields { grid-template-columns:minmax(96px,.78fr) minmax(0,1.22fr); gap:6px } }
+@media(max-width:520px) { .member-dialog { padding:17px; } .member-form-details-row { gap:13px } .relationship-fields { grid-template-columns:minmax(96px,.78fr) minmax(0,1.22fr); gap:6px } .parent-choice-grid { gap:5px } .gender-options button { min-width:0; flex:1 } }
 /* Roomier controls and typography keep the tree comfortable to explore. */
 .tree-sidebar { width:248px }
 .tree-sidebar.sidebar-collapsed { width:68px }
@@ -1685,6 +1727,21 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .circle-node.branch-colored { border-top-color:transparent }
 @media(max-width:600px) { .canvas-center-button { top:9px; right:9px; width:37px; padding:0; justify-content:center } .canvas-center-button span { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 } }
 @media(prefers-reduced-motion:reduce) { .canvas-center-button { transition:none } }
+.canvas-view-controls { position:absolute; z-index:3; top:13px; right:13px; display:flex; align-items:center; gap:7px }
+.canvas-view-controls .canvas-center-button,
+.canvas-auto-organize-button { position:static; min-height:39px; display:flex; align-items:center; justify-content:center; gap:8px; padding:0 13px; border:1px solid var(--line); border-radius:11px; background:color-mix(in srgb,var(--surface) 95%,transparent); color:var(--text); font:inherit; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px #0002; transition:background .16s,border-color .16s,color .16s,transform .16s }
+.canvas-view-controls .canvas-center-button:hover,
+.canvas-auto-organize-button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); transform:translateY(-1px) }
+.canvas-view-controls .canvas-center-button:focus-visible,
+.canvas-auto-organize-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+@media(max-width:600px) {
+  .canvas-view-controls { top:9px; right:9px; gap:6px }
+  .canvas-view-controls .canvas-center-button,
+  .canvas-auto-organize-button { width:39px; min-height:39px; padding:0 }
+  .canvas-view-controls .canvas-center-button span,
+  .canvas-auto-organize-button span { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+}
+@media(prefers-reduced-motion:reduce) { .canvas-auto-organize-button,.canvas-view-controls .canvas-center-button { transition:none } }
 .tree-app {
   --bg:#171b1c; --surface:#202627; --surface-raised:#293132; --surface-hover:#303a39;
   --line:#3a4543; --line-soft:#303a38; --text:#e8ece6; --muted:#a0aca6; --subtle:#7f8d86;
@@ -1731,6 +1788,10 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .generation-badge { display:inline-flex; align-items:center; width:max-content; padding:4px 9px; border:1px solid color-mix(in srgb,var(--accent-secondary) 23%,var(--line)); border-radius:999px; background:var(--accent-secondary-soft); color:var(--accent-secondary)!important; font-size:11px!important }
 .generation-badge i { color:color-mix(in srgb,var(--accent-secondary) 65%,transparent)!important }
 .node-copy .node-relation { display:inline-flex; width:max-content; max-width:100%; padding:2px 7px; border-radius:999px; background:var(--accent-secondary-soft); color:var(--accent-secondary); font-size:9px }
+.node-copy .node-age { color:var(--muted); font-size:11px; font-weight:550; line-height:1.2 }
+.node-copy .node-gender { display:inline-flex; width:max-content; max-width:100%; align-items:center; padding:3px 8px; border:1px solid transparent; border-radius:999px; font-size:10px; font-weight:650; line-height:1.2 }
+.node-copy .node-gender.male { border-color:color-mix(in srgb,#69b8d5 28%,var(--line)); background:color-mix(in srgb,#69b8d5 14%,var(--surface)); color:color-mix(in srgb,#69b8d5 78%,var(--text)) }
+.node-copy .node-gender.female { border-color:color-mix(in srgb,#d58ab5 28%,var(--line)); background:color-mix(in srgb,#d58ab5 14%,var(--surface)); color:color-mix(in srgb,#d58ab5 78%,var(--text)) }
 .person-node:hover .node-avatar { box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 42%,var(--line)) }
 .person-node.branch-colored:hover .node-avatar { box-shadow:0 0 0 2px var(--branch-color) }
 .canvas-heading p { max-width:480px; margin:0; color:var(--muted) }
@@ -1766,98 +1827,42 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 @keyframes speed-dial-item-in { from { opacity:0; transform:translateY(3px) } to { opacity:1; transform:translateY(0) } }
 @media(prefers-reduced-motion:reduce) { .speed-dial-items,.speed-dial-item { animation:none } .speed-dial-plus { transition:none } }
 
-.toolbar-share-button { min-height:36px; flex:none; gap:7px; padding-inline:12px; white-space:nowrap }
-.account-menu { position:relative; flex:none; margin:0 2px 10px }
-.account-trigger { width:100%; min-height:45px; display:flex; align-items:center; gap:10px; padding:5px 8px; border:1px solid var(--line-soft); border-radius:11px; background:var(--surface-raised); color:var(--text); text-align:start; cursor:pointer; transition:border-color .16s,background .16s }
-.account-trigger:hover,.account-trigger[aria-expanded=true] { border-color:color-mix(in srgb,var(--accent) 45%,var(--line)); background:var(--surface-hover) }
-.account-avatar { width:31px; height:31px; flex:none; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line)); border-radius:50%; background:var(--accent-soft); color:var(--accent); font-size:13px; font-weight:700 }
-.account-trigger-copy,.account-popover-heading>span:last-child { min-width:0; display:grid; gap:3px; flex:1 }
-.account-trigger-copy strong,.account-popover-heading strong { overflow:hidden; font-size:11px; font-weight:650; text-overflow:ellipsis; white-space:nowrap }
-.account-trigger-copy small,.account-popover-heading small { color:var(--muted); font-size:10px }
-.account-trigger>svg { color:var(--muted) }
-.account-popover { position:absolute; z-index:80; bottom:calc(100% + 8px); left:0; width:244px; display:grid; gap:3px; padding:8px; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:0 15px 36px #0005; animation:speed-dial-in .15s ease both }
-.account-popover-heading { display:flex; align-items:center; gap:9px; padding:5px 5px 10px; margin-bottom:3px; border-bottom:1px solid var(--line-soft) }
-.account-popover>button { min-height:36px; display:flex; align-items:center; gap:9px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:var(--text); font-size:11px; text-align:start; cursor:pointer }
-.account-popover>button:hover:not(:disabled) { background:var(--surface-hover) }
-.account-popover>button svg { color:var(--muted) }
-.account-popover>button.account-disabled { opacity:.55; cursor:not-allowed }
-.account-popover>button small { margin-left:auto; color:var(--subtle); font-size:9px }
-.account-info-view { position:relative; padding:9px 7px 7px }
-.account-info-view>strong { display:block; padding-right:22px; font-size:12px }
-.account-info-view p { margin:9px 0 0; color:var(--muted); font-size:10px; line-height:1.55 }
-.account-info-close { position:absolute; top:4px; right:0; width:25px; height:25px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer }
-.account-info-close:hover { background:var(--surface-hover); color:var(--text) }
-.sidebar-collapsed .account-menu { display:flex; justify-content:center }
-.sidebar-collapsed .account-trigger { width:44px; height:44px; justify-content:center; padding:0; border-radius:13px }
-.sidebar-collapsed .account-popover { left:calc(100% + 8px); bottom:0 }
-html[dir=rtl] .account-popover { left:auto; right:0 }
-html[dir=rtl] .sidebar-collapsed .account-popover { right:calc(100% + 8px); left:auto }
-html[dir=rtl] .account-popover>button small { margin-right:auto; margin-left:0 }
-.share-modal-shade { z-index:90; display:grid; place-items:center; padding:20px }
-.share-dialog { width:min(520px,100%); overflow:hidden; border:1px solid var(--line); border-radius:18px; background:var(--surface); color:var(--text); box-shadow:0 28px 75px #0007; animation:dialog-in .18s cubic-bezier(.2,.8,.2,1) both }
-.share-dialog-header { display:flex; align-items:center; gap:13px; padding:20px 21px 16px }
-.share-dialog-icon { width:39px; height:39px; flex:none; display:grid; place-items:center; border-radius:12px; background:var(--accent-soft); color:var(--accent) }
-.share-dialog-header>div { min-width:0; flex:1 }
-.share-dialog-header h2 { margin:0; font-size:16px; font-weight:650; letter-spacing:-.2px }
-.share-dialog-header p { margin:5px 0 0; color:var(--muted); font-size:11px }
-.share-dialog-header .icon-button { width:32px; height:32px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:var(--muted); cursor:pointer }
-.share-dialog-header .icon-button:hover { background:var(--surface-hover); color:var(--text) }
-.share-tabs { display:flex; gap:4px; padding:0 20px; border-bottom:1px solid var(--line-soft) }
-.share-tabs button { min-height:41px; display:flex; align-items:center; gap:7px; padding:0 12px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); font-size:11px; cursor:pointer }
-.share-tabs button:hover,.share-tabs button.active { color:var(--accent) }
-.share-tabs button.active { border-bottom-color:var(--accent) }
-.share-tab-content { min-height:206px; display:flex; flex-direction:column; gap:14px; padding:19px 21px }
-.share-notice { display:grid; gap:6px; padding:12px 13px; border:1px solid color-mix(in srgb,var(--accent-secondary) 25%,var(--line)); border-radius:11px; background:color-mix(in srgb,var(--accent-secondary-soft) 60%,transparent) }
-.share-notice strong { color:var(--text); font-size:11px; font-weight:650 }
-.share-notice span { color:var(--muted); font-size:10px; line-height:1.55 }
-.share-generate { min-height:39px; align-self:flex-start; display:flex; align-items:center; gap:8px; padding-inline:13px }
-.share-generate:disabled { opacity:.48; cursor:not-allowed }
-.share-link-row { display:flex; gap:8px }
-.share-link-row input,.invite-form input,.invite-form select { min-width:0; height:39px; padding:0 10px; border:1px solid var(--line); border-radius:8px; outline:none; background:var(--surface-raised); color:var(--text); font:inherit; font-size:11px }
-.share-link-row input { flex:1; text-overflow:ellipsis }
-.share-link-row input:focus,.invite-form input:focus,.invite-form select:focus { border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 17%,transparent) }
-.share-link-row .primary-button { min-height:39px; display:flex; align-items:center; gap:7px; padding-inline:11px; white-space:nowrap }
-.share-link-hint,.share-error { margin:-5px 0 0; color:var(--muted); font-size:10px; line-height:1.5 }
-.share-error { color:#e39b93 }
-.invite-form label { display:grid; gap:7px; color:var(--muted); font-size:10px; font-weight:600 }
-.invite-form input,.invite-form select { width:100%; margin-top:1px }
-.invite-unavailable { margin-top:1px }
-.share-dialog-footer { min-height:57px; display:flex; align-items:center; justify-content:space-between; padding:9px 20px; border-top:1px solid var(--line-soft) }
-.share-dialog-footer>span { color:var(--muted); font-size:10px }
-.share-dialog-footer .secondary-button { min-height:33px; padding-inline:13px; font-size:11px }
-.shared-tree-page { height:100vh; display:flex; flex-direction:column; overflow:hidden; background:#f5f6f4; color:#252a27 }
-.shared-tree-header { height:65px; flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 22px; border-bottom:1px solid #e0e4e0; background:#fff }
-.shared-tree-title { display:flex; align-items:center; gap:10px }
-.shared-tree-title>span:last-child { display:grid; gap:3px }
-.shared-tree-title strong { font-size:13px }
-.shared-tree-title small { color:#68716d; font-size:10px }
-.shared-tree-lock { width:31px; height:31px; display:grid; place-items:center; border-radius:9px; background:#e6f0e8; color:#47795a }
-.shared-tree-header>a,.shared-tree-error>a { display:flex; align-items:center; gap:7px; padding:8px 11px; border:1px solid #e0e4e0; border-radius:8px; color:#47795a; font-size:11px; text-decoration:none }
-.shared-tree-header>a:hover,.shared-tree-error>a:hover { background:#eef1ed }
-.shared-tree-canvas { min-height:0; flex:1; padding:14px }
-.shared-tree-canvas .tree-viewport { height:100%; border:1px solid #e0e4e0; border-radius:13px; background:#fafbf9 }
-.shared-tree-page .tree-viewport { cursor:grab }
-.shared-tree-page .tree-viewport:active { cursor:grabbing }
-.shared-tree-page .person-node { cursor:pointer }
-.shared-tree-page .canvas-center-button { z-index:5 }
-.shared-tree-error { max-width:420px; margin:auto; display:flex; flex-direction:column; align-items:center; gap:10px; padding:30px; border:1px solid #e0e4e0; border-radius:16px; background:#fff; text-align:center }
-.shared-tree-error>svg { color:#47795a }
-.shared-tree-error h1 { margin:0; font-size:18px }
-.shared-tree-error p { margin:0 0 8px; color:#68716d; font-size:12px; line-height:1.5 }
-.shared-tree-error>a { display:inline-flex }
-@media(max-width:600px) {
-  .toolbar-share-button { min-height:34px; padding-inline:8px; font-size:10px }
-  .share-modal-shade { align-items:end; padding:10px }
-  .share-dialog { border-radius:16px }
-  .share-dialog-header { padding:16px 15px 13px }
-  .share-tabs { padding-inline:15px }
-  .share-tab-content { padding:15px; min-height:0 }
-  .share-link-row { flex-direction:column }
-  .share-link-row .primary-button { justify-content:center }
-  .shared-tree-header { height:58px; padding-inline:11px }
-  .shared-tree-header>a { font-size:0; padding:8px }
-  .shared-tree-header>a svg { width:17px; height:17px }
-  .shared-tree-canvas { padding:8px }
+/* Circular node actions float over the avatar and do not reserve space below the label. */
+.circle-node { height:144px }
+.circle-node .node-actions {
+  position:absolute;
+  top:3px;
+  right:27px;
+  bottom:auto;
+  left:auto;
+  width:max-content;
+  justify-content:center;
+  translate:0 0
 }
-@media(prefers-reduced-motion:reduce) { .account-popover,.share-dialog { animation:none } }
+html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
+.person-node.circle-node.is-selected .node-avatar {
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent),0 0 0 5px color-mix(in srgb,var(--accent) 25%,transparent),0 0 17px color-mix(in srgb,var(--accent) 28%,transparent)
+}
+.person-node.is-selected:not(.circle-node) {
+  z-index:2;
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 38%,transparent),0 0 18px color-mix(in srgb,var(--accent) 20%,transparent)
+}
+
+/* Relationship strokes stay semantic in every theme and emphasize the active lineage. */
+.tree-lines path.spouse-line { stroke:#e5b65d; stroke-dasharray:4 4 }
+.tree-app[data-theme=light] .tree-lines path.spouse-line { stroke:#9c7329 }
+.tree-app[data-theme=slate] .tree-lines path.spouse-line { stroke:#e2c17b }
+.tree-lines.has-active-line-focus path.relationship-line { opacity:.15; transition:opacity .16s,stroke-width .16s }
+.tree-lines.has-active-line-focus path.relationship-line.is-active-line { opacity:1; stroke-width:2.8 }
+.tree-lines g.marriage-anchor { color:#f0c96f; transition:opacity .16s }
+.tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#293832; stroke:#f0c96f; stroke-width:1.2; vector-effect:non-scaling-stroke }
+.tree-lines g.marriage-anchor circle.marriage-ring { fill:none; stroke:currentColor; stroke-width:1.5; vector-effect:non-scaling-stroke }
+.tree-app[data-theme=light] .tree-lines g.marriage-anchor { color:#9c7329 }
+.tree-app[data-theme=light] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#fffdf7 }
+.tree-app[data-theme=slate] .tree-lines g.marriage-anchor { color:#e2c17b }
+.tree-app[data-theme=slate] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#202b34 }
+.tree-lines.has-active-line-focus g.marriage-anchor { opacity:.15 }
+.tree-lines.has-active-line-focus g.marriage-anchor.is-active-line { opacity:1 }
 

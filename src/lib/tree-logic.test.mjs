@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { familyMembers } from '../data/family.ts'
-import { applyRelationship, createRelatedMember, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, validateRelationship } from './tree-logic.ts'
+import { applyRelationship, createRelatedMember, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
-import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath } from './tree-layout.ts'
+import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS } from './tree-layout.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
 import { exportTree, parseTreeBackup } from './tree-backup.ts'
 
@@ -51,11 +51,19 @@ test('an invalid proposed relationship leaves the original family graph unchange
 })
 
 test('adding a relative links the requested relation and empty trees accept a founder', () => {
-  const withPartner = createRelatedMember(familyMembers, 'sarah', 'partner', 'Alex Morgan', 'alex')
+  const withPartner = createRelatedMember(familyMembers, 'sarah', 'partner', 'Alex Morgan', 'alex', undefined, undefined, undefined, 'male')
   assert.deepEqual(withPartner.find((member) => member.id === 'alex')?.spouseIds, ['sarah'])
   assert.ok(withPartner.find((member) => member.id === 'sarah')?.spouseIds.includes('alex'))
-  const founder = createRelatedMember([], '', 'child', 'Avery Morgan', 'avery')
+  const founder = createRelatedMember([], '', 'child', 'Avery Morgan', 'avery', undefined, undefined, undefined, 'male')
   assert.equal(founder[0]?.relationship, 'Family founder')
+})
+
+test('adding a second parent links a valid father and mother as spouses', () => {
+  const child = { ...familyMembers[4], id: 'test-child', name: 'Test Child', parentIds: [], spouseIds: [], siblingIds: [] }
+  const withFather = createRelatedMember([child], child.id, 'parent', 'Test Father', 'test-father', undefined, undefined, undefined, 'male')
+  const completedFamily = createRelatedMember(withFather, child.id, 'parent', 'Test Mother', 'test-mother', undefined, undefined, undefined, 'female')
+  assert.ok(completedFamily.find((member) => member.id === 'test-father')?.spouseIds.includes('test-mother'))
+  assert.ok(completedFamily.find((member) => member.id === 'test-mother')?.spouseIds.includes('test-father'))
 })
 
 test('tree edits support undo and redo snapshots', () => {
@@ -77,15 +85,47 @@ test('layout derives ordered generations from parent links and supports circles 
   assert.equal(layout.positions.size, familyMembers.length)
   assert.notEqual(layout.nodeWidth, circles.nodeWidth)
   assert.equal(circles.positions.get('sarah')?.generation, 2)
+  const james = layout.positions.get('james')
+  const eleanor = layout.positions.get('eleanor')
+  const david = layout.positions.get('david')
+  assert.ok(james && eleanor && david)
+  assert.equal((james.x + layout.nodeWidth / 2 + eleanor.x + layout.nodeWidth / 2) / 2, david.x + layout.nodeWidth / 2)
 })
 
-test('parent union connector reaches an offset single child card', () => {
+test('parent drop connector starts at the couple midpoint and uses isolated channels', () => {
+  const parents = [{ x: 10, y: 20, generation: 0 }, { x: 300, y: 20, generation: 0 }]
+  const marriage = getSpouseConnector(parents[0], parents[1], 100, 60)
+  assert.deepEqual(marriage, { path: 'M 110 50 H 300', anchorX: 205, anchorY: 50 })
   const paths = getParentChildConnectorPaths(
-    [{ x: 10, y: 20, generation: 0 }, { x: 300, y: 20, generation: 0 }],
+    parents,
     [{ x: 10, y: 160, generation: 1 }], 100, 60,
   )
-  assert.ok(paths.includes('M 60 130 H 205'))
-  assert.ok(paths.includes('M 60 130 V 160'))
+  assert.equal(marriage.anchorX, (parents[0].x + 50 + parents[1].x + 50) / 2)
+  assert.equal(marriage.anchorY, 50)
+  assert.ok(paths.includes(`M 205 ${marriage.anchorY + MARRIAGE_ANCHOR_RADIUS} V 110`))
+  assert.ok(paths.includes('M 60 110 H 205'))
+  assert.ok(paths.includes('M 60 110 V 160'))
+  const nextChannel = getParentChildConnectorPaths(
+    [{ x: 10, y: 20, generation: 0 }, { x: 300, y: 20, generation: 0 }],
+    [{ x: 10, y: 160, generation: 1 }], 100, 60, 1,
+  )
+  assert.ok(nextChannel.includes(`M 205 ${marriage.anchorY + MARRIAGE_ANCHOR_RADIUS} V 124`))
+  const singleParent = getParentChildConnectorPaths(
+    [{ x: 10, y: 20, generation: 0 }],
+    [{ x: 10, y: 160, generation: 1 }], 100, 60,
+  )
+  assert.ok(singleParent.includes('M 60 80 V 110'))
+})
+
+test('recorded father and mother pairs are linked as reciprocal spouses', () => {
+  const parentChild = familyMembers.find((member) => member.id === 'david')
+  const unlinked = familyMembers.map((member) => member.id === 'james' || member.id === 'eleanor'
+    ? { ...member, spouseIds: member.spouseIds.filter((id) => id !== 'eleanor' && id !== 'james') }
+    : member)
+  assert.ok(parentChild)
+  const normalized = linkRecordedParentCouples(unlinked)
+  assert.ok(normalized.find((member) => member.id === 'james')?.spouseIds.includes('eleanor'))
+  assert.ok(normalized.find((member) => member.id === 'eleanor')?.spouseIds.includes('james'))
 })
 
 test('explicit sibling relationships have one connector pair and disappear with collapsed members', () => {

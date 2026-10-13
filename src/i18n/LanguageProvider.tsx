@@ -2,6 +2,13 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LanguageContext, type Language } from './LanguageContext'
 
 const arabic: Record<string, string> = {
+  'Enter a year from 1000 onward.': 'أدخل سنة تبدأ من 1000 أو بعدها.',
+  'Birth dates cannot be in the future.': 'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',
+  'Enter a month from 01 to 12.': 'أدخل شهرًا من 01 إلى 12.',
+  'Enter a valid day for this month.': 'أدخل يومًا صالحًا لهذا الشهر.',
+  'Enter a four-digit year or complete date.': 'أدخل سنة من أربعة أرقام أو تاريخًا كاملًا.',
+  'Gender': 'الجنس', 'Male': 'ذكر', 'Female': 'أنثى', 'Father': 'الأب', 'Mother': 'الأم',
+  'Select father': 'اختر الأب', 'Select mother': 'اختر الأم', 'Choose one existing father and one existing mother to place this person in the tree.': 'اختر أبًا وأمًا موجودين لإضافة هذا الفرد إلى الشجرة.',
   'Profile photo': 'الصورة الشخصية',
   'Edit': 'تعديل',
   'Choose preset avatar': 'اختر صورة رمزية',

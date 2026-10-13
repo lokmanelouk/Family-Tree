@@ -8,14 +8,15 @@ type FamilyMemberPickerProps = {
   members: FamilyMember[]
   value: string
   onChange: (memberId: string) => void
+  placeholder?: string
 }
 
-export function FamilyMemberPicker({ members, value, onChange }: FamilyMemberPickerProps) {
+export function FamilyMemberPicker({ members, value, onChange, placeholder }: FamilyMemberPickerProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const pickerId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
-  const selected = members.find((member) => member.id === value) ?? members[0]
+  const selected = members.find((member) => member.id === value)
 
   useEffect(() => {
     if (!open) return
@@ -33,19 +34,17 @@ export function FamilyMemberPicker({ members, value, onChange }: FamilyMemberPic
     }
   }, [open])
 
-  if (!selected) return null
-
   return <div className="family-member-picker" ref={rootRef}>
-    <button className="family-member-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded={open} aria-controls={pickerId} onClick={() => setOpen((current) => !current)}>
-      <FamilyAvatar member={selected} compact />
-      <span className="family-member-picker-copy"><strong>{selected.name}</strong></span>
+    <button className="family-member-picker-trigger" type="button" disabled={!members.length} aria-haspopup="listbox" aria-expanded={open} aria-controls={pickerId} onClick={() => setOpen((current) => !current)}>
+      {selected && <FamilyAvatar member={selected} compact />}
+      <span className="family-member-picker-copy"><strong>{selected?.name ?? placeholder ?? t('Select a family member')}</strong></span>
       <ChevronDown size={16} aria-hidden="true" />
     </button>
     {open && <div className="family-member-picker-list" role="listbox" id={pickerId} aria-label={t('Related family member')}>
-      {members.map((member) => <button className="family-member-picker-option" type="button" key={member.id} role="option" aria-selected={member.id === selected.id} onClick={() => { onChange(member.id); setOpen(false) }}>
+      {members.map((member) => <button className="family-member-picker-option" type="button" key={member.id} role="option" aria-selected={member.id === selected?.id} onClick={() => { onChange(member.id); setOpen(false) }}>
         <span className="family-member-picker-avatar"><FamilyAvatar member={member} compact /></span>
         <span className="family-member-picker-copy"><strong>{member.name}</strong><small>{member.birthDate ?? t('Birth date unknown')} · {t(member.relationship)}</small></span>
-        {member.id === selected.id && <Check size={15} aria-hidden="true" />}
+        {member.id === selected?.id && <Check size={15} aria-hidden="true" />}
       </button>)}
     </div>}
   </div>

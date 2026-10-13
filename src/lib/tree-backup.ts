@@ -34,6 +34,7 @@ export function parseTreeBackup(value: unknown): FamilyMember[] | null {
     const p = person as Partial<FamilyMember>
     if (typeof p.id !== 'string' || !p.id || ids.has(p.id) || typeof p.name !== 'string' || !p.name.trim()
       || typeof p.initials !== 'string' || typeof p.relationship !== 'string'
+      || (p.gender !== undefined && p.gender !== 'male' && p.gender !== 'female')
       || (p.birthDate !== undefined && typeof p.birthDate !== 'string') || (p.deathDate !== undefined && typeof p.deathDate !== 'string')
       || (p.photo !== undefined && (typeof p.photo !== 'string' || p.photo.length > 3_000_000 || !/^data:image\/(png|jpeg|webp|gif);base64,/i.test(p.photo)))
       || !Array.isArray(p.parentIds) || !Array.isArray(p.spouseIds) || !Array.isArray(p.siblingIds)

@@ -4,7 +4,6 @@ import type { FamilyMember } from '../../types/family'
 import { getGenerationMap } from '../../lib/tree-logic'
 import { getRootBranches } from '../../lib/tree-layout'
 import { useLanguage } from '../../i18n/useLanguage'
-import { AccountMenu } from './AccountMenu'
 
 const themes = [
   { value: 'charcoal', label: 'Charcoal' },
@@ -87,7 +86,6 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople, onSelect
         </span>
       </button>
     </section>
-    <AccountMenu collapsed={collapsed} memberCount={members.length} />
     <footer className="sidebar-bottom">
       {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
       <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronsDownUp, ChevronsUpDown, Circle, Download, Focus, GitFork, LayoutGrid, Maximize2, Minus, Plus, Redo2, Search, Settings2, Share2, Undo2, Upload, X } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, Circle, Download, Focus, GitFork, LayoutGrid, Maximize2, Minus, Plus, Redo2, Search, Settings2, Undo2, Upload, X } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import type { TreeNodeMode } from '../../lib/tree-layout'
 import { searchFamilyMembers } from '../../lib/family-search'
@@ -12,7 +12,6 @@ type TreeToolbarProps = {
   onExpandAll: () => void; onCollapseAll: () => void; onUndo: () => void; onRedo: () => void
   onSetMode: (mode: TreeNodeMode) => void; onToggleFocus: () => void; onToggleBranchColors: () => void
   onExport: (branchOnly: boolean) => void; onImport: (file: File) => void
-  onShare: () => void
 }
 
 export function TreeToolbar(props: TreeToolbarProps) {
@@ -44,7 +43,6 @@ export function TreeToolbar(props: TreeToolbarProps) {
       </div>
       <button className="primary-button toolbar-add-person" onClick={props.onAddPerson}><Plus size={16} /> {t('Add person')}</button>
     </div>
-    <button className="primary-button toolbar-share-button" onClick={props.onShare}><Share2 size={16} /> {t('Share')}</button>
     <div className="toolbar-divider" />
     <div className="toolbar-cluster zoom-controls"><button title={t('Zoom out')} aria-label={t('Zoom out')} onClick={() => props.onZoom(-.1)}><Minus size={16} /></button><span className="zoom-value">{Math.round(props.zoom * 100)}%</span><button title={t('Zoom in')} aria-label={t('Zoom in')} onClick={() => props.onZoom(.1)}><Plus size={16} /></button><button title={t('Fit tree to screen')} aria-label={t('Fit tree to screen')} onClick={props.onFit}><Maximize2 size={15} /></button></div>
     <div className="toolbar-divider" />
