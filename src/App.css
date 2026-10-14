@@ -1443,6 +1443,16 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
   animation:sidebar-preference-roll .24s cubic-bezier(.2,0,0,1) both;
 }
 .sidebar-preference-content svg { flex:none }
+.theme-preference-button .theme-icon {
+  flex:none;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.theme-preference-button .theme-icon-warm-light { color:#fbbf24 }
+.theme-preference-button .theme-icon-midnight { color:#c084fc }
+.theme-preference-button .theme-icon-chocolate { color:#d4a373 }
 .sidebar-preference-value { overflow:hidden; text-overflow:ellipsis; font-size:11px; font-weight:550 }
 .sidebar-collapsed .sidebar-preferences { gap:9px; padding-inline:0 }
 .sidebar-collapsed .sidebar-preference-button { width:42px; min-height:42px; justify-content:center; padding:0; border-radius:13px }

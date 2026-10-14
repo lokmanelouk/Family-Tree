@@ -44,7 +44,11 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
         }}
       >
         <span className="sidebar-preference-content" key={theme}>
-          {theme === 'midnight' ? <Moon size={17} aria-hidden="true" /> : theme === 'warm-light' ? <Sun size={17} aria-hidden="true" /> : <Coffee size={17} aria-hidden="true" />}
+          {theme === 'midnight'
+            ? <Moon className="theme-icon theme-icon-midnight" size={18} aria-hidden="true" />
+            : theme === 'warm-light'
+              ? <Sun className="theme-icon theme-icon-warm-light" size={18} aria-hidden="true" />
+              : <Coffee className="theme-icon theme-icon-chocolate" size={18} aria-hidden="true" />}
           <span className="sidebar-preference-value">{themeLabel}</span>
         </span>
       </button>
