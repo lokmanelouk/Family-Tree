@@ -2048,11 +2048,11 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 
 .tree-app[data-theme=warm-light] {
   --bg:#f3eee5;
-  --surface:#fffdf8;
-  --surface-raised:#f8f3e9;
-  --surface-hover:#eee6d9;
-  --line:#cfc2b1;
-  --line-soft:#e3d9cb;
+  --surface:#fffefa;
+  --surface-raised:#ffffff;
+  --surface-hover:#f7f3ec;
+  --line:#d8cfc2;
+  --line-soft:#e9e1d7;
   --text:#302c27;
   --muted:#595147;
   --subtle:#655d54;
@@ -2061,8 +2061,8 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --accent-soft:#e3ede4;
   --accent-secondary:#92543a;
   --accent-secondary-soft:#f3e6dc;
-  --canvas:#faf7f0;
-  --canvas-dot:#e8dfd2;
+  --canvas:#fcfbf9;
+  --canvas-dot:#e9e3da;
   --focus:#315f40;
   --gender-male:#205f7b;
   --gender-female:#8e3c61;
@@ -2197,4 +2197,51 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   .tree-main > .canvas-heading { min-height:38px; height:38px; margin-top:2px }
   .tree-main > .canvas-heading h2 { font-size:13px }
   .tree-main > .canvas-heading .generation-badge { padding:3px 7px; font-size:10px!important }
+}
+
+/* Warm Light interactive surfaces lift gently from the creamy page. */
+.tree-app[data-theme=warm-light] .sidebar-preference-button,
+.tree-app[data-theme=warm-light] .language-preference-button {
+  background:#fff;
+  border-color:#ded6ca;
+  box-shadow:0 1px 3px #493d2e12;
+}
+.tree-app[data-theme=warm-light] .sidebar-preference-button:hover,
+.tree-app[data-theme=warm-light] .language-preference-button:hover {
+  background:#fcfbfa;
+  border-color:#cfc4b5;
+  box-shadow:0 2px 5px #493d2e16;
+}
+.tree-app[data-theme=warm-light] .person-node:not(.circle-node) {
+  background:#fff;
+  border-color:#ded6ca;
+  box-shadow:0 2px 7px #493d2e12;
+}
+.tree-app[data-theme=warm-light] .person-node:not(.circle-node):hover,
+.tree-app[data-theme=warm-light] .person-node:not(.circle-node):focus-within {
+  background:#fff;
+  border-color:#b7cbb9;
+  box-shadow:0 3px 9px #493d2e18;
+}
+.tree-app[data-theme=warm-light] .person-node:not(.circle-node).is-selected {
+  background:#fff;
+  border-color:var(--focus);
+  box-shadow:0 0 0 2px #fcfbf9;
+}
+.tree-app[data-theme=warm-light] .toolbar-search,
+.tree-app[data-theme=warm-light] .settings-toggle {
+  background:#fff;
+  border-color:#ded6ca;
+  box-shadow:0 1px 3px #493d2e0d;
+}
+.tree-app[data-theme=warm-light] .toolbar-search:focus-within {
+  background:#fff;
+  border-color:var(--focus);
+  box-shadow:0 0 0 2px #315f4020;
+}
+.tree-app[data-theme=warm-light] .toolbar-cluster button:hover:not(:disabled),
+.tree-app[data-theme=warm-light] .toolbar-cluster button.active-tool {
+  background:#fff;
+  border-color:#ded6ca;
+  box-shadow:0 1px 3px #493d2e10;
 }
