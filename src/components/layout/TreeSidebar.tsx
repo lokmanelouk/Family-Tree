@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, GitBranch, HelpCircle, Languages, Moon, Palette, Sun, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, Moon, Sun, Users } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
 
 const themes = [
-  { value: 'slate', label: 'Blue slate' },
-  { value: 'warm-light', label: 'Warm light' },
   { value: 'midnight', label: 'Midnight' },
+  { value: 'warm-light', label: 'Warm light' },
+  { value: 'chocolate', label: 'Chocolate' },
 ] as const
 const arabicLanguageLabel = String.fromCodePoint(0x627, 0x644, 0x639, 0x631, 0x628, 0x64a, 0x629)
 
@@ -21,7 +21,7 @@ type TreeSidebarProps = {
 export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
-  const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Blue slate')
+  const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Midnight')
   const languageLabel = language === 'ar' ? arabicLanguageLabel : 'English'
 
   return <aside className={`tree-sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
@@ -44,7 +44,7 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
         }}
       >
         <span className="sidebar-preference-content" key={theme}>
-          {theme === 'midnight' ? <Moon size={17} aria-hidden="true" /> : theme === 'warm-light' ? <Sun size={17} aria-hidden="true" /> : <Palette size={17} aria-hidden="true" />}
+          {theme === 'midnight' ? <Moon size={17} aria-hidden="true" /> : theme === 'warm-light' ? <Sun size={17} aria-hidden="true" /> : <Coffee size={17} aria-hidden="true" />}
           <span className="sidebar-preference-value">{themeLabel}</span>
         </span>
       </button>

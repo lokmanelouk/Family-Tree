@@ -20,24 +20,7 @@
   font-size:13px
 }
 
-.tree-app[data-theme=slate] {
-  --bg:#171c24;
-  --surface:#1e2631;
-  --surface-raised:#273240;
-  --surface-hover:#303d4c;
-  --line:#3a4653;
-  --line-soft:#2b3541;
-  --text:#e2e8ee;
-  --muted:#9caaba;
-  --subtle:#7f8d9b;
-  --accent:#8aaec1;
-  --accent-strong:#587e94;
-  --accent-soft:#293c49;
-  --canvas:#1a212a;
-  --canvas-dot:#313d48
-}
-
-.tree-app[data-theme=light] {
+.tree-app[data-theme=warm-light] {
   --bg:#f5f6f4;
   --surface:#fff;
   --surface-raised:#f8f9f7;
@@ -168,7 +151,7 @@
   color:#a9c9ae;
   font-weight:650
 }
-.tree-app[data-theme=light] .sidebar-family-avatar {
+.tree-app[data-theme=warm-light] .sidebar-family-avatar {
   background:#e6eee7;
   color:#54755a
 }
@@ -488,11 +471,9 @@
   stroke-width:1.6;
   vector-effect:non-scaling-stroke
 }
-.tree-app[data-theme=light] .tree-lines path {
+.tree-app[data-theme=warm-light] .tree-lines path {
   stroke:#b5c1b8
 }
-.tree-app[data-theme=slate] .tree-lines path { stroke:#667887 }
-.tree-app[data-theme=slate] .tree-lines path.spouse-line { stroke:#8aaec1 }
 .tree-lines path.spouse-line {
   stroke:#78927e;
   stroke-dasharray:3 3
@@ -951,7 +932,7 @@
   background:#3d292b;
   color:#d48c8d
 }
-.tree-app[data-theme=light] .confirm-mark.danger {
+.tree-app[data-theme=warm-light] .confirm-mark.danger {
   background:#f8eaea;
   color:#b4555b
 }
@@ -1015,7 +996,7 @@
   background:#332427;
   color:#e3a2a2
 }
-.tree-app[data-theme=light] .relationship-summary.has-error {
+.tree-app[data-theme=warm-light] .relationship-summary.has-error {
   background:#f9eeee;
   color:#a33e43
 }
@@ -1301,13 +1282,13 @@ to {
 
 }
 
-.tree-app[data-theme=light] {
+.tree-app[data-theme=warm-light] {
   color-scheme:light
 }
-.tree-app[data-theme=charcoal] {
+.tree-app[data-theme=chocolate] {
   color-scheme:dark
 }
-.tree-app[data-theme=charcoal],.tree-app[data-theme=slate] { color-scheme:dark }
+.tree-app[data-theme=midnight] { color-scheme:dark }
 
 .tree-world { position:relative }
 .tree-node-position { position:absolute; z-index:1; animation:node-in .24s ease both }
@@ -1353,7 +1334,6 @@ to {
 }
 
 .tree-app { --branch-0:#82aa8e; --branch-1:#7fa9c1; --branch-2:#d09a74; --branch-3:#a591c5; --branch-4:#ca8c97; --branch-5:#b5a260 }
-.tree-app[data-theme=light] { --branch-0:#467c59; --branch-1:#42769a; --branch-2:#a76039; --branch-3:#745891; --branch-4:#a34e65; --branch-5:#806c20 }
 .tree-lines path.branch-line { opacity:.9 }
 .tree-lines path { stroke-linecap:round; stroke-linejoin:round }
 .person-node.branch-colored { border-top:2px solid var(--branch-color) }
@@ -1722,17 +1702,11 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
   --accent:#9ccbb2; --accent-strong:#568f72; --accent-soft:#263b32; --accent-secondary:#d5a184; --accent-secondary-soft:#45352e; --canvas:#1c2221; --canvas-dot:#38423e;
   background:radial-gradient(ellipse at 18% 0%,#25332e 0,transparent 42%),var(--bg);
 }
-.tree-app[data-theme=light] {
+.tree-app[data-theme=warm-light] {
   --bg:#f0f3f1; --surface:#fbfcfa; --surface-raised:#f4f7f3; --surface-hover:#e9f0ec;
   --line:#d6dfd9; --line-soft:#e3e9e5; --text:#25342e; --muted:#586c62; --subtle:#75867d;
   --accent:#568b70; --accent-strong:#3e795b; --accent-soft:#e1eee6; --accent-secondary:#a9694d; --accent-secondary-soft:#f4e9e2; --canvas:#f7faf8; --canvas-dot:#dce6e0;
   background:radial-gradient(ellipse at 92% 0%,#e2eee7 0,transparent 38%),var(--bg);
-}
-.tree-app[data-theme=slate] {
-  --bg:#19202a; --surface:#202a36; --surface-raised:#293646; --surface-hover:#334353;
-  --line:#3b4b5a; --line-soft:#303e4b; --text:#e5ebf0; --muted:#a2b1bd; --subtle:#8193a0;
-  --accent:#96bed0; --accent-strong:#5d8da3; --accent-soft:#293f4d; --accent-secondary:#d3aa82; --accent-secondary-soft:#463b31; --canvas:#1b2530; --canvas-dot:#354552;
-  background:radial-gradient(ellipse at 18% 0%,#273746 0,transparent 42%),var(--bg);
 }
 .tree-sidebar,.tree-toolbar,.person-node,.details-panel,.people-panel { border-radius:12px }
 .tree-sidebar { border-radius:0 }
@@ -1851,11 +1825,9 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 
 /* Relationship strokes stay semantic in every theme and emphasize the active lineage. */
 .tree-lines path.spouse-line { stroke:#e5b65d; stroke-dasharray:4 4 }
-.tree-app[data-theme=light] .tree-lines path.spouse-line { stroke:#9c7329 }
-.tree-app[data-theme=slate] .tree-lines path.spouse-line { stroke:#e2c17b }
+.tree-app[data-theme=warm-light] .tree-lines path.spouse-line { stroke:#9c7329 }
 .tree-lines path.former-spouse-line { stroke:#a9777d; stroke-dasharray:4 4 }
-.tree-app[data-theme=light] .tree-lines path.former-spouse-line { stroke:#a35e67 }
-.tree-app[data-theme=slate] .tree-lines path.former-spouse-line { stroke:#bd8790 }
+.tree-app[data-theme=warm-light] .tree-lines path.former-spouse-line { stroke:#a35e67 }
 .tree-lines path.adopted-parent-line { stroke-dasharray:1.5 4; stroke-linecap:round }
 .tree-lines rect.spouse-circle-rail { fill:var(--surface); stroke:var(--line); stroke-width:1; opacity:.96; transition:opacity .16s }
 .tree-lines rect.spouse-circle-rail.is-divorced { fill:color-mix(in srgb,var(--surface) 84%,#a9777d); stroke:#a9777d }
@@ -1873,9 +1845,8 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 .tree-lines g.marriage-anchor.is-selected-couple circle.marriage-anchor-backdrop { stroke:var(--accent); stroke-width:2 }
 .tree-lines g.marriage-anchor.is-selected-couple circle.marriage-ring { stroke-width:1.8 }
 .tree-lines g.divorce-anchor.is-selected-couple circle { stroke:var(--accent); stroke-width:2 }
-.tree-app[data-theme=light] .tree-lines g.marriage-anchor { color:#9c7329 }
-.tree-app[data-theme=light] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#fffdf7 }
-.tree-app[data-theme=slate] .tree-lines g.marriage-anchor { color:#e2c17b }
+.tree-app[data-theme=warm-light] .tree-lines g.marriage-anchor { color:#9c7329 }
+.tree-app[data-theme=warm-light] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#fffdf7 }
 .tree-lines g.divorce-anchor,.tree-lines g.adoption-anchor { transition:opacity .16s }
 .tree-lines g.divorce-anchor circle { fill:var(--surface); stroke:#a9777d; stroke-width:1.2; vector-effect:non-scaling-stroke }
 .tree-lines g.divorce-anchor text { font-size:12px; font-family:system-ui,sans-serif }
@@ -1931,7 +1902,7 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 .guide-line.dotted { border-top-style:dotted; border-color:#78b89e }
 .relationship-guide-popover .dialog-actions { margin-top:16px }
 .relationship-guide-popover .dialog-actions .primary-button { min-width:88px }
-.tree-app[data-theme=light] .relationship-guide-popover { box-shadow:0 16px 42px #2233 }
+.tree-app[data-theme=warm-light] .relationship-guide-popover { box-shadow:0 16px 42px #2233 }
 html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 @media(max-width:600px) {
   .relationship-guide-popover { right:-2px; width:min(320px,calc(100vw - 18px)); max-height:65vh }
@@ -1958,6 +1929,7 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   transition:background-color .16s,border-color .16s,box-shadow .16s,transform .16s;
 }
 .tree-app[data-theme=warm-light] .toolbar-add-person { color:#fff }
+.tree-app[data-theme=chocolate] .toolbar-add-person { color:#fff }
 .tree-app .toolbar-add-person:hover:not(:disabled) {
   border-color:var(--accent);
   background:var(--accent);
@@ -2064,26 +2036,6 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   color:var(--text);
 }
 
-.tree-app[data-theme=slate] {
-  --bg:#19232e;
-  --surface:#222f3c;
-  --surface-raised:#2b3a49;
-  --surface-hover:#354758;
-  --line:#536474;
-  --line-soft:#3b4b5a;
-  --text:#f1f5f8;
-  --muted:#c4d0da;
-  --subtle:#afbfcb;
-  --accent:#a8ccdc;
-  --accent-strong:#76a9bf;
-  --accent-soft:#304755;
-  --accent-secondary:#e4b996;
-  --accent-secondary-soft:#4b4038;
-  --canvas:#1d2935;
-  --canvas-dot:#3c4b58;
-  --focus:#b9deed;
-}
-
 .tree-app[data-theme=warm-light] {
   --bg:#f3eee5;
   --surface:#fffdf8;
@@ -2127,6 +2079,31 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --canvas:#191c2e;
   --canvas-dot:#3b3f57;
   --focus:#d7cbff;
+}
+
+.tree-app[data-theme=chocolate] {
+  --bg:#251b17;
+  --surface:#32241e;
+  --surface-raised:#402d24;
+  --surface-hover:#4c362b;
+  --line:#70503e;
+  --line-soft:#533c30;
+  --text:#f6eee8;
+  --muted:#d7c3b5;
+  --subtle:#c3a995;
+  --accent:#d8a17e;
+  --accent-strong:#bd805b;
+  --accent-soft:#4c3429;
+  --accent-secondary:#edc27d;
+  --accent-secondary-soft:#4c3e29;
+  --canvas:#2a1e18;
+  --canvas-dot:#4c382c;
+  --focus:#f0c09c;
+  --gender-male:#b7e9f7;
+  --gender-female:#f4c1dc;
+  --gender-male-bg:color-mix(in srgb,#43bbdf 16%,var(--surface));
+  --gender-female-bg:color-mix(in srgb,#d76cae 16%,var(--surface));
+  color-scheme:dark;
 }
 
 /* Relationship semantics do not shift with the selected UI theme. */
@@ -2192,4 +2169,22 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 @media(prefers-reduced-motion:reduce) {
   .tree-app .person-node,
   .tree-app .person-node .node-avatar { transition:none!important }
+}
+
+/* Keep the title and family count together and close to the tree canvas. */
+.tree-main > .canvas-heading {
+  min-height:42px;
+  height:42px;
+  flex:none;
+  justify-content:flex-start;
+  margin-top:3px;
+  padding:0 2px;
+}
+.tree-main > .canvas-heading > div { display:flex; align-items:center; gap:11px }
+.tree-main > .canvas-heading h2 { margin:0; font-size:15px; line-height:1.2 }
+.tree-main > .canvas-heading .generation-badge { margin:0; padding:4px 9px }
+@media(max-width:600px) {
+  .tree-main > .canvas-heading { min-height:38px; height:38px; margin-top:2px }
+  .tree-main > .canvas-heading h2 { font-size:13px }
+  .tree-main > .canvas-heading .generation-badge { padding:3px 7px; font-size:10px!important }
 }

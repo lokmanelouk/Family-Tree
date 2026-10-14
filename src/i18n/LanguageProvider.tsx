@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LanguageContext, type Language } from './LanguageContext'
 
 const arabic: Record<string, string> = {
+  'Midnight': '\u0645\u0646\u062a\u0635\u0641 \u0627\u0644\u0644\u064a\u0644',
+  'Warm light': '\u0636\u0648\u0621 \u062f\u0627\u0641\u0626',
+  'Chocolate': '\u0634\u0648\u0643\u0648\u0644\u0627\u062a\u0629',
   'Born': '\u0648\u0644\u062F', 'Died': '\u062A\u0648\u0641\u064A', 'Present': '\u062D\u062A\u0649 \u0627\u0644\u0622\u0646', 'More options': '\u062E\u064A\u0627\u0631\u0627\u062A \u0623\u062E\u0631\u0649',
   'Enter a year from 1000 onward.': 'أدخل سنة تبدأ من 1000 أو بعدها.',
   'Birth dates cannot be in the future.': 'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',

@@ -29,10 +29,10 @@ export function DashboardPage() {
       const saved = localStorage.getItem("family-tree-theme");
       if (isAppTheme(saved)) return saved;
       if (saved === "light") return "warm-light";
-      if (saved === "charcoal") return "midnight";
-      return "slate";
+      if (saved === "charcoal" || saved === "slate") return "midnight";
+      return "midnight";
     } catch {
-      return "slate";
+      return "midnight";
     }
   });
   const [nodeMode, setNodeMode] = useState<TreeNodeMode>("circle");
