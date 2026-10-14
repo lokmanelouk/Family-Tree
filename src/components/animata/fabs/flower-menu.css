@@ -33,15 +33,15 @@
     width: 58px;
     height: 58px;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--line, #3c4144) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent, #8aaec1) 28%, var(--line, #3c4144));
     border-radius: 50%;
-    background: var(--accent, #9bc4a4);
-    color: #15211a;
-    box-shadow: 0 7px 20px #0003;
+    background: var(--surface-raised, #273240);
+    color: var(--accent, #8aaec1);
+    box-shadow: 0 5px 16px #0003;
     cursor: pointer;
     transition: transform 180ms cubic-bezier(.2, 0, 0, 1), box-shadow 180ms ease, background 180ms ease;
   }
-  .flower-menu-trigger:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0004; }
+  .flower-menu-trigger:hover { transform: translateY(-2px); border-color:var(--accent, #8aaec1); background:var(--surface-hover, #303d4c); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent, #8aaec1) 13%,transparent),0 8px 20px #0004; }
   .flower-menu-root[data-open="true"] .flower-menu-trigger:hover { transform: translate(calc(0px - var(--flower-center-shift)), calc(-2px - var(--flower-center-shift))); }
   .flower-menu-trigger:active { transform: scale(.95); }
   .flower-menu-root[data-open="true"] .flower-menu-trigger:active { transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift))) scale(.95); }
@@ -68,8 +68,8 @@
     place-items: center;
     border: 1px solid var(--line, #3c4144);
     border-radius: 50%;
-    background: var(--surface, #222629);
-    color: var(--text, #e7e9e5);
+    background: var(--surface-raised, var(--surface, #222629));
+    color: var(--muted, var(--text, #e7e9e5));
     box-shadow: 0 5px 16px #0003;
     opacity: 0;
     pointer-events: none;
@@ -78,7 +78,7 @@
     transition-delay: calc(var(--petal-index) * 38ms);
     cursor: pointer;
   }
-  .flower-menu-item:hover { color: var(--accent, #9bc4a4); background: var(--surface-hover, #303638); transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(1.08); }
+  .flower-menu-item:hover { color: var(--accent, #8aaec1); border-color:color-mix(in srgb,var(--accent, #8aaec1) 48%,var(--line, #3c4144)); background: var(--surface-hover, #303d4c); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent, #8aaec1) 12%,transparent),0 6px 16px #0003; transform: translate(calc(-50% + var(--petal-x)), calc(-50% + var(--petal-y))) scale(1.08); }
   .flower-menu-root[data-open="true"] .flower-menu-item {
     opacity: 1;
     pointer-events: auto;

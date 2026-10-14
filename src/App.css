@@ -1370,9 +1370,6 @@ to {
 .toolbar-select select { max-width:103px; height:29px; padding:0 20px 0 7px; border:1px solid var(--line); border-radius:6px; background:var(--surface-raised); color:var(--text); font-size:9px; cursor:pointer }
 .language-toggle { min-height:29px; display:inline-flex; align-items:center; gap:5px; padding:0 7px; border:1px solid var(--line); border-radius:6px; background:var(--surface-raised); color:var(--muted); font-size:9px; cursor:pointer }
 .language-toggle:hover { color:var(--text); background:var(--surface-hover) }
-.branch-legend { display:flex; align-items:center; gap:4px; padding-inline:5px }
-.branch-legend span:not(.branch-legend-label) { width:10px; height:10px; border-radius:50%; opacity:.85 }
-.branch-legend-label { max-width:88px; color:var(--muted); font-size:8px; line-height:1.1 }
 .circle-node.branch-colored.is-selected .node-avatar { box-shadow:0 0 0 2px var(--branch-color),0 0 0 4px var(--accent) }
 
 html[dir=rtl] body { font-family:"Noto Sans Arabic",Tahoma,Arial,sans-serif }
@@ -1448,18 +1445,18 @@ html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { 
   justify-content:flex-start;
   padding:0 10px;
   overflow:hidden;
-  border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line-soft));
+  border:1px solid color-mix(in srgb,var(--line) 72%,transparent);
   border-radius:10px;
-  background:var(--accent-soft);
-  color:var(--accent);
+  background:color-mix(in srgb,var(--surface) 76%,transparent);
+  color:var(--muted);
   cursor:pointer;
   transition:transform .16s ease,border-color .16s ease,background .16s ease,filter .16s ease;
 }
-.sidebar-preference-button:hover { filter:brightness(1.08); border-color:color-mix(in srgb,var(--accent) 42%,var(--line)) }
+.sidebar-preference-button:hover { background:var(--surface-raised); color:var(--text); border-color:color-mix(in srgb,var(--accent) 32%,var(--line)) }
 .sidebar-preference-button:active { transform:scale(.98) }
 .sidebar-preference-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
-.language-preference-button { background:var(--accent-secondary-soft); border-color:color-mix(in srgb,var(--accent-secondary) 20%,var(--line-soft)); color:var(--accent-secondary) }
-.language-preference-button:hover { border-color:color-mix(in srgb,var(--accent-secondary) 42%,var(--line)) }
+.language-preference-button { background:color-mix(in srgb,var(--surface) 76%,transparent); border-color:color-mix(in srgb,var(--line) 72%,transparent); color:var(--muted) }
+.language-preference-button:hover { border-color:color-mix(in srgb,var(--accent-secondary) 32%,var(--line)) }
 .sidebar-preference-content {
   min-width:0;
   display:inline-flex;
@@ -1721,27 +1718,7 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .tree-lines path.branch-line { stroke-width:2.1 }
 .tree-zoom-space { position:relative; flex:none }
 .tree-world { position:absolute; top:0; transform-origin:top left }
-.canvas-center-button { position:absolute; z-index:3; top:13px; right:13px; min-height:37px; display:flex; align-items:center; gap:7px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:color-mix(in srgb,var(--surface) 94%,transparent); color:var(--text); font-size:11px; cursor:pointer; box-shadow:0 2px 8px #0002; transition:background .16s,border-color .16s,color .16s,transform .16s }
-.canvas-center-button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); transform:translateY(-1px) }
-.canvas-center-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
 .circle-node.branch-colored { border-top-color:transparent }
-@media(max-width:600px) { .canvas-center-button { top:9px; right:9px; width:37px; padding:0; justify-content:center } .canvas-center-button span { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 } }
-@media(prefers-reduced-motion:reduce) { .canvas-center-button { transition:none } }
-.canvas-view-controls { position:absolute; z-index:3; top:13px; right:13px; display:flex; align-items:center; gap:7px }
-.canvas-view-controls .canvas-center-button,
-.canvas-auto-organize-button { position:static; min-height:39px; display:flex; align-items:center; justify-content:center; gap:8px; padding:0 13px; border:1px solid var(--line); border-radius:11px; background:color-mix(in srgb,var(--surface) 95%,transparent); color:var(--text); font:inherit; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px #0002; transition:background .16s,border-color .16s,color .16s,transform .16s }
-.canvas-view-controls .canvas-center-button:hover,
-.canvas-auto-organize-button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); transform:translateY(-1px) }
-.canvas-view-controls .canvas-center-button:focus-visible,
-.canvas-auto-organize-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
-@media(max-width:600px) {
-  .canvas-view-controls { top:9px; right:9px; gap:6px }
-  .canvas-view-controls .canvas-center-button,
-  .canvas-auto-organize-button { width:39px; min-height:39px; padding:0 }
-  .canvas-view-controls .canvas-center-button span,
-  .canvas-auto-organize-button span { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
-}
-@media(prefers-reduced-motion:reduce) { .canvas-auto-organize-button,.canvas-view-controls .canvas-center-button { transition:none } }
 .tree-app {
   --bg:#171b1c; --surface:#202627; --surface-raised:#293132; --surface-hover:#303a39;
   --line:#3a4543; --line-soft:#303a38; --text:#e8ece6; --muted:#a0aca6; --subtle:#7f8d86;
@@ -1771,7 +1748,6 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .side-link { font-size:13px }
 .canvas-heading h2 { font-size:15px }
 .canvas-heading span,.canvas-heading p { font-size:12px }
-.branch-legend-label { font-size:10px }
 .toolbar-primary-group,.toolbar-layout-group { display:flex; align-items:center; gap:8px }
 .toolbar-primary-group { flex:1; min-width:250px }
 .toolbar-search { min-width:150px; max-width:none; flex:1 }
@@ -1844,6 +1820,10 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
   border-color:var(--accent);
   box-shadow:0 0 0 2px var(--accent),0 0 0 5px color-mix(in srgb,var(--accent) 25%,transparent),0 0 17px color-mix(in srgb,var(--accent) 28%,transparent)
 }
+.person-node.circle-node.has-spouse.is-selected .node-avatar {
+  border-color:var(--surface);
+  box-shadow:0 0 0 2px var(--line)
+}
 .person-node.is-selected:not(.circle-node) {
   z-index:2;
   border-color:var(--accent);
@@ -1854,15 +1834,68 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 .tree-lines path.spouse-line { stroke:#e5b65d; stroke-dasharray:4 4 }
 .tree-app[data-theme=light] .tree-lines path.spouse-line { stroke:#9c7329 }
 .tree-app[data-theme=slate] .tree-lines path.spouse-line { stroke:#e2c17b }
+.tree-lines path.former-spouse-line { stroke:#a9777d; stroke-dasharray:4 4 }
+.tree-app[data-theme=light] .tree-lines path.former-spouse-line { stroke:#a35e67 }
+.tree-app[data-theme=slate] .tree-lines path.former-spouse-line { stroke:#bd8790 }
+.tree-lines path.adopted-parent-line { stroke-dasharray:1.5 4; stroke-linecap:round }
+.tree-lines rect.spouse-circle-rail { fill:var(--surface); stroke:var(--line); stroke-width:1; opacity:.96; transition:opacity .16s }
+.tree-lines rect.spouse-circle-rail.is-divorced { fill:color-mix(in srgb,var(--surface) 84%,#a9777d); stroke:#a9777d }
+.tree-lines.has-active-line-focus rect.spouse-circle-rail { opacity:.18 }
+.tree-lines.has-active-line-focus rect.spouse-circle-rail.is-active-line { opacity:.96 }
 .tree-lines.has-active-line-focus path.relationship-line { opacity:.15; transition:opacity .16s,stroke-width .16s }
 .tree-lines.has-active-line-focus path.relationship-line.is-active-line { opacity:1; stroke-width:2.8 }
+.tree-lines.has-active-line-focus rect.spouse-circle-rail.is-active-line { opacity:.96 }
+.tree-lines rect.spouse-circle-rail.is-selected-couple { stroke:var(--accent); stroke-width:2; opacity:1 }
+.tree-lines.has-active-line-focus rect.spouse-circle-rail.is-selected-couple { opacity:1 }
+.tree-lines path.relationship-line.is-selected-couple { stroke-width:2.8 }
 .tree-lines g.marriage-anchor { color:#f0c96f; transition:opacity .16s }
-.tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#293832; stroke:#f0c96f; stroke-width:1.2; vector-effect:non-scaling-stroke }
+.tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:var(--surface); stroke:#f0c96f; stroke-width:1.2; vector-effect:non-scaling-stroke }
 .tree-lines g.marriage-anchor circle.marriage-ring { fill:none; stroke:currentColor; stroke-width:1.5; vector-effect:non-scaling-stroke }
+.tree-lines g.marriage-anchor.is-selected-couple circle.marriage-anchor-backdrop { stroke:var(--accent); stroke-width:2 }
+.tree-lines g.marriage-anchor.is-selected-couple circle.marriage-ring { stroke-width:1.8 }
+.tree-lines g.divorce-anchor.is-selected-couple circle { stroke:var(--accent); stroke-width:2 }
 .tree-app[data-theme=light] .tree-lines g.marriage-anchor { color:#9c7329 }
 .tree-app[data-theme=light] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#fffdf7 }
 .tree-app[data-theme=slate] .tree-lines g.marriage-anchor { color:#e2c17b }
-.tree-app[data-theme=slate] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { fill:#202b34 }
+.tree-lines g.divorce-anchor,.tree-lines g.adoption-anchor { transition:opacity .16s }
+.tree-lines g.divorce-anchor circle { fill:var(--surface); stroke:#a9777d; stroke-width:1.2; vector-effect:non-scaling-stroke }
+.tree-lines g.divorce-anchor text { font-size:12px; font-family:system-ui,sans-serif }
+.tree-lines g.adoption-anchor .adoption-badge-backdrop { fill:var(--surface); stroke:#78b89e; stroke-width:1.2; vector-effect:non-scaling-stroke }
+.tree-lines g.adoption-anchor .adoption-shield { fill:#78b89e; stroke:#78b89e; stroke-width:.6 }
+.tree-lines g.adoption-anchor .adoption-heart { fill:var(--surface); stroke:var(--surface); stroke-width:.45 }
 .tree-lines.has-active-line-focus g.marriage-anchor { opacity:.15 }
 .tree-lines.has-active-line-focus g.marriage-anchor.is-active-line { opacity:1 }
+.tree-lines.has-active-line-focus g.divorce-anchor,.tree-lines.has-active-line-focus g.adoption-anchor { opacity:.15 }
+.tree-lines.has-active-line-focus g.divorce-anchor.is-active-line,.tree-lines.has-active-line-focus g.adoption-anchor.is-active-line { opacity:1 }
+
+.toolbar-guide-button { width:34px; height:34px; flex:none; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); color:var(--muted); cursor:pointer; transition:background .16s,border-color .16s,color .16s,transform .16s }
+.toolbar-guide-button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); transform:translateY(-1px) }
+.toolbar-guide-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+.relationship-guide-shade { z-index:70 }
+.relationship-guide-dialog { width:min(440px,100%); padding:20px; border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 24px 80px #0008; animation:dialog-in .2s cubic-bezier(.2,.8,.2,1) both }
+.relationship-guide-dialog .dialog-header { align-items:center }
+.relationship-guide-dialog .dialog-header h2 { margin:5px 0 0; font-size:17px }
+.relationship-guide-close { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); color:var(--muted); cursor:pointer }
+.relationship-guide-close:hover { border-color:var(--accent); color:var(--accent); background:var(--surface-hover) }
+.relationship-guide-intro { margin:12px 0 16px; color:var(--muted); font-size:12px; line-height:1.5 }
+.relationship-guide-list { display:grid; gap:5px }
+.relationship-guide-item { min-height:55px; display:flex; align-items:center; gap:12px; padding:7px 9px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface-raised) }
+.relationship-guide-item>span:last-child { display:grid; gap:3px }
+.relationship-guide-item strong { font-size:12px; font-weight:600 }
+.relationship-guide-item small { color:var(--muted); font-size:10px; line-height:1.4 }
+.guide-symbol { width:34px; height:34px; flex:none; display:grid; place-items:center; border-radius:10px; background:var(--surface-hover); color:var(--accent) }
+.guide-symbol svg { width:20px; height:20px }
+.marriage-symbol svg { overflow:visible; fill:none; stroke:currentColor; stroke-width:2 }
+.divorce-symbol { color:#bd8790; background:color-mix(in srgb,#bd8790 13%,var(--surface-hover)) }
+.adoption-symbol { color:#78b89e; background:color-mix(in srgb,#78b89e 13%,var(--surface-hover)) }
+.relationship-guide-line-examples { display:flex; flex-wrap:wrap; gap:12px 18px; margin:14px 2px 0; color:var(--muted); font-size:10px }
+.relationship-guide-line-examples span { display:inline-flex; align-items:center; gap:6px }
+.guide-line { width:24px; height:0; border-top:2px solid var(--accent) }
+.guide-line.dashed { border-top-style:dashed; border-color:#e2c17b }
+.guide-line.dotted { border-top-style:dotted; border-color:#78b89e }
+.relationship-guide-dialog .dialog-actions { margin-top:16px }
+.relationship-guide-dialog .dialog-actions .primary-button { min-width:88px }
+.tree-app[data-theme=light] .relationship-guide-dialog { box-shadow:0 20px 64px #2232 }
+.tree-lines g.marriage-anchor,.tree-lines g.divorce-anchor,.tree-lines g.adoption-anchor { cursor:help }
+.tree-lines g.marriage-anchor:focus-visible,.tree-lines g.divorce-anchor:focus-visible,.tree-lines g.adoption-anchor:focus-visible { outline:none; filter:drop-shadow(0 0 3px var(--accent)) }
 

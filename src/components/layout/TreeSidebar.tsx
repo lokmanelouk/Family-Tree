@@ -1,8 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight, GitBranch, HelpCircle, Languages, Palette, Users } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
-import { getGenerationMap } from '../../lib/tree-logic'
-import { getRootBranches } from '../../lib/tree-layout'
 import { useLanguage } from '../../i18n/useLanguage'
 
 const themes = [
@@ -17,14 +15,11 @@ type TreeSidebarProps = {
   theme: 'charcoal' | 'slate' | 'light'
   onSetTheme: (theme: 'charcoal' | 'slate' | 'light') => void
   onOpenPeople: () => void
-  onSelectMember: (member: FamilyMember) => void
 }
 
-export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople, onSelectMember }: TreeSidebarProps) {
+export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
-  const generations = useMemo(() => new Set(getGenerationMap(members).values()).size, [members])
-  const branches = useMemo(() => getRootBranches(members), [members])
   const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Charcoal')
   const languageLabel = language === 'ar' ? arabicLanguageLabel : 'English'
 
@@ -35,27 +30,6 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople, onSelect
         <button className="side-link selected" title={t('Family tree')} aria-current="page"><GitBranch size={18} />{!collapsed && <span>{t('Family tree')}</span>}</button>
         <button className="side-link" onClick={onOpenPeople} title={t('Family members')}><Users size={18} />{!collapsed && <><span>{t('Family members')}</span><small>{members.length}</small></>}</button>
       </nav>
-      {!collapsed && <>
-        <section className="sidebar-section" aria-labelledby="quick-stats-title">
-          <h2 className="sidebar-section-title" id="quick-stats-title">{t('Quick stats')}</h2>
-          <div className="sidebar-stats">
-            <div className="sidebar-stat stat-members"><strong>{members.length}</strong><span>{t('Members')}</span></div>
-            <div className="sidebar-stat stat-generations"><strong>{generations}</strong><span>{t('Generations')}</span></div>
-            <div className="sidebar-stat stat-branches"><strong>{branches.length}</strong><span>{t('Branches')}</span></div>
-          </div>
-        </section>
-        <section className="sidebar-section root-branches-section" aria-labelledby="root-branches-title">
-          <h2 className="sidebar-section-title" id="root-branches-title">{t('Root family branches')}</h2>
-          {branches.length ? <div className="root-branch-list">{branches.map((branch) => {
-            const label = branch.partner ? `${branch.member.name} & ${branch.partner.name}` : branch.member.name
-            return <button className="root-branch-link" key={branch.id} onClick={() => onSelectMember(branch.member)} title={t('Go to {name}', { name: label })}>
-              <span className="root-branch-dot" style={branch.color ? { background: branch.color } : undefined} aria-hidden="true" />
-              <span className="root-branch-name">{label}</span>
-              <ChevronRight size={14} aria-hidden="true" />
-            </button>
-          })}</div> : <p className="sidebar-empty-note">{t('Add a family member to see branches here.')}</p>}
-        </section>
-      </>}
     </div>
     <section className="sidebar-preferences" aria-label={t('Appearance and language')}>
       <button

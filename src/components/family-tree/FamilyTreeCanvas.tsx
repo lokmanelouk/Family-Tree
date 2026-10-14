@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DragEvent, PointerEvent, ReactNode } from 'react'
-import { Crosshair, GitBranch, Plus, WandSparkles } from 'lucide-react'
+import { GitBranch, Plus } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { getChildCounts, getHiddenAncestorIds, getHiddenIds, getLineageFocusIds } from '../../lib/tree-logic'
-import { computeTreeLayout, getImmediateFamilyIds, getParentalCoupleColors, getParentChildConnectorPaths, getRootBranchMap, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, type TreeNodeMode } from '../../lib/tree-layout'
+import { computeTreeLayout, getImmediateFamilyIds, getParentalCoupleColors, getParentChildBranchJunction, getParentChildConnectorPaths, getRootBranchMap, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS, type TreeNodeMode } from '../../lib/tree-layout'
 import { PersonCard } from './PersonCard'
 import { useLanguage } from '../../i18n/useLanguage'
 
@@ -23,10 +23,9 @@ type FamilyTreeCanvasProps = {
   focusId: string | null
   showBranchColors: boolean
   layoutRevision: number
-  onAutoOrganize: () => void
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, mode, focusId, showBranchColors, layoutRevision, onAutoOrganize }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, mode, focusId, showBranchColors, layoutRevision }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -99,7 +98,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   }
   function endDrag() { setDropTargetId(null) }
   function startPan(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('.person-node, .canvas-view-controls')) return
+    if (event.button !== 0 || (event.target as HTMLElement).closest('.person-node')) return
     const viewport = viewportRef.current
     if (!viewport) return
     pan.current = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop }
@@ -111,75 +110,90 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     viewportRef.current.scrollTop = pan.current.top - (event.clientY - pan.current.y)
   }
   function stopPan() { pan.current = null }
-  function centerView() {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    viewport.scrollTo({
-      left: Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2),
-      top: Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2),
-      behavior: reducedMotion ? 'auto' : 'smooth',
-    })
-  }
-
   return (
     <div className="tree-viewport" ref={viewportRef} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
-      {members.length > 0 && <div className="canvas-view-controls">
-        <button className="canvas-auto-organize-button" type="button" onClick={onAutoOrganize} title={t('Auto-organize tree')} aria-label={t('Auto-organize tree')}><WandSparkles size={16} /><span>{t('Auto-organize')}</span></button>
-        <button className="canvas-center-button" type="button" onClick={centerView} title={t('Center tree')} aria-label={t('Center tree')}><Crosshair size={17} /><span>{t('Center tree')}</span></button>
-      </div>}
       {members.length === 0 ? <div className="tree-empty"><span><GitBranch size={27} /></span><h2>{t('Your family tree starts here')}</h2><p>{t('Add a family member to plant the first branch.')}</p><button onClick={onEmptyAdd}><Plus size={16} /> {t('Add first member')}</button></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
         <div className="tree-world" style={{ width, height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
           <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}`} width={width} height={height} aria-hidden="true">
             {(() => {
               const links: ReactNode[] = []
-              const parentGroups = new Map<string, FamilyMember[]>()
+              const parentGroups = new Map<string, { parentIds: string[]; children: FamilyMember[]; adopted: boolean }>()
               visibleMembers.forEach((child) => {
                 const parentIds = child.parentIds.filter((id) => positions.has(id)).sort()
                 if (!parentIds.length) return
-                const key = parentIds.join('|')
-                parentGroups.set(key, [...(parentGroups.get(key) ?? []), child])
+                const adopted = parentIds.every((id) => child.adoptedParentIds?.includes(id))
+                const key = `${parentIds.join('|')}::${adopted ? 'adopted' : 'biological'}`
+                const group = parentGroups.get(key) ?? { parentIds, children: [], adopted }
+                group.children.push(child)
+                parentGroups.set(key, group)
               })
-              const orderedParentGroups = [...parentGroups.entries()].sort(([firstKey, first], [secondKey, second]) => {
-                const firstParentGeneration = positions.get(firstKey.split('|')[0])?.generation ?? 0
-                const secondParentGeneration = positions.get(secondKey.split('|')[0])?.generation ?? 0
+              const orderedParentGroups = [...parentGroups.entries()].sort(([, first], [, second]) => {
+                const firstParentGeneration = positions.get(first.parentIds[0])?.generation ?? 0
+                const secondParentGeneration = positions.get(second.parentIds[0])?.generation ?? 0
                 if (firstParentGeneration !== secondParentGeneration) return firstParentGeneration - secondParentGeneration
-                const firstCenter = first.reduce((sum, child) => sum + (positions.get(child.id)?.x ?? 0) + nodeWidth / 2, 0) / first.length
-                const secondCenter = second.reduce((sum, child) => sum + (positions.get(child.id)?.x ?? 0) + nodeWidth / 2, 0) / second.length
+                const firstCenter = first.children.reduce((sum, child) => sum + (positions.get(child.id)?.x ?? 0) + nodeWidth / 2, 0) / first.children.length
+                const secondCenter = second.children.reduce((sum, child) => sum + (positions.get(child.id)?.x ?? 0) + nodeWidth / 2, 0) / second.children.length
                 return firstCenter - secondCenter
               })
               const lanesByGeneration = new Map<number, number>()
-              orderedParentGroups.forEach(([key, children]) => {
-                const parentIds = key.split('|')
+              orderedParentGroups.forEach(([groupKey, group]) => {
+                const { parentIds, children, adopted } = group
                 const parents = parentIds.map((id) => positions.get(id)).filter((point): point is NonNullable<typeof point> => Boolean(point))
                 const childPoints = children.map((child) => positions.get(child.id)).filter((point): point is NonNullable<typeof point> => Boolean(point))
                 if (!parents.length || !childPoints.length) return
                 const parentGeneration = Math.min(...parents.map((point) => point.generation))
                 const lane = lanesByGeneration.get(parentGeneration) ?? 0
                 lanesByGeneration.set(parentGeneration, lane + 1)
-                const color = coupleColors?.get(key) ?? null
-                getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane).forEach((path, index) => {
-                  const active = Boolean(activeLineIds && (parentIds.some((id) => activeLineIds.has(id)) || children.some((child) => activeLineIds.has(child.id))))
-                  links.push(<path className={`relationship-line parent-child-line${active ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${key}-parent-child-${index}`} d={path} />)
+                const coupleKey = parentIds.join('|')
+                const color = coupleColors?.get(coupleKey) ?? null
+                const coupleAnchorOffset = mode === 'circle' ? CIRCULAR_AVATAR_CENTER_Y : nodeHeight / 2
+                const groupActive = Boolean(activeLineIds && (parentIds.some((id) => activeLineIds.has(id)) || children.some((child) => activeLineIds.has(child.id))))
+                getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset).forEach((path, index) => {
+                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${groupActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} d={path} />)
                 })
+                if (adopted) {
+                  const junction = getParentChildBranchJunction(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset)
+                  if (junction) links.push(<g className={`adoption-anchor${groupActive ? ' is-active-line' : ''}`} key={`${groupKey}-adoption-anchor`} transform={`translate(${junction.x} ${junction.y})`} role="img" aria-label={t('Adoption')} tabIndex={0}><title>{t('Adoption')}</title>
+                    <circle className="adoption-badge-backdrop" r="10" />
+                    <path className="adoption-shield" d="M0 -7L6 -4.5V0C6 3.5 3 6.2 0 8C-3 6.2-6 3.5-6 0V-4.5L0-7Z" />
+                    <path className="adoption-heart" d="M0 3.4L-2.5 1.2C-4-.2-2.9-2.3-1.4-2.3C-.7-2.3-.2-1.9 0-1.4C.3-1.9.8-2.3 1.5-2.3C3-2.3 4.1-.2 2.5 1.2L0 3.4Z" />
+                  </g>)
+                }
               })
               // Marriage connectors are relationship data, never inferred from
               // cards merely being neighbors on the same generation row.
               const renderedSpousePairs = new Set<string>()
-              visibleMembers.forEach((member) => member.spouseIds.forEach((spouseId) => {
+              visibleMembers.forEach((member) => [...member.spouseIds, ...(member.formerSpouseIds ?? [])].forEach((spouseId) => {
                 const spouse = members.find((candidate) => candidate.id === spouseId)
                 const pairKey = [member.id, spouseId].sort().join('|')
                 // Imported or stale one-way references do not establish a
                 // marriage. Require the exact reciprocal person ID as well.
-                if (!spouse || !spouse.spouseIds.includes(member.id) || renderedSpousePairs.has(pairKey)) return
+                const divorced = Boolean(member.formerSpouseIds?.includes(spouseId) && spouse?.formerSpouseIds?.includes(member.id))
+                const currentlyMarried = Boolean(member.spouseIds.includes(spouseId) && spouse?.spouseIds.includes(member.id))
+                if (!spouse || (!currentlyMarried && !divorced) || renderedSpousePairs.has(pairKey)) return
                 renderedSpousePairs.add(pairKey)
                 const first = positions.get(member.id); const second = positions.get(spouseId)
                 if (!first || !second || first.x === second.x) return
-                const connector = getSpouseConnector(first, second, nodeWidth, nodeHeight)
+                const circularOptions = mode === 'circle'
+                  ? { anchorOffsetY: CIRCULAR_AVATAR_CENTER_Y, edgeInset: CIRCULAR_AVATAR_RADIUS }
+                  : undefined
+                const connector = getSpouseConnector(first, second, nodeWidth, nodeHeight, circularOptions)
                 if (!connector) return
                 const active = Boolean(activeLineIds && (activeLineIds.has(member.id) || activeLineIds.has(spouseId)))
-                links.push(<path className={`relationship-line spouse-line${active ? ' is-active-line' : ''}`} key={`spouse-${pairKey}`} d={connector.path} />)
-                links.push(<g className={`marriage-anchor${active ? ' is-active-line' : ''}`} key={`marriage-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`}>
+                const selectedCouple = selectedId === member.id || selectedId === spouseId
+                const selectedClass = selectedCouple ? ' is-selected-couple' : ''
+                if (mode === 'circle') {
+                  const [left, right] = first.x < second.x ? [first, second] : [second, first]
+                  const leftCenter = left.x + nodeWidth / 2
+                  const rightCenter = right.x + nodeWidth / 2
+                  links.push(<rect className={`spouse-circle-rail${divorced ? ' is-divorced' : ''}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-rail-${pairKey}`} x={leftCenter - CIRCULAR_AVATAR_RADIUS - 4} y={connector.anchorY - CIRCULAR_AVATAR_RADIUS - 4} width={rightCenter - leftCenter + (CIRCULAR_AVATAR_RADIUS + 4) * 2} height={(CIRCULAR_AVATAR_RADIUS + 4) * 2} rx={CIRCULAR_AVATAR_RADIUS + 4} />)
+                }
+                links.push(<path className={`relationship-line ${divorced ? 'former-spouse-line' : 'spouse-line'}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-${pairKey}`} d={connector.path} />)
+                if (divorced) links.push(<g className={`divorce-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`divorce-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Divorce or separation')} tabIndex={0}><title>{t('Divorce or separation')}</title>
+                  <circle className="divorce-badge-backdrop" r={MARRIAGE_ANCHOR_RADIUS} />
+                  <text x="0" y="5" textAnchor="middle" aria-hidden="true">💔</text>
+                </g>)
+                else links.push(<g className={`marriage-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`marriage-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Marriage')} tabIndex={0}><title>{t('Marriage')}</title>
                   <circle className="marriage-anchor-backdrop" r={MARRIAGE_ANCHOR_RADIUS} />
                   <circle className="marriage-ring" cx="-2" cy="0" r="3.3" />
                   <circle className="marriage-ring" cx="2" cy="0" r="3.3" />

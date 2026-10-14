@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { familyMembers } from '../data/family.ts'
 import { applyRelationship, createRelatedMember, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
-import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS } from './tree-layout.ts'
+import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
 import { exportTree, parseTreeBackup } from './tree-backup.ts'
 
 test('collapsing an ancestor hides its descendant branch and descendant spouse', () => {
   const hidden = getHiddenIds(familyMembers, new Set(['james']))
-  assert.deepEqual([...hidden].sort(), ['david', 'jack', 'linda', 'sarah'])
+  assert.deepEqual([...hidden].sort(), ['david', 'jack', 'linda', 'nora', 'sarah'])
 })
 
 test('relationship validation rejects self-parenting and ancestry cycles', () => {
@@ -48,6 +48,30 @@ test('multiple partners remain valid and share a display generation with the sel
 
 test('an invalid proposed relationship leaves the original family graph unchanged', () => {
   assert.equal(applyRelationship(familyMembers, 'james', 'sarah', 'parent'), familyMembers)
+})
+
+test('divorce preserves former-spouse links while keeping shared children biologically linked', () => {
+  const zack = familyMembers.find((person) => person.id === 'zack')
+  const layla = familyMembers.find((person) => person.id === 'layla')
+  const sam = familyMembers.find((person) => person.id === 'sam')
+  assert.ok(zack && layla && sam)
+  assert.equal(validateRelationship(familyMembers, 'david', 'linda', 'divorced'), null)
+  const result = applyRelationship(familyMembers, 'david', 'linda', 'divorced')
+  assert.ok(!result.find((person) => person.id === 'david')?.spouseIds.includes('linda'))
+  assert.ok(result.find((person) => person.id === 'david')?.formerSpouseIds?.includes('linda'))
+  assert.ok(result.find((person) => person.id === 'linda')?.formerSpouseIds?.includes('david'))
+  assert.deepEqual(sam.parentIds, ['zack', 'layla'])
+  assert.deepEqual(zack.formerSpouseIds, ['layla'])
+})
+
+test('adoption records adoptive parent links separately from biological parent data', () => {
+  const child = { ...familyMembers[4], id: 'adopted-test', name: 'Test child', parentIds: [], spouseIds: [], siblingIds: [] }
+  const graph = [...familyMembers, child]
+  assert.equal(validateRelationship(graph, 'david', 'adopted-test', 'adopted'), null)
+  const result = applyRelationship(graph, 'david', 'adopted-test', 'adopted')
+  assert.deepEqual(result.find((person) => person.id === 'adopted-test')?.parentIds, ['david'])
+  assert.deepEqual(result.find((person) => person.id === 'adopted-test')?.adoptedParentIds, ['david'])
+  assert.deepEqual(familyMembers.find((person) => person.id === 'nora')?.adoptedParentIds, ['david', 'linda'])
 })
 
 test('adding a relative links the requested relation and empty trees accept a founder', () => {
@@ -115,6 +139,21 @@ test('parent drop connector starts at the couple midpoint and uses isolated chan
     [{ x: 10, y: 160, generation: 1 }], 100, 60,
   )
   assert.ok(singleParent.includes('M 60 80 V 110'))
+  const centeredOnlyChild = getParentChildConnectorPaths(
+    parents,
+    [{ x: 155, y: 160, generation: 1 }], 100, 60,
+  )
+  assert.deepEqual(centeredOnlyChild, ['M 205 62 V 110', 'M 205 110 V 160'])
+  const circleMarriage = getSpouseConnector(
+    { x: 0, y: 0, generation: 0 }, { x: 194, y: 0, generation: 0 }, 160, 144,
+    { anchorOffsetY: CIRCULAR_AVATAR_CENTER_Y, edgeInset: CIRCULAR_AVATAR_RADIUS },
+  )
+  assert.deepEqual(circleMarriage, { path: 'M 119.5 42.5 H 234.5', anchorX: 177, anchorY: 42.5 })
+  const circleChildPaths = getParentChildConnectorPaths(
+    [{ x: 0, y: 0, generation: 0 }, { x: 194, y: 0, generation: 0 }],
+    [{ x: 194, y: 238, generation: 1 }], 160, 144, 0, CIRCULAR_AVATAR_CENTER_Y,
+  )
+  assert.ok(circleChildPaths[0].startsWith(`M 177 ${CIRCULAR_AVATAR_CENTER_Y + MARRIAGE_ANCHOR_RADIUS} V`))
 })
 
 test('recorded father and mother pairs are linked as reciprocal spouses', () => {
@@ -155,10 +194,12 @@ test('root branch colors are relationship-derived and descendants blend their co
 
 test('root branch navigation groups founding partners and counts independent root families once', () => {
   const branches = getRootBranches(familyMembers)
-  assert.equal(branches.length, 2)
+  assert.equal(branches.length, 3)
   assert.equal(branches[0]?.member.id, 'james')
   assert.equal(branches[0]?.partner?.id, 'eleanor')
   assert.equal(branches[1]?.member.id, 'linda')
+  assert.equal(branches[2]?.member.id, 'zack')
+  assert.equal(branches[2]?.partner?.id, 'layla')
 })
 
 test('possible duplicate lookup distinguishes matching identity details and preserves same-name people', () => {
@@ -198,5 +239,9 @@ test('backup export and restore round-trip selected family branches without dang
   assert.ok(branch.some((person) => person.id === 'sarah'))
   assert.ok(branch.some((person) => person.id === 'linda'))
   assert.ok(branch.every((person) => [...person.parentIds, ...person.spouseIds, ...person.siblingIds].every((id) => branch.some((candidate) => candidate.id === id))))
+  assert.deepEqual(branch.find((person) => person.id === 'nora')?.adoptedParentIds, ['david', 'linda'])
+  const formerFamily = parseTreeBackup(JSON.parse(exportTree(familyMembers, 'zack')))
+  assert.ok(formerFamily?.some((person) => person.id === 'layla' && person.formerSpouseIds?.includes('zack')))
+  assert.ok(formerFamily?.some((person) => person.id === 'sam' && person.parentIds.includes('zack')))
   assert.equal(parseTreeBackup({ people: [{ id: 'bad', name: 'Bad' }] }), null)
 })

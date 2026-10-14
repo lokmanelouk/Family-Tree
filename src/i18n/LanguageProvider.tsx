@@ -50,6 +50,9 @@ const arabic: Record<string, string> = {
   '{name} was removed from the tree.': 'تمت إزالة {name} من الشجرة.', 'Relationships change only after you confirm.': 'لا تتغير صلات القرابة إلا بعد التأكيد.',
   'Switch language to Arabic': 'التبديل إلى العربية', 'Switch language to English': 'التبديل إلى الإنجليزية', 'Close actions menu': 'إغلاق قائمة الإجراءات',
   'Grandfather': 'الجد', 'Grandmother': 'الجدة', 'Son': 'الابن', 'Daughter': 'الابنة', 'Daughter-in-law': 'زوجة الابن', 'Family founder': 'مؤسس العائلة',
+  'Mark partners as divorced': 'تسجيل الطلاق بين الشريكين', 'Make {source} adoptive parent of {target}.': 'اجعل {source} والدًا بالتبني لـ {target}.',
+  '{source} and {target} will be marked as divorced.': 'سيتم تسجيل الطلاق بين {source} و{target}.', '{source} will be recorded as an adoptive parent of {target}.': 'سيتم تسجيل {source} كوالد بالتبني لـ {target}.',
+  'Only current partners can be marked as divorced.': 'يمكن تسجيل الطلاق للشركاء الحاليين فقط.', 'That adoption relationship already exists.': 'علاقة التبني هذه موجودة بالفعل.',
 }
 
 function initialLanguage(): Language {

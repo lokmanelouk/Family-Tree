@@ -13,7 +13,7 @@ export function getGenerationMap(members: FamilyMember[]) {
     for (const person of members) {
       const parentDepth = Math.max(0, ...person.parentIds.filter((id) => byId.has(id)).map((id) => (generations.get(id) ?? 0) + 1))
       if (parentDepth > (generations.get(person.id) ?? 0)) { generations.set(person.id, parentDepth); changed = true }
-      for (const peerId of [...person.spouseIds, ...person.siblingIds]) {
+      for (const peerId of [...person.spouseIds, ...(person.formerSpouseIds ?? []), ...person.siblingIds]) {
         const spouseDepth = generations.get(peerId)
         if (spouseDepth === undefined) continue
         const depth = Math.max(generations.get(person.id) ?? 0, spouseDepth)
@@ -61,7 +61,7 @@ export function getDescendantIds(members: FamilyMember[], memberId: string): Set
         descendants.add(child.id)
         visit(child.id)
       }
-      for (const spouseId of child.spouseIds) {
+      for (const spouseId of [...child.spouseIds, ...(child.formerSpouseIds ?? [])]) {
         if (!descendants.has(spouseId)) {
           descendants.add(spouseId)
           visit(spouseId)
@@ -149,6 +149,10 @@ export function validateRelationship(members: FamilyMember[], sourceId: string, 
     if (hasAncestor(members, source.id, target.id) || hasAncestor(members, target.id, source.id)) return 'A person cannot partner with their ancestor or descendant.'
     return null
   }
+  if (kind === 'divorced') {
+    if (!source.spouseIds.includes(target.id) || !target.spouseIds.includes(source.id)) return 'Only current partners can be marked as divorced.'
+    return null
+  }
   if (kind === 'sibling') {
     if (source.siblingIds.includes(target.id) || target.siblingIds.includes(source.id)) return 'These family members are already siblings.'
     if (hasAncestor(members, source.id, target.id) || hasAncestor(members, target.id, source.id)) return 'An ancestor and descendant cannot be linked as siblings.'
@@ -162,7 +166,7 @@ export function validateRelationship(members: FamilyMember[], sourceId: string, 
   if (!parent?.gender || !child.gender) return "Set both family members' genders before linking a parent and child."
   if (parent.gender === 'male' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'male')) return 'A person can have only one father.'
   if (parent.gender === 'female' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'female')) return 'A person can have only one mother.'
-  if (child.parentIds.includes(parentId)) return 'That parent relationship already exists.'
+  if (child.parentIds.includes(parentId)) return kind === 'adopted' && child.adoptedParentIds?.includes(parentId) ? 'That adoption relationship already exists.' : 'That parent relationship already exists.'
   if (hasAncestor(members, childId, parentId)) return 'That would create a family cycle. A descendant cannot become an ancestor.'
   return null
 }
@@ -172,8 +176,13 @@ export function applyRelationship(members: FamilyMember[], sourceId: string, tar
   const target = members.find((member) => member.id === targetId)
   if (!source || !target || validateRelationship(members, sourceId, targetId, kind)) return members
   if (kind === 'partner') return members.map((member) => {
-    if (member.id === sourceId) return { ...member, spouseIds: [...new Set([...member.spouseIds, targetId])] }
-    if (member.id === targetId) return { ...member, spouseIds: [...new Set([...member.spouseIds, sourceId])] }
+    if (member.id === sourceId) return { ...member, spouseIds: [...new Set([...member.spouseIds, targetId])], formerSpouseIds: member.formerSpouseIds?.filter((id) => id !== targetId) }
+    if (member.id === targetId) return { ...member, spouseIds: [...new Set([...member.spouseIds, sourceId])], formerSpouseIds: member.formerSpouseIds?.filter((id) => id !== sourceId) }
+    return member
+  })
+  if (kind === 'divorced') return members.map((member) => {
+    if (member.id === sourceId) return { ...member, spouseIds: member.spouseIds.filter((id) => id !== targetId), formerSpouseIds: [...new Set([...(member.formerSpouseIds ?? []), targetId])] }
+    if (member.id === targetId) return { ...member, spouseIds: member.spouseIds.filter((id) => id !== sourceId), formerSpouseIds: [...new Set([...(member.formerSpouseIds ?? []), sourceId])] }
     return member
   })
   if (kind === 'sibling') return members.map((member) => member.id === sourceId
@@ -181,8 +190,12 @@ export function applyRelationship(members: FamilyMember[], sourceId: string, tar
     : member.id === targetId ? { ...member, siblingIds: [...member.siblingIds, sourceId] } : member)
   const parentId = kind === 'parent' ? targetId : sourceId
   const childId = kind === 'parent' ? sourceId : targetId
-  const nextMembers = members.map((member) => member.id === childId ? { ...member, parentIds: [...member.parentIds, parentId] } : member)
-  return nextMembers
+  const nextMembers = members.map((member) => member.id === childId ? {
+    ...member,
+    parentIds: [...member.parentIds, parentId],
+    ...(kind === 'adopted' ? { adoptedParentIds: [...new Set([...(member.adoptedParentIds ?? []), parentId])] } : {}),
+  } : member)
+  return linkRecordedParentCouples(nextMembers)
 }
 
 /** Repair missing reciprocal partner links for an explicitly recorded parent pair. */
@@ -196,6 +209,7 @@ export function linkRecordedParentCouples(members: FamilyMember[]): FamilyMember
     if (parents.length !== 2 || fathers.length !== 1 || mothers.length !== 1) continue
     const [father] = fathers
     const [mother] = mothers
+    if (father.formerSpouseIds?.includes(mother.id) || mother.formerSpouseIds?.includes(father.id)) continue
     if (father.spouseIds.includes(mother.id) && mother.spouseIds.includes(father.id)) continue
     result = applyRelationship(result, father.id, mother.id, 'partner')
   }
@@ -268,6 +282,8 @@ export function removeMember(members: FamilyMember[], memberId: string) {
     ...member,
     parentIds: member.parentIds.filter((id) => id !== memberId),
     spouseIds: member.spouseIds.filter((id) => id !== memberId),
+    formerSpouseIds: member.formerSpouseIds?.filter((id) => id !== memberId),
+    adoptedParentIds: member.adoptedParentIds?.filter((id) => id !== memberId),
     siblingIds: member.siblingIds.filter((id) => id !== memberId),
   }))
 }

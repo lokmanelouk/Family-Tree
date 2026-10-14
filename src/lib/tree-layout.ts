@@ -5,7 +5,9 @@ export type TreeNodeMode = 'rectangle' | 'circle'
 export type TreePosition = { x: number; y: number; generation: number }
 export type TreeLayout = { positions: Map<string, TreePosition>; width: number; height: number; nodeWidth: number; nodeHeight: number }
 export type SpouseConnector = { path: string; anchorX: number; anchorY: number }
-export const MARRIAGE_ANCHOR_RADIUS = 11
+export const MARRIAGE_ANCHOR_RADIUS = 12
+export const CIRCULAR_AVATAR_CENTER_Y = 42.5
+export const CIRCULAR_AVATAR_RADIUS = 39.5
 
 const lineageLinePalette = ['#43c7b3', '#d76cae', '#e9ad4f', '#9184e8', '#43bbdf', '#eb7889', '#99c75e', '#e9875b']
 
@@ -37,14 +39,24 @@ function areConfirmedSpouses(a: FamilyMember, b: FamilyMember): boolean {
   return a.id !== b.id && a.spouseIds.includes(b.id) && b.spouseIds.includes(a.id)
 }
 
+function areFormerSpouses(a: FamilyMember, b: FamilyMember): boolean {
+  return a.id !== b.id && Boolean(a.formerSpouseIds?.includes(b.id) && b.formerSpouseIds?.includes(a.id))
+}
+
+function areCoupled(a: FamilyMember, b: FamilyMember): boolean {
+  return areConfirmedSpouses(a, b) || areFormerSpouses(a, b)
+}
+
 /** Share one midpoint calculation between the marriage line, its anchor, and child branches. */
-export function getSpouseConnector(first: TreePosition, second: TreePosition, nodeWidth: number, nodeHeight: number): SpouseConnector | null {
+export function getSpouseConnector(first: TreePosition, second: TreePosition, nodeWidth: number, nodeHeight: number, options: { anchorOffsetY?: number; edgeInset?: number } = {}): SpouseConnector | null {
   if (first.x === second.x) return null
   const [left, right] = first.x < second.x ? [first, second] : [second, first]
-  const startX = left.x + nodeWidth
-  const endX = right.x
-  const startY = left.y + nodeHeight / 2
-  const endY = right.y + nodeHeight / 2
+  const edgeInset = options.edgeInset ?? nodeWidth / 2
+  const anchorOffsetY = options.anchorOffsetY ?? nodeHeight / 2
+  const startX = left.x + nodeWidth / 2 + edgeInset
+  const endX = right.x + nodeWidth / 2 - edgeInset
+  const startY = left.y + anchorOffsetY
+  const endY = right.y + anchorOffsetY
   const anchorX = (startX + endX) / 2
   const anchorY = (startY + endY) / 2
   const path = startY === endY
@@ -54,15 +66,14 @@ export function getSpouseConnector(first: TreePosition, second: TreePosition, no
 }
 
 /** Route relationship-derived parent unions to every child card, even when the family is asymmetric. */
-export function getParentChildConnectorPaths(parents: TreePosition[], children: TreePosition[], nodeWidth: number, nodeHeight: number, lane = 0): string[] {
-  if (!parents.length || !children.length) return []
+function getParentBranchGeometry(parents: TreePosition[], children: TreePosition[], nodeWidth: number, nodeHeight: number, lane: number, coupleAnchorOffsetY: number) {
+  if (!parents.length || !children.length) return null
   const parentXs = parents.map((point) => nodeCenterX(point, nodeWidth))
   const unionCenter = (Math.min(...parentXs) + Math.max(...parentXs)) / 2
-  // A couple's marriage connector runs through the vertical center of both
-  // cards. Single-parent families have no marriage line, so start at the
-  // parent's bottom edge instead.
+  // A couple's branch starts at the marriage-line anchor. Single-parent
+  // families have no marriage line, so start at the parent's bottom edge.
   const unionY = parents.length > 1
-    ? parents.reduce((sum, point) => sum + point.y + nodeHeight / 2, 0) / parents.length
+    ? parents.reduce((sum, point) => sum + point.y + coupleAnchorOffsetY, 0) / parents.length
     : parents[0].y + nodeHeight
   // For a couple, begin immediately below the marriage badge. This keeps the
   // vertical branch connected to both parents through their shared union.
@@ -73,6 +84,18 @@ export function getParentChildConnectorPaths(parents: TreePosition[], children: 
   // begins at the exact midpoint of the couple's marriage line.
   const branchY = Math.min(childrenY - 30, parentBottom + 30 + lane * 14)
   const childXs = children.map((point) => nodeCenterX(point, nodeWidth))
+  return { unionCenter, unionBottomY, branchY, childXs }
+}
+
+export function getParentChildBranchJunction(parents: TreePosition[], children: TreePosition[], nodeWidth: number, nodeHeight: number, lane = 0, coupleAnchorOffsetY = nodeHeight / 2) {
+  const geometry = getParentBranchGeometry(parents, children, nodeWidth, nodeHeight, lane, coupleAnchorOffsetY)
+  return geometry ? { x: geometry.unionCenter, y: geometry.branchY } : null
+}
+
+export function getParentChildConnectorPaths(parents: TreePosition[], children: TreePosition[], nodeWidth: number, nodeHeight: number, lane = 0, coupleAnchorOffsetY = nodeHeight / 2): string[] {
+  const geometry = getParentBranchGeometry(parents, children, nodeWidth, nodeHeight, lane, coupleAnchorOffsetY)
+  if (!geometry) return []
+  const { unionCenter, unionBottomY, branchY, childXs } = geometry
   const branchLeft = Math.min(unionCenter, ...childXs)
   const branchRight = Math.max(unionCenter, ...childXs)
   const paths = [`M ${unionCenter} ${unionBottomY} V ${branchY}`]
@@ -144,9 +167,9 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
   }
   for (const [key, group] of familyGroups) {
     const siblings = siblingOrderFor(group)
-    siblings.forEach((person, index) => person.spouseIds.forEach((spouseId) => {
+    siblings.forEach((person, index) => [...person.spouseIds, ...(person.formerSpouseIds ?? [])].forEach((spouseId) => {
       const spouse = members.find((candidate) => candidate.id === spouseId)
-      if (!spouse || !areConfirmedSpouses(person, spouse) || !spouse.parentIds.length) return
+      if (!spouse || !areCoupled(person, spouse) || !spouse.parentIds.length) return
       const spouseKey = familyKeyFor(spouse)
       if (spouseKey === key || !familyGroups.has(spouseKey)) return
       if (index <= (siblings.length - 1) / 2) addFamilyEdge(spouseKey, key)
@@ -179,9 +202,9 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
       while (queue.length) {
         const current = queue.shift()!
         component.push(current)
-        for (const spouseId of current.spouseIds) {
+        for (const spouseId of [...current.spouseIds, ...(current.formerSpouseIds ?? [])]) {
           const spouse = byId.get(spouseId)
-          if (spouse && areConfirmedSpouses(current, spouse) && !visited.has(spouse.id)) {
+          if (spouse && areCoupled(current, spouse) && !visited.has(spouse.id)) {
             visited.add(spouse.id)
             queue.push(spouse)
           }
@@ -305,7 +328,7 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
 export function getImmediateFamilyIds(members: FamilyMember[], memberId: string): Set<string> {
   const person = members.find((member) => member.id === memberId)
   if (!person) return new Set()
-  return new Set([memberId, ...person.parentIds, ...person.spouseIds, ...person.siblingIds,
+  return new Set([memberId, ...person.parentIds, ...person.spouseIds, ...(person.formerSpouseIds ?? []), ...person.siblingIds,
     ...members.filter((member) => member.parentIds.includes(memberId)).map((member) => member.id)])
 }
 
@@ -320,7 +343,7 @@ export function getRootBranchMap(members: FamilyMember[]): Map<string, string | 
     const nextActive = new Set(active).add(person.id)
     const parents = person.parentIds.map((id) => byId.get(id)).filter((item): item is FamilyMember => Boolean(item))
     if (!parents.length) {
-      const partnerRoot = person.spouseIds.map((id) => byId.get(id)).find((item) => item && item.parentIds.length === 0)
+      const partnerRoot = [...person.spouseIds, ...(person.formerSpouseIds ?? [])].map((id) => byId.get(id)).find((item) => item && item.parentIds.length === 0)
       const roots = new Set([partnerRoot ? [person.id, partnerRoot.id].sort().join('+') : person.id])
       rootsByPerson.set(person.id, roots)
       return roots
@@ -355,7 +378,7 @@ export function getRootBranches(members: FamilyMember[]): RootFamilyBranch[] {
   const branches: RootFamilyBranch[] = []
   for (const member of members) {
     if (member.parentIds.length || visited.has(member.id)) continue
-    const partner = member.spouseIds.map((id) => byId.get(id)).find((candidate) => candidate && !candidate.parentIds.length && !visited.has(candidate.id)) ?? null
+    const partner = [...member.spouseIds, ...(member.formerSpouseIds ?? [])].map((id) => byId.get(id)).find((candidate) => candidate && !candidate.parentIds.length && !visited.has(candidate.id)) ?? null
     visited.add(member.id)
     if (partner) visited.add(partner.id)
     branches.push({ id: member.id, member, partner, color: colors.get(member.id) ?? null })

@@ -9,6 +9,10 @@ export type FamilyMember = {
   photo?: string
   parentIds: string[]
   spouseIds: string[]
+  /** Former partners retained for family history and tree display. */
+  formerSpouseIds?: string[]
+  /** Parents whose parent-child relationship with this person is adoptive. */
+  adoptedParentIds?: string[]
   siblingIds: string[]
   avatar: {
     skin: string
@@ -19,4 +23,4 @@ export type FamilyMember = {
   }
 }
 
-export type RelationshipKind = 'parent' | 'child' | 'partner' | 'sibling'
+export type RelationshipKind = 'parent' | 'child' | 'partner' | 'sibling' | 'divorced' | 'adopted'

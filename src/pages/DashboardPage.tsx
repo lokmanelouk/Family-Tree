@@ -6,7 +6,9 @@ import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel
 import { TreeToolbar } from "../components/family-tree/TreeToolbar";
 import { ConfirmationDialog } from "../components/dialogs/ConfirmationDialog";
 import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChangeDialog";
+import { RelationshipGuideDialog } from "../components/dialogs/RelationshipGuideDialog";
 import { TreeSidebar } from "../components/layout/TreeSidebar";
+import { FamilyQuickLinks } from "../components/animata/fabs/FamilyQuickLinks";
 import { useFamilyTree } from "../hooks/useFamilyTree";
 import { getChildCounts } from "../lib/tree-logic";
 import { computeTreeLayout, type TreeNodeMode } from "../lib/tree-layout";
@@ -47,6 +49,7 @@ export function DashboardPage() {
     null,
   );
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [relationshipGuideOpen, setRelationshipGuideOpen] = useState(false);
   const [status, setStatus] = useState("");
   const selectedMember =
     tree.members.find((member) => member.id === selectedId) ?? null;
@@ -229,19 +232,20 @@ export function DashboardPage() {
         theme={theme}
         onSetTheme={setTheme}
         onOpenPeople={() => setPeopleOpen(true)}
-        onSelectMember={findMember}
       />
       <section className="tree-main">
         <TreeToolbar
           members={tree.members}
           zoom={zoom}
           mode={nodeMode}
-          focusMode={focusMode}
           showBranchColors={showBranchColors}
           selectedId={selectedId}
+          areAllExpanded={collapsedIds.size === 0 && collapsedAncestorIds.size === 0}
           canUndo={tree.canUndo}
           canRedo={tree.canRedo}
           onAddPerson={() => openAdd()}
+          onAutoOrganize={autoOrganize}
+          onOpenGuide={() => setRelationshipGuideOpen(true)}
           onSearch={findMember}
           onZoom={(amount) =>
             setZoom((current) =>
@@ -252,12 +256,14 @@ export function DashboardPage() {
             )
           }
           onFit={fitTree}
-          onExpandAll={() => setCollapsedIds(new Set())}
+          onExpandAll={() => {
+            setCollapsedIds(new Set())
+            setCollapsedAncestorIds(new Set())
+          }}
           onCollapseAll={() => setCollapsedIds(new Set(branchIds))}
           onUndo={tree.undo}
           onRedo={tree.redo}
           onSetMode={(mode) => setNodeMode(mode)}
-          onToggleFocus={() => setFocusMode((value) => !value)}
           onToggleBranchColors={() => setShowBranchColors((value) => !value)}
           onExport={downloadTree}
           onImport={(file) => void restoreTree(file)}
@@ -282,24 +288,6 @@ export function DashboardPage() {
               "Drag a person onto a relative to propose a relationship change. Confirm it before the tree updates.",
             )}
           </p>
-          {showBranchColors && (
-            <div
-              className="branch-legend"
-              role="img"
-              aria-label={t("Root family branches")}
-            >
-              <span className="branch-legend-label">
-                {t("Root family branches")}
-              </span>
-              {[0, 1, 2, 3, 4, 5].map((color) => (
-                <span
-                  key={color}
-                  aria-hidden="true"
-                  style={{ background: `var(--branch-${color})` }}
-                />
-              ))}
-            </div>
-          )}
         </div>
         <FamilyTreeCanvas
           members={tree.members}
@@ -311,7 +299,6 @@ export function DashboardPage() {
           mode={nodeMode}
           showBranchColors={showBranchColors}
           layoutRevision={layoutRevision}
-          onAutoOrganize={autoOrganize}
           onSelect={(member) => {
             setSelectedId((current) =>
               current === member.id ? null : member.id,
@@ -420,9 +407,13 @@ export function DashboardPage() {
           onConfirm={confirmRestore}
         />
       )}
+      {relationshipGuideOpen && (
+        <RelationshipGuideDialog onClose={() => setRelationshipGuideOpen(false)} />
+      )}
       <div className="status-message" aria-live="polite" key={status}>
         {status}
       </div>
+      <FamilyQuickLinks />
     </main>
   );
 }
