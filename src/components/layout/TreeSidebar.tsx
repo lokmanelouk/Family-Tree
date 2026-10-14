@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, GitBranch, HelpCircle, Languages, Leaf, Moon, Palette, Sun, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GitBranch, HelpCircle, Languages, Moon, Palette, Sun, Users } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -8,7 +8,6 @@ const themes = [
   { value: 'slate', label: 'Blue slate' },
   { value: 'warm-light', label: 'Warm light' },
   { value: 'midnight', label: 'Midnight' },
-  { value: 'sage', label: 'Sage' },
 ] as const
 const arabicLanguageLabel = String.fromCodePoint(0x627, 0x644, 0x639, 0x631, 0x628, 0x64a, 0x629)
 
@@ -45,7 +44,7 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
         }}
       >
         <span className="sidebar-preference-content" key={theme}>
-          {theme === 'midnight' ? <Moon size={17} aria-hidden="true" /> : theme === 'sage' ? <Leaf size={17} aria-hidden="true" /> : theme === 'warm-light' ? <Sun size={17} aria-hidden="true" /> : <Palette size={17} aria-hidden="true" />}
+          {theme === 'midnight' ? <Moon size={17} aria-hidden="true" /> : theme === 'warm-light' ? <Sun size={17} aria-hidden="true" /> : <Palette size={17} aria-hidden="true" />}
           <span className="sidebar-preference-value">{themeLabel}</span>
         </span>
       </button>
@@ -64,7 +63,7 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
     </section>
     <footer className="sidebar-bottom">
       {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
-      <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>
+      <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}>{collapsed === (language === 'en') ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>
     </footer>
   </aside>
 }

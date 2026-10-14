@@ -281,11 +281,6 @@ export function DashboardPage() {
               {t("generations")}
             </span>
           </div>
-          <p>
-            {t(
-              "Drag a person onto a relative to propose a relationship change. Confirm it before the tree updates.",
-            )}
-          </p>
         </div>
         <FamilyTreeCanvas
           members={tree.members}

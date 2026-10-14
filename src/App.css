@@ -1941,6 +1941,104 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 .tree-lines g.marriage-anchor,.tree-lines g.divorce-anchor,.tree-lines g.adoption-anchor { cursor:help }
 .tree-lines g.marriage-anchor:focus-visible,.tree-lines g.divorce-anchor:focus-visible,.tree-lines g.adoption-anchor:focus-visible { outline:none; filter:drop-shadow(0 0 3px var(--accent)) }
 
+/* Toolbar hierarchy: clear primary action, quiet utility controls, and a
+   distinct search surface. Icons remain direction-independent unless they
+   explicitly represent navigation. */
+.tree-app .toolbar-add-person {
+  min-height:40px;
+  gap:8px;
+  padding-inline:15px;
+  border:1px solid var(--accent-strong);
+  border-radius:10px;
+  background:var(--accent-strong);
+  color:#132631;
+  font-size:13px;
+  font-weight:650;
+  box-shadow:0 1px 2px #0002;
+  transition:background-color .16s,border-color .16s,box-shadow .16s,transform .16s;
+}
+.tree-app[data-theme=warm-light] .toolbar-add-person { color:#fff }
+.tree-app .toolbar-add-person:hover:not(:disabled) {
+  border-color:var(--accent);
+  background:var(--accent);
+  color:#132631;
+  box-shadow:0 2px 5px #0002;
+  transform:translateY(-1px);
+}
+.tree-app[data-theme=warm-light] .toolbar-add-person:hover:not(:disabled) { color:#fff }
+.tree-app .toolbar-add-person:active:not(:disabled) { transform:translateY(0) scale(.98) }
+.tree-app .toolbar-add-person:disabled { cursor:not-allowed; opacity:.55; box-shadow:none; transform:none }
+.tree-app .toolbar-cluster button {
+  width:36px;
+  height:36px;
+  border:1px solid transparent;
+  border-radius:9px;
+  color:var(--muted);
+  transition:background-color .15s,border-color .15s,color .15s;
+}
+.tree-app .toolbar-cluster button:hover:not(:disabled),
+.tree-app .toolbar-cluster button.active-tool {
+  border-color:var(--line);
+  background:var(--surface-hover);
+  color:var(--text);
+}
+.tree-app .toolbar-cluster button:disabled {
+  border-color:transparent;
+  background:transparent;
+  color:var(--subtle);
+  cursor:not-allowed;
+  opacity:.62;
+}
+.tree-app .toolbar-search {
+  min-height:39px;
+  padding-inline:10px;
+  border:1px solid var(--line-soft);
+  border-radius:10px;
+  background:var(--canvas);
+  color:var(--muted);
+  transition:border-color .15s,box-shadow .15s,background-color .15s;
+}
+.tree-app .toolbar-search:focus-within {
+  border-color:var(--focus);
+  background:var(--surface);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--focus) 25%,transparent);
+}
+.tree-app .toolbar-search input { min-height:35px; font-size:13px }
+.tree-app .settings-toggle {
+  min-height:40px;
+  padding-inline:12px;
+  border-color:var(--line);
+  border-radius:10px;
+  background:var(--surface-raised);
+  color:var(--text);
+  font-size:12px;
+  transition:background-color .15s,border-color .15s,color .15s;
+}
+.tree-app .settings-toggle:hover,
+.tree-app .settings-toggle[aria-expanded=true] {
+  border-color:var(--line);
+  background:var(--surface-hover);
+  color:var(--text);
+}
+.tree-app .toolbar-cluster button:focus-visible,
+.tree-app .settings-toggle:focus-visible,
+.tree-app .toolbar-add-person:focus-visible,
+.tree-app .toolbar-search input:focus-visible {
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+.tree-app .toolbar-search input:focus-visible { outline-offset:0 }
+.tree-app .toolbar-search>svg,
+.tree-app .settings-toggle>svg,
+.tree-app .sidebar-preference-button svg,
+.tree-app .sidebar-brand .brand-icon { transform:none }
+@media(prefers-reduced-motion:reduce) {
+  .tree-app .toolbar-add-person,
+  .tree-app .toolbar-cluster button,
+  .tree-app .toolbar-search,
+  .tree-app .settings-toggle { transition:none!important }
+}
+
 /* Kinfolk theme tokens. Relationship colors below are intentionally shared by
    all themes; only the application surfaces and UI accents change. */
 .tree-app[data-theme] {
@@ -2029,31 +2127,6 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --canvas:#191c2e;
   --canvas-dot:#3b3f57;
   --focus:#d7cbff;
-}
-
-.tree-app[data-theme=sage] {
-  --bg:#e5ece5;
-  --surface:#f1f5ef;
-  --surface-raised:#e8f0e8;
-  --surface-hover:#dce8dd;
-  --line:#bdcdbf;
-  --line-soft:#d3dfd4;
-  --text:#26352c;
-  --muted:#4e6254;
-  --subtle:#596d60;
-  --accent:#35785c;
-  --accent-strong:#285f47;
-  --accent-soft:#d8e8dc;
-  --accent-secondary:#8c553c;
-  --accent-secondary-soft:#f0e3da;
-  --canvas:#edf3ed;
-  --canvas-dot:#d5e0d6;
-  --focus:#285f47;
-  --gender-male:#205f7b;
-  --gender-female:#8e3c61;
-  --gender-male-bg:#e2eef1;
-  --gender-female-bg:#f4e7ed;
-  color-scheme:light;
 }
 
 /* Relationship semantics do not shift with the selected UI theme. */

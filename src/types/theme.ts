@@ -1,4 +1,4 @@
-export const appThemes = ["slate", "warm-light", "midnight", "sage"] as const;
+export const appThemes = ["slate", "warm-light", "midnight"] as const;
 
 export type AppTheme = (typeof appThemes)[number];
 
