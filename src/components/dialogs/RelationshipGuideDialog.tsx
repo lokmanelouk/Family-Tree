@@ -26,7 +26,7 @@ export function RelationshipGuideDialog({ onClose }: RelationshipGuideDialogProp
         <div><span>{t('CANVAS GUIDE')}</span><h2 id={titleId}>{t('Relationship guide')}</h2></div>
         <button ref={closeButtonRef} type="button" className="relationship-guide-close" title={t('Close relationship guide')} aria-label={t('Close relationship guide')} onClick={onClose}><X size={17} /></button>
       </header>
-      <p className="relationship-guide-intro">{t('A quick guide to the symbols and lines in your family tree.')}</p>
+      <p className="relationship-guide-intro" dir="auto">{t('A quick guide to the symbols and lines in your family tree.')}</p>
       <div className="relationship-guide-list">
         <div className="relationship-guide-item">
           <span className="guide-symbol marriage-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="13" r="5.2" /><circle cx="15" cy="13" r="5.2" /></svg></span>

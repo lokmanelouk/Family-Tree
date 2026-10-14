@@ -140,8 +140,7 @@ export function validateRelationship(members: FamilyMember[], sourceId: string, 
     const sourceLinked = source.spouseIds.includes(target.id)
     const targetLinked = target.spouseIds.includes(source.id)
     if (sourceLinked && targetLinked) return 'These family members are already partners.'
-    if (!source.gender || !target.gender) return "Set both family members' genders before linking them as partners."
-    if (source.gender === target.gender) return 'Partners must be of different genders.'
+    if (source.gender && target.gender && source.gender === target.gender) return 'Partners must be of different genders.'
     const female = source.gender === 'female' ? source : target.gender === 'female' ? target : undefined
     const malePartnerId = female === source ? target.id : source.id
     if (female && female.spouseIds.some((id) => id !== malePartnerId && members.find((member) => member.id === id)?.gender === 'male')) return 'A female family member can have only one husband.'
@@ -163,9 +162,8 @@ export function validateRelationship(members: FamilyMember[], sourceId: string, 
   const child = members.find((member) => member.id === childId)
   if (!child) return 'The child could not be found.'
   const parent = members.find((member) => member.id === parentId)
-  if (!parent?.gender || !child.gender) return "Set both family members' genders before linking a parent and child."
-  if (parent.gender === 'male' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'male')) return 'A person can have only one father.'
-  if (parent.gender === 'female' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'female')) return 'A person can have only one mother.'
+  if (parent?.gender === 'male' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'male')) return 'A person can have only one father.'
+  if (parent?.gender === 'female' && child.parentIds.some((id) => members.find((member) => member.id === id)?.gender === 'female')) return 'A person can have only one mother.'
   if (child.parentIds.includes(parentId)) return kind === 'adopted' && child.adoptedParentIds?.includes(parentId) ? 'That adoption relationship already exists.' : 'That parent relationship already exists.'
   if (hasAncestor(members, childId, parentId)) return 'That would create a family cycle. A descendant cannot become an ancestor.'
   return null
@@ -216,12 +214,12 @@ export function linkRecordedParentCouples(members: FamilyMember[]): FamilyMember
   return result
 }
 
-export function createRelatedMember(members: FamilyMember[], targetId: string, kind: RelationshipKind, name: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string): FamilyMember[] {
+export function createRelatedMember(members: FamilyMember[], targetId: string, kind: RelationshipKind, name: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string, deathDate?: string): FamilyMember[] {
   const target = members.find((member) => member.id === targetId)
   const cleanName = name.trim()
-  if (!cleanName || !gender || members.some((member) => member.id === id)) return members
+  if (!cleanName || members.some((member) => member.id === id)) return members
   if (kind === 'partner' && target) {
-    if (!target.gender || target.gender === gender || !targetId) return members
+    if ((target.gender && gender && target.gender === gender) || !targetId) return members
     const female = gender === 'female' ? undefined : target
     if (female && female.spouseIds.some((spouseId) => members.find((member) => member.id === spouseId)?.gender === 'male')) return members
     if (kind === 'partner' && target.spouseIds.includes(id)) return members
@@ -243,8 +241,8 @@ export function createRelatedMember(members: FamilyMember[], targetId: string, k
   ]
   if (!target && members.length > 0) return members
   const newMember: FamilyMember = {
-    id, name: cleanName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(photo ? { photo } : {}),
-    relationship: !target ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : 'Wife' : kind === 'parent' ? gender === 'male' ? 'Father' : 'Mother' : gender === 'male' ? 'Son' : 'Daughter',
+    id, name: cleanName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(photo ? { photo } : {}),
+    relationship: !target ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : gender === 'female' ? 'Wife' : 'Partner' : kind === 'parent' ? gender === 'male' ? 'Father' : gender === 'female' ? 'Mother' : 'Parent' : gender === 'male' ? 'Son' : gender === 'female' ? 'Daughter' : 'Child',
     parentIds: isDescendant && members.length ? [father!.id, mother!.id] : [], spouseIds: target && kind === 'partner' ? [target.id] : [], siblingIds: [],
     avatar: avatar ?? looks[cleanName.length % looks.length],
   }

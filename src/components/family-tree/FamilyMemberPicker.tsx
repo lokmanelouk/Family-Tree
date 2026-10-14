@@ -43,7 +43,7 @@ export function FamilyMemberPicker({ members, value, onChange, placeholder }: Fa
     {open && <div className="family-member-picker-list" role="listbox" id={pickerId} aria-label={t('Related family member')}>
       {members.map((member) => <button className="family-member-picker-option" type="button" key={member.id} role="option" aria-selected={member.id === selected?.id} onClick={() => { onChange(member.id); setOpen(false) }}>
         <span className="family-member-picker-avatar"><FamilyAvatar member={member} compact /></span>
-        <span className="family-member-picker-copy"><strong>{member.name}</strong><small>{member.birthDate ?? t('Birth date unknown')} · {t(member.relationship)}</small></span>
+        <span className="family-member-picker-copy"><strong>{member.name}</strong><small>{member.birthDate ? <bdi dir="ltr">{member.birthDate}</bdi> : t('Birth date unknown')} · {t(member.relationship)}</small></span>
         {member.id === selected?.id && <Check size={15} aria-hidden="true" />}
       </button>)}
     </div>}

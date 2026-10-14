@@ -1,5 +1,6 @@
-/** Age from an ISO date, or a year-based estimate when only a birth year is known. */
-export function getMemberAge(birthDate?: string, deathDate?: string, now = new Date()): string | null {
+export type MemberAge = { count: number; unit: 'years' | 'months' | 'days' }
+
+export function getMemberAge(birthDate?: string, deathDate?: string, now = new Date()): MemberAge | null {
   if (!birthDate) return null
   const yearMatch = /^(\d{4})$/.exec(birthDate.trim())
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate.trim())
@@ -8,7 +9,7 @@ export function getMemberAge(birthDate?: string, deathDate?: string, now = new D
   const end = deathDate ? parseExactDate(deathDate) ?? new Date(Number(deathDate), 11, 31, 12) : now
   if (!Number.isFinite(end.getTime()) || year > end.getFullYear()) return null
 
-  if (yearMatch) return `${Math.max(0, end.getFullYear() - year)} yrs`
+  if (yearMatch) return { count: Math.max(0, end.getFullYear() - year), unit: 'years' }
   const birth = parseExactDate(birthDate)
   if (!birth || birth > end) return null
 
@@ -17,11 +18,11 @@ export function getMemberAge(birthDate?: string, deathDate?: string, now = new D
   const days = end.getDate() - birth.getDate()
   if (days < 0) months -= 1
   if (months < 0) { years -= 1; months += 12 }
-  if (years > 1) return `${years} yrs`
+  if (years > 1) return { count: years, unit: 'years' }
   const totalMonths = years * 12 + months
-  if (totalMonths >= 1) return `${totalMonths} months`
+  if (totalMonths >= 1) return { count: totalMonths, unit: 'months' }
   const elapsed = Math.max(0, Math.floor((end.getTime() - birth.getTime()) / 86_400_000))
-  return `${elapsed} days`
+  return { count: elapsed, unit: 'days' }
 }
 
 function parseExactDate(value: string): Date | null {

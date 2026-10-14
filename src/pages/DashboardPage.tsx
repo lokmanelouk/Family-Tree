@@ -305,11 +305,17 @@ export function DashboardPage() {
           }
           onEmptyAdd={() => openAdd("", "child")}
         />
-        <div className="canvas-footer">
-          <span>
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> {t("Undo")}{" "}
-            <span className="footer-separator">·</span> <kbd>Ctrl</kbd>+
-            <kbd>Shift</kbd>+<kbd>Z</kbd> {t("Redo")}
+        <div className="canvas-footer" aria-label={t("Keyboard shortcuts")}>
+          <span className="canvas-shortcuts">
+            <span className="shortcut-item">
+              <bdi className="shortcut-keys" dir="ltr"><kbd>Ctrl</kbd> + <kbd>Z</kbd></bdi>
+              <span>{t("Undo")}</span>
+            </span>
+            <span className="footer-separator" aria-hidden="true" />
+            <span className="shortcut-item">
+              <bdi className="shortcut-keys" dir="ltr"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></bdi>
+              <span>{t("Redo")}</span>
+            </span>
           </span>
         </div>
       </section>
@@ -351,6 +357,7 @@ export function DashboardPage() {
             avatar,
             fatherId,
             motherId,
+            deathDate,
           ) => {
             tree.addRelated(
               targetId,
@@ -362,6 +369,7 @@ export function DashboardPage() {
               avatar,
               fatherId,
               motherId,
+              deathDate,
             );
             setStatus(t("Family member added to the tree."));
           }}

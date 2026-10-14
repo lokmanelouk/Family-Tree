@@ -66,8 +66,8 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
       </button>
     </section>
     <footer className="sidebar-bottom">
-      {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
-      <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}>{collapsed === (language === 'en') ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>
+      {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span className="sidebar-info-copy"><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
+      <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}><span className="sidebar-collapse-icon">{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</span></button>
     </footer>
   </aside>
 }

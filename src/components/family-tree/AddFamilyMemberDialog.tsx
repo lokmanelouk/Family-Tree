@@ -17,7 +17,7 @@ type AddFamilyMemberDialogProps = {
   initialTargetId?: string
   initialKind?: RelationshipKind
   onClose: () => void
-  onAdd: (targetId: string, kind: RelationshipKind, name: string, gender: 'male' | 'female', birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], fatherId?: string, motherId?: string) => void
+  onAdd: (targetId: string, kind: RelationshipKind, name: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string) => void
   onSelectExisting: (member: FamilyMember) => void
 }
 
@@ -33,13 +33,15 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const { t } = useLanguage()
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
+  const [deathDate, setDeathDate] = useState('')
+  const [isLiving, setIsLiving] = useState(true)
   const [photo, setPhoto] = useState('')
   const [avatarId, setAvatarId] = useState('neutral')
   const [photoError, setPhotoError] = useState('')
   const [confirmedDifferent, setConfirmedDifferent] = useState(false)
   const [targetId, setTargetId] = useState(initialTargetId ?? members[0]?.id ?? '')
   const [kind, setKind] = useState<RelationshipKind>(initialKind)
-  const [gender, setGender] = useState<'male' | 'female' | ''>('')
+  const [gender, setGender] = useState<'male' | 'female' | undefined>(undefined)
   const initialPerson = members.find((member) => member.id === initialTargetId)
   const [fatherId, setFatherId] = useState(() => {
     if (initialKind === 'sibling') return getSiblingParentChoices(members, initialPerson).fatherId
@@ -53,10 +55,12 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const duplicates = findPossibleDuplicates(members, name, birthDate)
   const exactMatch = duplicates.some((match) => match.sameBirthDate)
   const birthDateError = getBirthDateError(birthDate)
+  const deathDateError = getBirthDateError(deathDate)
   const needsParents = members.length > 0 && (kind === 'child' || kind === 'sibling')
   const selectedFather = members.find((member) => member.id === fatherId)
   const selectedMother = members.find((member) => member.id === motherId)
   const selectedTarget = members.find((member) => member.id === targetId)
+  const relationshipLabel = selectedTarget ? t('Relationship to {name}', { name: '__PERSON__' }).split('__PERSON__') : null
   const parentPairAlreadyLinked = Boolean(selectedFather?.spouseIds.includes(motherId) || selectedMother?.spouseIds.includes(fatherId))
   const parentPairCanBeLinked = Boolean(selectedFather && selectedMother && (
     parentPairAlreadyLinked || validateRelationship(members, selectedFather.id, selectedMother.id, 'partner') === null
@@ -94,12 +98,14 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!gender || (!targetId && members.length && !needsParents) || !name.trim() || birthDateError || !parentsValid || (exactMatch && !confirmedDifferent)) return
+    if ((!targetId && members.length && !needsParents) || !name.trim() || birthDateError || deathDateError || !parentsValid || (exactMatch && !confirmedDifferent)) return
     const selectedAvatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? defaultAvatar
     const creationTarget = needsParents ? fatherId : targetId
-    onAdd(creationTarget, kind, name.trim(), gender, birthDate || undefined, photo || undefined, selectedAvatar, needsParents ? fatherId : undefined, needsParents ? motherId : undefined)
+    onAdd(creationTarget, kind, name.trim(), gender, birthDate || undefined, photo || undefined, selectedAvatar, needsParents ? fatherId : undefined, needsParents ? motherId : undefined, !isLiving && deathDate ? deathDate : undefined)
     setName('')
     setBirthDate('')
+    setDeathDate('')
+    setIsLiving(true)
     setPhoto('')
     setAvatarId('neutral')
     setPhotoError('')
@@ -116,9 +122,10 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
           </div>
           <div className="member-name-field">
             <label htmlFor="relative-name">{t('Name')}</label><input id="relative-name" autoFocus value={name} onChange={(event) => { setName(event.target.value); setConfirmedDifferent(false) }} placeholder={t('Full name')} required maxLength={60} />
-            <div className="gender-field"><span id="relative-gender-label">{t('Gender')} <i>*</i></span><div className="gender-options" role="radiogroup" aria-labelledby="relative-gender-label" aria-required="true">
+            <div className="gender-field"><span id="relative-gender-label">{t('Gender')} <small>{t('optional')}</small></span><div className="gender-options" role="radiogroup" aria-labelledby="relative-gender-label">
               <button type="button" role="radio" aria-checked={gender === 'male'} className={gender === 'male' ? 'selected' : ''} onClick={() => setGender('male')}>{t('Male')}</button>
               <button type="button" role="radio" aria-checked={gender === 'female'} className={gender === 'female' ? 'selected' : ''} onClick={() => setGender('female')}>{t('Female')}</button>
+              <button type="button" role="radio" aria-checked={!gender} className={!gender ? 'selected' : ''} onClick={() => setGender(undefined)}>{t('Not specified')}</button>
             </div></div>
           </div>
         </div>
@@ -127,15 +134,19 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
             <label htmlFor="relative-birth-date">{t('Birth date optional')}</label><DatePicker id="relative-birth-date" value={birthDate} onChange={(value) => { setBirthDate(value); setConfirmedDifferent(false) }} />
           </div>
           <div className="member-form-field">
-            <label>{t('Relationship to')}</label>
+            <label dir="auto">{relationshipLabel ? <>{relationshipLabel[0]}<bdi>{selectedTarget?.name}</bdi>{relationshipLabel[1]}</> : t('Relationship to')}</label>
             {members.length > 0 ? <div className="relationship-creation-fields"><RelationshipKindPicker value={kind} onChange={changeRelationshipKind} />{needsParents ? <div className="parent-choice-grid">
               <div className="parent-choice-field"><span>{t('Father')}</span><FamilyMemberPicker members={members.filter((member) => member.gender === 'male')} value={fatherId} placeholder={t('Select father')} onChange={changeFather} /></div>
               <div className="parent-choice-field"><span>{t('Mother')}</span><FamilyMemberPicker members={motherCandidates} value={motherId} placeholder={t(motherCandidates.length > 1 ? 'Choose which wife is the mother' : 'Select mother')} onChange={setMotherId} /></div>
             </div> : <FamilyMemberPicker members={members} value={targetId} onChange={setTargetId} />}{needsParents && !parentsValid && <small className="parent-choice-error">{t('Choose one existing father and one existing mother to place this person in the tree.')}</small>}</div> : <p className="form-hint">{t('This person will start your family tree.')}</p>}
           </div>
         </div>
+        <div className="member-form-field living-status-field">
+          <label className="living-status-control" htmlFor="relative-living-status"><span>{t('Still living?')}</span><input id="relative-living-status" type="checkbox" role="switch" checked={isLiving} onChange={(event) => { setIsLiving(event.target.checked); if (event.target.checked) setDeathDate('') }} /></label>
+          {!isLiving && <div className="death-date-field"><label htmlFor="relative-death-date">{t('Death date optional')}</label><DatePicker id="relative-death-date" value={deathDate} onChange={setDeathDate} />{deathDateError && <small className="custom-date-error">{t(deathDateError === 'Birth dates cannot be in the future.' ? 'Death dates cannot be in the future.' : deathDateError)}</small>}</div>}
+        </div>
         {duplicates.length > 0 && <div className="duplicate-warning" role="status"><strong>{t(duplicates.length > 1 ? 'Possible matches' : 'Possible match')}</strong><span>{t(exactMatch ? 'A person with this name and birth date is already in the tree. Select them or verify this is another person.' : 'Someone has the same name. Compare details; people are never merged automatically.')}</span>{duplicates.map(({ person, sameBirthDate }) => <button type="button" key={person.id} onClick={() => { onSelectExisting(person); onClose() }}><span>{person.name}</span><small>{person.birthDate ?? t('Birth date unknown')} Â· {person.relationship}{sameBirthDate ? ` Â· ${t('same birth date')}` : ''}</small></button>)}{exactMatch && <label className="duplicate-override"><input type="checkbox" checked={confirmedDifferent} onChange={(event) => setConfirmedDifferent(event.target.checked)} /> {t('I verified this is a different person')}</label>}</div>}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button className="primary-button" type="submit" disabled={!gender || Boolean(birthDateError) || !parentsValid || (members.length > 0 && !needsParents && !targetId) || (exactMatch && !confirmedDifferent)}>{t('Add person')}</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button className="primary-button" type="submit" disabled={Boolean(birthDateError || deathDateError) || !parentsValid || (members.length > 0 && !needsParents && !targetId) || (exactMatch && !confirmedDifferent)}>{t('Add person')}</button></div>
       </form>
     </section>
   </div>
