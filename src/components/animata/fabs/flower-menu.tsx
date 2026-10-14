@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type ComponentType, type CSSProperties, type SVGProps } from 'react'
-import { Plus } from 'lucide-react'
+import { Share2 } from 'lucide-react'
 import './flower-menu.css'
 
 export type FlowerMenuItem = {
@@ -86,6 +86,6 @@ export function FlowerMenu({ items, label = 'Open quick links' }: FlowerMenuProp
       aria-expanded={open}
       aria-controls={menuId}
       onClick={() => setOpen((value) => !value)}
-    ><Plus width={24} height={24} aria-hidden="true" /></button>
+    ><Share2 width={24} height={24} aria-hidden="true" /></button>
   </div>
 }

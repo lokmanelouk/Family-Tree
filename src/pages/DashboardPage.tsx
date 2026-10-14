@@ -6,7 +6,6 @@ import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel
 import { TreeToolbar } from "../components/family-tree/TreeToolbar";
 import { ConfirmationDialog } from "../components/dialogs/ConfirmationDialog";
 import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChangeDialog";
-import { RelationshipGuideDialog } from "../components/dialogs/RelationshipGuideDialog";
 import { TreeSidebar } from "../components/layout/TreeSidebar";
 import { FamilyQuickLinks } from "../components/animata/fabs/FamilyQuickLinks";
 import { useFamilyTree } from "../hooks/useFamilyTree";
@@ -14,6 +13,7 @@ import { getChildCounts } from "../lib/tree-logic";
 import { computeTreeLayout, type TreeNodeMode } from "../lib/tree-layout";
 import { exportTree, parseTreeBackup } from "../lib/tree-backup";
 import type { FamilyMember, RelationshipKind } from "../types/family";
+import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
 
 type AddRequest = { targetId: string; kind: RelationshipKind };
@@ -24,17 +24,19 @@ export function DashboardPage() {
   const { t, language } = useLanguage();
   const tree = useFamilyTree();
   const { undo, redo } = tree;
-  const [theme, setTheme] = useState<"charcoal" | "slate" | "light">(() => {
+  const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem("family-tree-theme");
-      return saved === "slate" || saved === "light" ? saved : "charcoal";
+      if (isAppTheme(saved)) return saved;
+      if (saved === "light") return "warm-light";
+      if (saved === "charcoal") return "midnight";
+      return "slate";
     } catch {
-      return "charcoal";
+      return "slate";
     }
   });
-  const [nodeMode, setNodeMode] = useState<TreeNodeMode>("rectangle");
+  const [nodeMode, setNodeMode] = useState<TreeNodeMode>("circle");
   const [focusMode, setFocusMode] = useState(false);
-  const [showBranchColors, setShowBranchColors] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [collapsedAncestorIds, setCollapsedAncestorIds] = useState<Set<string>>(
@@ -49,7 +51,6 @@ export function DashboardPage() {
     null,
   );
   const [peopleOpen, setPeopleOpen] = useState(false);
-  const [relationshipGuideOpen, setRelationshipGuideOpen] = useState(false);
   const [status, setStatus] = useState("");
   const selectedMember =
     tree.members.find((member) => member.id === selectedId) ?? null;
@@ -238,14 +239,12 @@ export function DashboardPage() {
           members={tree.members}
           zoom={zoom}
           mode={nodeMode}
-          showBranchColors={showBranchColors}
           selectedId={selectedId}
           areAllExpanded={collapsedIds.size === 0 && collapsedAncestorIds.size === 0}
           canUndo={tree.canUndo}
           canRedo={tree.canRedo}
           onAddPerson={() => openAdd()}
           onAutoOrganize={autoOrganize}
-          onOpenGuide={() => setRelationshipGuideOpen(true)}
           onSearch={findMember}
           onZoom={(amount) =>
             setZoom((current) =>
@@ -264,7 +263,6 @@ export function DashboardPage() {
           onUndo={tree.undo}
           onRedo={tree.redo}
           onSetMode={(mode) => setNodeMode(mode)}
-          onToggleBranchColors={() => setShowBranchColors((value) => !value)}
           onExport={downloadTree}
           onImport={(file) => void restoreTree(file)}
         />
@@ -297,7 +295,6 @@ export function DashboardPage() {
           selectedId={selectedId}
           focusId={focusMode ? selectedId : null}
           mode={nodeMode}
-          showBranchColors={showBranchColors}
           layoutRevision={layoutRevision}
           onSelect={(member) => {
             setSelectedId((current) =>
@@ -406,9 +403,6 @@ export function DashboardPage() {
           onCancel={() => setRestorePending(null)}
           onConfirm={confirmRestore}
         />
-      )}
-      {relationshipGuideOpen && (
-        <RelationshipGuideDialog onClose={() => setRelationshipGuideOpen(false)} />
       )}
       <div className="status-message" aria-live="polite" key={status}>
         {status}

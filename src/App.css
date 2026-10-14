@@ -687,13 +687,16 @@
 .details-panel {
   position:fixed;
   z-index:51;
-  top:0;
+  top:var(--details-panel-top,136px);
   right:0;
   bottom:0;
   width:304px;
+  max-height:calc(100dvh - var(--details-panel-top,136px));
   display:flex;
   flex-direction:column;
   align-items:flex-start;
+  overflow-y:auto;
+  overscroll-behavior:contain;
   padding:18px 18px 16px;
   border-left:1px solid var(--line);
   background:var(--surface);
@@ -725,6 +728,12 @@
 .details-top button:hover,.people-panel-heading>button:hover {
   background:var(--surface-hover)
 }
+.details-top-actions { display:flex; align-items:center; gap:3px }
+.details-options-wrap { position:relative }
+.details-options-menu { position:absolute; z-index:5; top:calc(100% + 5px); inset-inline-end:0; width:190px; padding:5px; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); box-shadow:0 12px 28px #0005 }
+.details-options-menu .details-delete-option { width:100%; min-height:36px; display:flex; align-items:center; gap:8px; padding:0 9px; border:0; border-radius:6px; background:transparent; color:#b4555c; font:inherit; font-size:11px; text-align:start; cursor:pointer }
+.details-options-menu .details-delete-option:hover,.details-options-menu .details-delete-option:focus-visible { outline:0; background:color-mix(in srgb,#b4555c 12%,var(--surface-raised)); color:#d36b72 }
+.details-options-menu .details-delete-option svg { flex:none }
 .details-portrait {
   width:74px;
   height:74px;
@@ -809,12 +818,13 @@
   padding-top:13px;
   border-top:1px solid var(--line-soft)
 }
-.details-actions>span {
+.details-actions h3 {
+  margin:0;
   color:var(--muted);
   font-size:9px;
   font-weight:600
 }
-.details-actions>div {
+.details-actions .relative-action-grid {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:6px;
@@ -838,22 +848,6 @@
   color:var(--accent)
 }
 .details-actions button svg { width:14px; height:14px; flex:none; color:var(--accent) }
-.delete-person {
-  margin-top:auto;
-  display:flex;
-  align-items:center;
-  gap:7px;
-  padding:8px 2px;
-  border:0;
-  background:transparent;
-  color:#c47e7e;
-  font-size:9px;
-  cursor:pointer
-}
-.delete-person:hover {
-  color:#e69a9a
-}
-
 .panel-backdrop,.modal-shade {
   position:fixed;
   inset:0;
@@ -1267,6 +1261,7 @@ to {
 }
 .details-panel {
   top:auto;
+  max-height:none;
   left:0;
   right:0;
   bottom:0;
@@ -1285,9 +1280,6 @@ to {
 }
 .details-actions {
   margin-top:12px
-}
-.delete-person {
-  margin-top:14px
 }
 .people-panel {
   width:100%
@@ -1378,8 +1370,10 @@ html[dir=rtl] .tree-sidebar .side-link { text-align:right }
 html[dir=rtl] .tree-sidebar .side-link small { margin-left:0; margin-right:auto }
 html[dir=rtl] .tree-main { direction:rtl }
 html[dir=rtl] .tree-world { direction:ltr }
-html[dir=rtl] .tree-world .member-main { text-align:start }
-html[dir=rtl] .tree-world .node-copy { text-align:start }
+html[dir=rtl] .tree-world .member-main { direction:rtl; text-align:right }
+html[dir=rtl] .tree-world .node-copy { direction:rtl; align-items:flex-end; text-align:right }
+html[dir=rtl] .tree-world .circle-node .member-main { text-align:center }
+html[dir=rtl] .tree-world .circle-node .node-copy { align-items:center; text-align:center }
 html[dir=rtl] .toolbar-search { direction:rtl }
 html[dir=rtl] .search-results { left:auto; right:0 }
 html[dir=rtl] .search-results button { text-align:right }
@@ -1390,9 +1384,12 @@ html[dir=rtl] .node-actions { right:auto; left:6px }
 html[dir=rtl] .family-speed-dial .speed-dial-items { right:auto; left:-5px }
 html[dir=rtl] .speed-dial-item { flex-direction:row-reverse; justify-content:flex-end }
 html[dir=rtl] .details-panel { right:auto; left:0; border-left:0; border-right:1px solid var(--line) }
+html[dir=rtl] .details-panel { align-items:stretch; text-align:right }
+html[dir=rtl] .details-top { direction:ltr }
+html[dir=rtl] .details-top-actions { direction:ltr; margin-inline-start:auto }
 html[dir=rtl] .details-actions button { flex-direction:row-reverse; justify-content:flex-end }
 html[dir=rtl] .people-panel { left:auto; right:0; border-right:0; border-left:1px solid var(--line) }
-html[dir=rtl] .relationship-dialog select,html[dir=rtl] .member-dialog input,html[dir=rtl] .member-dialog select { text-align:right }
+html[dir=rtl] .relationship-dialog select,html[dir=rtl] .member-dialog input,html[dir=rtl] .member-dialog select,html[dir=rtl] .member-dialog textarea,html[dir=rtl] .family-member-picker-trigger { direction:rtl; text-align:right }
 html[dir=rtl] .duplicate-warning button { text-align:right }
 html[dir=rtl] .duplicate-override { flex-direction:row-reverse; justify-content:flex-end }
 html[dir=rtl] .relationship-person-button,html[dir=rtl] .relationship-group>p { margin-left:0; margin-right:22px }
@@ -1748,8 +1745,9 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .side-link { font-size:13px }
 .canvas-heading h2 { font-size:15px }
 .canvas-heading span,.canvas-heading p { font-size:12px }
-.toolbar-primary-group,.toolbar-layout-group { display:flex; align-items:center; gap:8px }
+.toolbar-primary-group,.toolbar-center-group,.toolbar-system-group,.toolbar-layout-group { display:flex; align-items:center; gap:8px }
 .toolbar-primary-group { flex:1; min-width:250px }
+.toolbar-center-group,.toolbar-system-group { flex:none; min-width:0 }
 .toolbar-search { min-width:150px; max-width:none; flex:1 }
 .toolbar-layout-group { gap:4px; padding-inline:3px }
 .tree-toolbar>.toolbar-divider { margin-inline:1px }
@@ -1772,6 +1770,20 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
 .person-node.branch-colored:hover .node-avatar { box-shadow:0 0 0 2px var(--branch-color) }
 .canvas-heading p { max-width:480px; margin:0; color:var(--muted) }
 .tree-world { transform-origin:top left }
+/* RTL toolbar placement is physical and explicit: right = search/add, center =
+   canvas controls, left = history/help/settings. The canvas itself stays LTR. */
+html[dir=rtl] .tree-toolbar {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  grid-template-areas:"system center primary";
+  direction:ltr;
+  column-gap:12px;
+}
+html[dir=rtl] .toolbar-primary-group { grid-area:primary; min-width:0; width:100%; flex:none; direction:ltr }
+html[dir=rtl] .toolbar-center-group { grid-area:center; justify-self:center; direction:ltr; gap:8px }
+html[dir=rtl] .toolbar-system-group { grid-area:system; justify-self:start; direction:rtl; gap:7px }
+html[dir=rtl] .toolbar-search { min-width:0 }
+html[dir=rtl] .settings-wrap { margin:0 }
 @media(max-width:900px) {
   .tree-sidebar { width:68px }
   .tree-toolbar { gap:5px; padding-inline:8px }
@@ -1791,6 +1803,13 @@ html[dir="rtl"] .custom-calendar,html[dir="rtl"] .family-member-picker-list { le
   .canvas-heading { min-height:54px }
   .canvas-heading h2 { font-size:13px }
   .canvas-heading span { font-size:10px }
+}
+@media(max-width:600px) {
+  html[dir=rtl] .tree-toolbar { display:flex; direction:rtl; justify-content:space-between }
+  html[dir=rtl] .toolbar-primary-group { flex:1 1 100%; min-width:0; order:0; direction:ltr }
+  html[dir=rtl] .toolbar-center-group { order:1; justify-content:flex-start; gap:5px }
+  html[dir=rtl] .toolbar-system-group { order:2; margin-inline-start:auto; justify-content:flex-end; gap:5px }
+  html[dir=rtl] .settings-wrap { margin:0 }
 }
 .speed-dial-plus { transition:transform .16s cubic-bezier(.2,.8,.2,1) }
 .speed-dial-plus.is-open { transform:rotate(45deg) }
@@ -1871,10 +1890,27 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 .toolbar-guide-button { width:34px; height:34px; flex:none; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); color:var(--muted); cursor:pointer; transition:background .16s,border-color .16s,color .16s,transform .16s }
 .toolbar-guide-button:hover { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); transform:translateY(-1px) }
 .toolbar-guide-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
-.relationship-guide-shade { z-index:70 }
-.relationship-guide-dialog { width:min(440px,100%); padding:20px; border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 24px 80px #0008; animation:dialog-in .2s cubic-bezier(.2,.8,.2,1) both }
-.relationship-guide-dialog .dialog-header { align-items:center }
-.relationship-guide-dialog .dialog-header h2 { margin:5px 0 0; font-size:17px }
+.relationship-guide-popover-wrap { position:relative; flex:none }
+.relationship-guide-popover {
+  position:absolute;
+  z-index:80;
+  top:calc(100% + 9px);
+  right:0;
+  width:min(320px,calc(100vw - 24px));
+  max-height:min(72vh,560px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:17px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+  color:var(--text);
+  box-shadow:0 16px 42px #0006;
+  animation:relationship-guide-popover-in .16s cubic-bezier(.2,.8,.2,1) both;
+}
+.relationship-guide-popover .dialog-header { align-items:center }
+.relationship-guide-popover .dialog-header h2 { margin:5px 0 0; font-size:17px }
+@keyframes relationship-guide-popover-in { from { opacity:0; transform:translateY(-5px) scale(.98) } to { opacity:1; transform:translateY(0) scale(1) } }
 .relationship-guide-close { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); color:var(--muted); cursor:pointer }
 .relationship-guide-close:hover { border-color:var(--accent); color:var(--accent); background:var(--surface-hover) }
 .relationship-guide-intro { margin:12px 0 16px; color:var(--muted); font-size:12px; line-height:1.5 }
@@ -1893,9 +1929,194 @@ html[dir=rtl] .circle-node .node-actions { right:27px; left:auto }
 .guide-line { width:24px; height:0; border-top:2px solid var(--accent) }
 .guide-line.dashed { border-top-style:dashed; border-color:#e2c17b }
 .guide-line.dotted { border-top-style:dotted; border-color:#78b89e }
-.relationship-guide-dialog .dialog-actions { margin-top:16px }
-.relationship-guide-dialog .dialog-actions .primary-button { min-width:88px }
-.tree-app[data-theme=light] .relationship-guide-dialog { box-shadow:0 20px 64px #2232 }
+.relationship-guide-popover .dialog-actions { margin-top:16px }
+.relationship-guide-popover .dialog-actions .primary-button { min-width:88px }
+.tree-app[data-theme=light] .relationship-guide-popover { box-shadow:0 16px 42px #2233 }
+html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
+@media(max-width:600px) {
+  .relationship-guide-popover { right:-2px; width:min(320px,calc(100vw - 18px)); max-height:65vh }
+  html[dir=rtl] .relationship-guide-popover { right:auto; left:-2px }
+}
+@media(prefers-reduced-motion:reduce) { .relationship-guide-popover { animation:none } }
 .tree-lines g.marriage-anchor,.tree-lines g.divorce-anchor,.tree-lines g.adoption-anchor { cursor:help }
 .tree-lines g.marriage-anchor:focus-visible,.tree-lines g.divorce-anchor:focus-visible,.tree-lines g.adoption-anchor:focus-visible { outline:none; filter:drop-shadow(0 0 3px var(--accent)) }
 
+/* Kinfolk theme tokens. Relationship colors below are intentionally shared by
+   all themes; only the application surfaces and UI accents change. */
+.tree-app[data-theme] {
+  --rel-parent:#43c7b3;
+  --rel-partner:#e779ae;
+  --rel-former:#d77a88;
+  --rel-adoption:#61c59b;
+  --branch-0:#43c7b3;
+  --branch-1:#d76cae;
+  --branch-2:#e9ad4f;
+  --branch-3:#9184e8;
+  --branch-4:#43bbdf;
+  --branch-5:#eb7889;
+  --branch-6:#99c75e;
+  --branch-7:#e9875b;
+  --focus:var(--accent-strong);
+  --gender-male:#b7e9f7;
+  --gender-female:#f4c1dc;
+  --gender-male-bg:color-mix(in srgb,#43bbdf 16%,var(--surface));
+  --gender-female-bg:color-mix(in srgb,#d76cae 16%,var(--surface));
+  color-scheme:dark;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.tree-app[data-theme=slate] {
+  --bg:#19232e;
+  --surface:#222f3c;
+  --surface-raised:#2b3a49;
+  --surface-hover:#354758;
+  --line:#536474;
+  --line-soft:#3b4b5a;
+  --text:#f1f5f8;
+  --muted:#c4d0da;
+  --subtle:#afbfcb;
+  --accent:#a8ccdc;
+  --accent-strong:#76a9bf;
+  --accent-soft:#304755;
+  --accent-secondary:#e4b996;
+  --accent-secondary-soft:#4b4038;
+  --canvas:#1d2935;
+  --canvas-dot:#3c4b58;
+  --focus:#b9deed;
+}
+
+.tree-app[data-theme=warm-light] {
+  --bg:#f3eee5;
+  --surface:#fffdf8;
+  --surface-raised:#f8f3e9;
+  --surface-hover:#eee6d9;
+  --line:#cfc2b1;
+  --line-soft:#e3d9cb;
+  --text:#302c27;
+  --muted:#595147;
+  --subtle:#655d54;
+  --accent:#477455;
+  --accent-strong:#365f43;
+  --accent-soft:#e3ede4;
+  --accent-secondary:#92543a;
+  --accent-secondary-soft:#f3e6dc;
+  --canvas:#faf7f0;
+  --canvas-dot:#e8dfd2;
+  --focus:#315f40;
+  --gender-male:#205f7b;
+  --gender-female:#8e3c61;
+  --gender-male-bg:#e5f0f3;
+  --gender-female-bg:#f5e8ef;
+  color-scheme:light;
+}
+
+.tree-app[data-theme=midnight] {
+  --bg:#151727;
+  --surface:#1e2134;
+  --surface-raised:#282c42;
+  --surface-hover:#343950;
+  --line:#50556e;
+  --line-soft:#393e55;
+  --text:#f3f2fa;
+  --muted:#c9c9dc;
+  --subtle:#b3b5cd;
+  --accent:#c5b8f4;
+  --accent-strong:#a091dc;
+  --accent-soft:#38344e;
+  --accent-secondary:#e4bda0;
+  --accent-secondary-soft:#4b3d3b;
+  --canvas:#191c2e;
+  --canvas-dot:#3b3f57;
+  --focus:#d7cbff;
+}
+
+.tree-app[data-theme=sage] {
+  --bg:#e5ece5;
+  --surface:#f1f5ef;
+  --surface-raised:#e8f0e8;
+  --surface-hover:#dce8dd;
+  --line:#bdcdbf;
+  --line-soft:#d3dfd4;
+  --text:#26352c;
+  --muted:#4e6254;
+  --subtle:#596d60;
+  --accent:#35785c;
+  --accent-strong:#285f47;
+  --accent-soft:#d8e8dc;
+  --accent-secondary:#8c553c;
+  --accent-secondary-soft:#f0e3da;
+  --canvas:#edf3ed;
+  --canvas-dot:#d5e0d6;
+  --focus:#285f47;
+  --gender-male:#205f7b;
+  --gender-female:#8e3c61;
+  --gender-male-bg:#e2eef1;
+  --gender-female-bg:#f4e7ed;
+  color-scheme:light;
+}
+
+/* Relationship semantics do not shift with the selected UI theme. */
+.tree-app[data-theme] .tree-lines path.spouse-line { stroke:var(--rel-partner) }
+.tree-app[data-theme] .tree-lines path.former-spouse-line { stroke:var(--rel-former) }
+.tree-app[data-theme] .tree-lines g.marriage-anchor { color:var(--rel-partner) }
+.tree-app[data-theme] .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop { stroke:var(--rel-partner) }
+.tree-app[data-theme] .tree-lines g.divorce-anchor circle { stroke:var(--rel-former) }
+.tree-app[data-theme] .tree-lines g.adoption-anchor .adoption-badge-backdrop { stroke:var(--rel-adoption) }
+.tree-app[data-theme] .tree-lines g.adoption-anchor .adoption-shield { fill:var(--rel-adoption); stroke:var(--rel-adoption) }
+.tree-app[data-theme] .tree-lines rect.spouse-circle-rail.is-divorced { stroke:var(--rel-former) }
+
+/* Consistent person-card states: restrained hover, explicit selection, and
+   keyboard focus that remains visible in both display modes. */
+.tree-app .person-node:not(.circle-node) {
+  border-color:var(--line);
+  background:var(--surface);
+  box-shadow:0 2px 7px #00000016;
+  transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;
+}
+.tree-app .person-node:not(.circle-node):hover,
+.tree-app .person-node:not(.circle-node):focus-within {
+  border-color:var(--accent-strong);
+  background:var(--surface-raised);
+  box-shadow:0 3px 9px #00000020;
+}
+.tree-app .person-node:not(.circle-node).is-selected {
+  z-index:2;
+  border:2px solid var(--focus);
+  background:var(--surface-raised);
+  box-shadow:0 0 0 2px var(--surface);
+}
+.tree-app .person-node.circle-node .node-avatar {
+  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+}
+.tree-app .person-node.circle-node.is-selected .node-avatar,
+.tree-app .person-node.circle-node.has-spouse.is-selected .node-avatar {
+  border-color:var(--focus);
+  box-shadow:0 0 0 3px var(--focus),0 0 0 5px var(--surface);
+}
+.tree-app .person-node .member-main:focus-visible {
+  outline:2px solid var(--focus);
+  outline-offset:-4px;
+}
+.tree-app .person-node.circle-node .member-main:focus-visible { border-radius:50% }
+.tree-app .person-node .node-copy strong { color:var(--text) }
+.tree-app .person-node .node-copy .node-age { color:var(--muted) }
+.tree-app .person-node .node-copy .node-gender.male {
+  border-color:color-mix(in srgb,var(--gender-male) 35%,var(--line));
+  background:var(--gender-male-bg);
+  color:var(--gender-male);
+}
+.tree-app .person-node .node-copy .node-gender.female {
+  border-color:color-mix(in srgb,var(--gender-female) 35%,var(--line));
+  background:var(--gender-female-bg);
+  color:var(--gender-female);
+}
+.tree-app button:disabled {
+  cursor:not-allowed;
+  opacity:.56;
+  box-shadow:none;
+}
+@media(prefers-reduced-motion:reduce) {
+  .tree-app .person-node,
+  .tree-app .person-node .node-avatar { transition:none!important }
+}

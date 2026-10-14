@@ -21,11 +21,10 @@ type FamilyTreeCanvasProps = {
   onEmptyAdd: () => void
   mode: TreeNodeMode
   focusId: string | null
-  showBranchColors: boolean
   layoutRevision: number
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, mode, focusId, showBranchColors, layoutRevision }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, mode, focusId, layoutRevision }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -38,8 +37,8 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const visibleMembers = members.filter((member) => !hiddenIds.has(member.id))
   const childCounts = getChildCounts(members)
   const focusedIds = focusId ? getImmediateFamilyIds(members, focusId) : null
-  const branchColors = showBranchColors ? getRootBranchMap(members) : null
-  const coupleColors = showBranchColors ? getParentalCoupleColors(members) : null
+  const branchColors = getRootBranchMap(members)
+  const coupleColors = getParentalCoupleColors(members)
   const activeLineMemberId = hoveredId ?? selectedId
   const activeLineIds = activeLineMemberId ? getLineageFocusIds(members, activeLineMemberId) : null
   const layout = computeTreeLayout(visibleMembers, mode)

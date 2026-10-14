@@ -8,21 +8,23 @@ export function RelationshipGuideDialog({ onClose }: RelationshipGuideDialogProp
   const { t } = useLanguage()
   const titleId = useId()
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     closeButtonRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [])
 
-  return <div className="modal-shade relationship-guide-shade" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <section className="relationship-guide-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+  return <section id="relationship-guide-panel" className="relationship-guide-popover" role="dialog" aria-modal="false" aria-labelledby={titleId}>
       <header className="dialog-header">
         <div><span>{t('CANVAS GUIDE')}</span><h2 id={titleId}>{t('Relationship guide')}</h2></div>
-        <button ref={closeButtonRef} type="button" className="relationship-guide-close" title={t('Close dialog')} aria-label={t('Close dialog')} onClick={onClose}><X size={17} /></button>
+        <button ref={closeButtonRef} type="button" className="relationship-guide-close" title={t('Close relationship guide')} aria-label={t('Close relationship guide')} onClick={onClose}><X size={17} /></button>
       </header>
       <p className="relationship-guide-intro">{t('A quick guide to the symbols and lines in your family tree.')}</p>
       <div className="relationship-guide-list">
@@ -48,7 +50,5 @@ export function RelationshipGuideDialog({ onClose }: RelationshipGuideDialogProp
         <span><i className="guide-line dashed" />{t('Partners')}</span>
         <span><i className="guide-line dotted" />{t('Adoption')}</span>
       </div>
-      <div className="dialog-actions"><button type="button" className="primary-button" onClick={onClose}>{t('Got it')}</button></div>
-    </section>
-  </div>
+  </section>
 }

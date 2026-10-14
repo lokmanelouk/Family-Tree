@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LanguageContext, type Language } from './LanguageContext'
 
 const arabic: Record<string, string> = {
+  'Born': '\u0648\u0644\u062F', 'Died': '\u062A\u0648\u0641\u064A', 'Present': '\u062D\u062A\u0649 \u0627\u0644\u0622\u0646', 'More options': '\u062E\u064A\u0627\u0631\u0627\u062A \u0623\u062E\u0631\u0649',
   'Enter a year from 1000 onward.': 'أدخل سنة تبدأ من 1000 أو بعدها.',
   'Birth dates cannot be in the future.': 'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',
   'Enter a month from 01 to 12.': 'أدخل شهرًا من 01 إلى 12.',
@@ -28,7 +29,7 @@ const arabic: Record<string, string> = {
   'Expand all branches': 'توسيع كل الفروع', 'Collapse all branches': 'طي كل الفروع', 'Focus selected family': 'التركيز على العائلة المحددة', 'Undo': 'تراجع', 'Redo': 'إعادة',
   'Export and backup': 'تصدير ونسخ احتياطي', 'Export full tree': 'تصدير الشجرة كاملة', 'Export selected branch': 'تصدير الفرع المحدد', 'Restore backup': 'استعادة نسخة احتياطية',
   'Switch to light theme': 'التبديل إلى المظهر الفاتح', 'Switch to dark theme': 'التبديل إلى المظهر الداكن', 'Language': 'اللغة', 'Theme': 'المظهر',
-  'Charcoal': 'فحمي', 'Blue slate': 'أزرق أردوازي', 'Soft light': 'فاتح هادئ', 'Show root branch colors': 'إظهار ألوان فروع الجذور', 'Hide root branch colors': 'إخفاء ألوان فروع الجذور',
+  'Charcoal': 'فحمي', 'Blue slate': 'أزرق أردوازي', 'Soft light': 'فاتح هادئ',
   'WORKSPACE': 'مساحة العمل', 'Family members': 'أفراد العائلة', 'Family navigation': 'التنقل العائلي', 'Quick stats': 'إحصاءات سريعة', 'Members': 'الأفراد', 'Generations': 'الأجيال', 'Branches': 'الفروع', 'Go to {name}': 'الانتقال إلى {name}', 'Add a family member to see branches here.': 'أضف فردًا من العائلة لعرض الفروع هنا.', 'Family tree preview': 'معاينة شجرة العائلة', 'PERSON DETAILS': 'تفاصيل الفرد', 'Close details': 'إغلاق التفاصيل',
   'Birth date unknown': 'تاريخ الميلاد غير معروف', 'Parents': 'الوالدان', 'No parents linked': 'لا توجد صلة بالوالدين', 'Partners': 'الشركاء', 'No partners linked': 'لا يوجد شركاء',
   'Siblings': 'الإخوة والأخوات', 'No siblings linked': 'لا توجد صلة بالإخوة', 'Children': 'الأبناء', 'No children linked': 'لا يوجد أبناء', 'Add relative': 'إضافة قريب', 'Parent': 'والد', 'Child': 'ابن', 'Partner': 'شريك', 'Sibling': 'أخ أو أخت', 'Delete family member': 'حذف فرد من العائلة',

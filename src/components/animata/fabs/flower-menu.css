@@ -15,8 +15,8 @@
     --flower-trigger-half: 29px;
     --flower-center-shift: calc(var(--flower-orbit-radius) + var(--flower-petal-half) - var(--flower-trigger-half));
     position: fixed;
-    right: max(1.5rem, env(safe-area-inset-right, 0px));
-    bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    inset-inline-end: 1.5rem;
+    inset-block-end: max(1.5rem, env(safe-area-inset-bottom, 0px));
     z-index: 50;
     width: 58px;
     height: 58px;
@@ -45,8 +45,7 @@
   .flower-menu-root[data-open="true"] .flower-menu-trigger:hover { transform: translate(calc(0px - var(--flower-center-shift)), calc(-2px - var(--flower-center-shift))); }
   .flower-menu-trigger:active { transform: scale(.95); }
   .flower-menu-root[data-open="true"] .flower-menu-trigger:active { transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift))) scale(.95); }
-  .flower-menu-trigger svg { transition: transform 240ms cubic-bezier(.2, 0, 0, 1); }
-  .flower-menu-trigger[aria-expanded="true"] svg { transform: rotate(45deg); }
+  .flower-menu-trigger svg { transition: transform 180ms cubic-bezier(.2, 0, 0, 1); }
 
   .flower-menu-items {
     position: absolute;
@@ -91,6 +90,18 @@
     pointer-events: none;
     transform: translate(-50%, -50%) scale(.72);
     transition-delay: 0ms;
+  }
+  html[dir="ltr"] .flower-menu-root { inset-inline-end: max(1.5rem, env(safe-area-inset-right, 0px)); }
+  html[dir="rtl"] .flower-menu-root { inset-inline-end: max(1.5rem, env(safe-area-inset-left, 0px)); }
+  html[dir="rtl"] .flower-menu-root[data-open="true"] .flower-menu-items,
+  html[dir="rtl"] .flower-menu-root[data-open="true"] .flower-menu-trigger {
+    transform: translate(var(--flower-center-shift), calc(0px - var(--flower-center-shift)));
+  }
+  html[dir="rtl"] .flower-menu-root[data-open="true"] .flower-menu-trigger:hover {
+    transform: translate(var(--flower-center-shift), calc(-2px - var(--flower-center-shift)));
+  }
+  html[dir="rtl"] .flower-menu-root[data-open="true"] .flower-menu-trigger:active {
+    transform: translate(var(--flower-center-shift), calc(0px - var(--flower-center-shift))) scale(.95);
   }
   .flower-menu-item[aria-disabled="true"] { cursor: not-allowed; box-shadow: none; }
   .flower-menu-root[data-open="true"] .flower-menu-item[aria-disabled="true"] { opacity: .58; pointer-events: none; }

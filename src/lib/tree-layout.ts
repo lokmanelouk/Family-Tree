@@ -9,7 +9,7 @@ export const MARRIAGE_ANCHOR_RADIUS = 12
 export const CIRCULAR_AVATAR_CENTER_Y = 42.5
 export const CIRCULAR_AVATAR_RADIUS = 39.5
 
-const lineageLinePalette = ['#43c7b3', '#d76cae', '#e9ad4f', '#9184e8', '#43bbdf', '#eb7889', '#99c75e', '#e9875b']
+const lineageLinePalette = Array.from({ length: 8 }, (_, index) => `var(--branch-${index})`)
 
 /** Give each distinct parental pair a stable, distinct connector color. */
 export function getParentalCoupleColors(members: FamilyMember[]): Map<string, string> {

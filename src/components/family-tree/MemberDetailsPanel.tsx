@@ -1,5 +1,5 @@
-import { Baby, Check, GitBranch, HeartHandshake, Link2, Trash2, UserRoundPlus, UsersRound, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Baby, Check, Ellipsis, GitBranch, HeartHandshake, Link2, Trash2, UserRoundPlus, UsersRound, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
@@ -24,6 +24,8 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
   const [photoError, setPhotoError] = useState('')
   const [linkingSpouse, setLinkingSpouse] = useState(false)
   const [spouseCandidateId, setSpouseCandidateId] = useState('')
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  const optionsRef = useRef<HTMLDivElement>(null)
   const parents = findMembers(members, member.parentIds)
   const partners = findMembers(members, member.spouseIds)
   const siblings = findMembers(members, member.siblingIds)
@@ -33,17 +35,38 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
     && validateRelationship(members, member.id, candidate.id, 'partner') === null,
   ), [member.id, member.spouseIds, members])
 
+  useEffect(() => {
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!optionsRef.current?.contains(event.target as Node)) setOptionsOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOptionsOpen(false)
+    }
+    window.addEventListener('pointerdown', closeOnOutside)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutside)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
+
   return (
     <aside className="details-panel">
       <div className="details-top">
         <span>{t('PERSON DETAILS')}</span>
-        <button title={t('Close details')} aria-label={t('Close details')} onClick={onClose}><X size={17} /></button>
+        <div className="details-top-actions">
+          <div className="details-options-wrap" ref={optionsRef}>
+            <button type="button" title={t('More options')} aria-label={t('More options')} aria-haspopup="menu" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><Ellipsis size={18} /></button>
+            {optionsOpen && <div className="details-options-menu" role="menu"><button type="button" role="menuitem" className="details-delete-option" onClick={() => { setOptionsOpen(false); onDelete() }}><Trash2 size={14} />{t('Delete family member')}</button></div>}
+          </div>
+          <button type="button" title={t('Close details')} aria-label={t('Close details')} onClick={onClose}><X size={17} /></button>
+        </div>
       </div>
       <div className="details-portrait"><ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} /></div>
       <h2>{member.name}</h2>
       <p className="details-relation">{t(member.relationship)}</p>
       <div className="details-dates">
-        {member.birthDate ?? t('Birth date unknown')}{member.deathDate ? ` — ${member.deathDate}` : ''}
+        {formatLifeDates(member.birthDate, member.deathDate, t)}
       </div>
 
       <div className="details-links">
@@ -64,16 +87,15 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
         <RelationshipGroup icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('No children linked')} onSelect={onSelectRelative} />
       </div>
 
-      <div className="details-actions">
-        <span>{t('Add relative')}</span>
-        <div>
-          <button onClick={() => onAddRelative(member.id, 'parent')}><UserRoundPlus size={14} /> {t('Parent')}</button>
-          <button onClick={() => onAddRelative(member.id, 'child')}><Baby size={14} /> {t('Child')}</button>
-          <button onClick={() => onAddRelative(member.id, 'partner')}><HeartHandshake size={14} /> {t('Partner')}</button>
-          <button onClick={() => onAddRelative(member.id, 'sibling')}><UsersRound size={14} /> {t('Sibling')}</button>
+      <section className="details-actions">
+        <h3>{t('Add relative')}</h3>
+        <div className="relative-action-grid">
+          <button type="button" onClick={() => onAddRelative(member.id, 'parent')}><UserRoundPlus size={14} /> {t('Parent')}</button>
+          <button type="button" onClick={() => onAddRelative(member.id, 'child')}><Baby size={14} /> {t('Child')}</button>
+          <button type="button" onClick={() => onAddRelative(member.id, 'partner')}><HeartHandshake size={14} /> {t('Partner')}</button>
+          <button type="button" onClick={() => onAddRelative(member.id, 'sibling')}><UsersRound size={14} /> {t('Sibling')}</button>
         </div>
-      </div>
-      <button className="delete-person" onClick={onDelete}><Trash2 size={15} /> {t('Delete family member')}</button>
+      </section>
     </aside>
   )
 }
@@ -84,6 +106,16 @@ function findMembers(members: FamilyMember[], ids: string[]) {
 
 function sameAvatar(left: FamilyMember['avatar'], right: FamilyMember['avatar']) {
   return left.skin === right.skin && left.hair === right.hair && left.shirt === right.shirt && left.hairstyle === right.hairstyle && left.accessory === right.accessory
+}
+
+function formatLifeDates(birthDate: string | undefined, deathDate: string | undefined, t: (message: string) => string) {
+  const year = (date: string | undefined) => date?.match(/^(\d{4})/)?.[1]
+  const born = year(birthDate)
+  const died = year(deathDate)
+  if (born && died) return `${t('Born')}: ${born} \u2013 ${t('Died')}: ${died}`
+  if (born) return `${t('Born')}: ${born} \u2013 ${t('Present')}`
+  if (died) return `${t('Died')}: ${died}`
+  return t('Birth date unknown')
 }
 
 function RelationshipGroup({ icon, title, people, empty, onSelect }: { icon: ReactNode; title: string; people: FamilyMember[]; empty: string; onSelect: (member: FamilyMember) => void }) {
