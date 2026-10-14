@@ -200,8 +200,7 @@
   flex:1;
   display:flex;
   flex-direction:column;
-  padding:0 23px 0;
-  overflow:hidden
+  padding:0 23px 0
 }
 .main-header {
   height:69px;
@@ -429,6 +428,22 @@
   margin:12px 0 0;
   color:var(--subtle);
   font-size:9px
+}
+.tree-workspace {
+  min-width:0;
+  min-height:0;
+  flex:1;
+  position:relative;
+  display:flex;
+  flex-direction:column
+}
+.canvas-stage {
+  min-width:0;
+  min-height:0;
+  flex:1;
+  position:relative;
+  display:flex;
+  overflow:hidden
 }
 .tree-viewport {
   min-height:0;
@@ -666,13 +681,12 @@
 }
 
 .details-panel {
-  position:fixed;
-  z-index:51;
+  position:absolute;
+  z-index:100;
   inset-block:0;
   inset-inline-end:0;
-  width:min(340px,100vw);
-  height:100dvh;
-  max-height:100dvh;
+  width:min(340px,100%);
+  max-height:100%;
   box-sizing:border-box;
   display:flex;
   flex-direction:column;
@@ -717,15 +731,14 @@
   background:var(--surface-hover)
 }
 .details-top-actions { display:flex; align-items:center; gap:3px }
-.details-options-wrap { position:relative }
-.details-options-menu { position:absolute; z-index:5; top:calc(100% + 5px); inset-inline-end:0; width:190px; padding:5px; border:1px solid var(--line); border-radius:9px; background:var(--surface-raised); box-shadow:0 12px 28px #0005 }
-.details-options-menu .details-delete-option { width:100%; min-height:36px; display:flex; align-items:center; gap:8px; padding:0 9px; border:0; border-radius:6px; background:transparent; color:#b4555c; font:inherit; font-size:11px; text-align:start; cursor:pointer }
-.details-options-menu .details-delete-option:hover,.details-options-menu .details-delete-option:focus-visible { outline:0; background:color-mix(in srgb,#b4555c 12%,var(--surface-raised)); color:#d36b72 }
-.details-options-menu .details-delete-option svg { flex:none }
+.details-top-actions button:focus-visible { outline:2px solid var(--focus); outline-offset:2px }
+.details-top-actions .details-delete-action { color:var(--danger) }
+.details-top-actions .details-delete-action:hover,.details-top-actions .details-delete-action:focus-visible { background:color-mix(in srgb,var(--danger) 13%,var(--surface)); color:var(--danger-strong) }
 .details-portrait {
   width:74px;
   height:74px;
-  margin-block:13px 9px;
+  flex:none;
+  margin-block:0;
   margin-inline:0;
   display:grid;
   place-items:center;
@@ -737,26 +750,52 @@
 }
 .details-portrait .profile-avatar-trigger { width:74px; height:74px }
 .details-panel h2 {
+  margin-block:0 4px;
+  margin-inline:0;
+  color:var(--text);
+  font-size:17px;
+  font-weight:700;
+  line-height:1.2;
+  letter-spacing:-.25px;
+  overflow-wrap:anywhere
+}
+.details-profile { display:flex; align-items:center; gap:16px; padding-block:13px 16px }
+.details-portrait { position:relative; isolation:isolate }
+.details-portrait::before { position:absolute; z-index:-1; inset:5px; border-radius:50%; background:var(--details-ring,var(--accent)); content:""; opacity:.2; filter:blur(12px) }
+.details-profile.is-deceased .details-portrait::before { background:var(--deceased-ring,#5b6075); opacity:.15 }
+.details-profile.is-deceased .details-portrait .family-avatar-art,.details-profile.is-deceased .details-portrait img { filter:grayscale(1); opacity:.78 }
+.details-profile-copy { min-width:0; flex:1; text-align:start }
+.details-age-group {
   margin-block:0 5px;
   margin-inline:0;
-  font-size:16px;
-  font-weight:620;
-  letter-spacing:-.3px
-}
-.details-relation {
-  margin-block:0;
-  margin-inline:0;
   color:var(--accent);
-  font-size:10px
+  font-size:11px;
+  font-weight:550;
+  line-height:1.4
 }
-.details-dates {
-  margin-block-start:5px;
+.details-parentage {
+  margin-block:0 5px;
+  margin-inline:0;
   color:var(--muted);
-  font-size:9px
+  font-size:10px;
+  line-height:1.45;
+  overflow-wrap:anywhere
 }
-.details-age-at-death { margin-block-start:4px; color:var(--muted); font-size:10px; font-weight:550 }
-.details-scroll-body { width:100%; min-height:0; flex:1 1 auto; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-inline-end:3px }
-.details-profile { padding-block-end:10px }
+.details-gender-chip { display:inline-flex; align-items:center; min-height:20px; margin-block-end:5px; padding-inline:8px; border:1px solid transparent; border-radius:999px; font-size:10px; font-weight:650; line-height:1.2 }
+.details-gender-chip.gender-male { border-color:color-mix(in srgb,var(--gender-male) 30%,var(--line)); background:var(--gender-male-bg); color:var(--gender-male) }
+.details-gender-chip.gender-female { border-color:color-mix(in srgb,var(--gender-female) 30%,var(--line)); background:var(--gender-female-bg); color:var(--gender-female) }
+.details-summary-line { display:flex; align-items:center; flex-wrap:wrap; gap:5px; color:var(--muted); font-size:10px; line-height:1.45; white-space:normal }
+.details-summary-divider { width:4px; height:4px; flex:none; border-radius:50%; background:currentColor; opacity:.72 }
+.details-profile.is-deceased .details-profile-copy h2,.details-profile.is-deceased .details-parentage,.details-profile.is-deceased .details-summary-line { color:var(--deceased-text,#8b90a5) }
+.details-profile.is-deceased .details-gender-chip { border-color:color-mix(in srgb,var(--deceased-ring,#5b6075) 35%,var(--line)); background:color-mix(in srgb,var(--deceased-ring,#5b6075) 16%,var(--surface)); color:var(--deceased-text,#8b90a5) }
+.details-dates {
+  margin-block-start:0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45
+}
+.details-age-at-death { margin-block-start:4px; color:var(--muted); font-size:10px; font-weight:550; line-height:1.4 }
+.details-scroll-body { width:100%; min-height:0; flex:1 1 auto; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; scrollbar-width:thin; scrollbar-color:var(--line) var(--surface); padding-inline-end:3px }
 .details-links {
   width:100%;
   box-sizing:border-box;
@@ -766,6 +805,25 @@
   padding-block-start:11px;
   border-block-start:1px solid var(--line-soft)
 }
+.relationship-group { --section-color:var(--rel-parent); --section-tint:color-mix(in srgb,var(--section-color) 15%,var(--surface)); min-width:0 }
+.relationship-group-partners { --section-color:var(--rel-partner) }
+.relationship-group-children { --section-color:var(--rel-child) }
+.relationship-group-parents { --section-color:var(--rel-parent) }
+.relationship-group-siblings { --section-color:var(--rel-sibling) }
+.relationship-group-parents .is-adopted-relative { color:var(--rel-adoption) }
+.adopted-relative-indicator { display:inline-flex; flex:none; color:var(--rel-adoption) }
+.relationship-group-heading { display:flex; align-items:center; justify-content:space-between; gap:8px }
+.relationship-group-toggle { min-width:0; min-height:34px; display:flex; flex:1; align-items:center; gap:8px; padding:0; border:0; background:transparent; color:var(--section-color); font:inherit; font-size:11px; font-weight:650; text-align:start; cursor:pointer }
+.relationship-group-toggle>svg { flex:none; margin-inline-start:auto; color:var(--muted) }
+html[dir=rtl] .relationship-group-toggle>.relationship-collapse-chevron { transform:scaleX(-1) }
+.relationship-group-icon { width:27px; height:27px; flex:none; display:grid; place-items:center; border-radius:8px; background:var(--section-tint); color:var(--section-color) }
+.relationship-group-body { display:grid; gap:3px; padding-block-start:5px; padding-inline-start:35px }
+.relationship-group-body>.relationship-person-button { width:100%; margin:0; padding-block:5px; padding-inline:7px; color:var(--text); font-size:10px }
+.relationship-empty-action,.relationship-add-action,.relationship-link-action { min-height:30px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding-inline:8px; border:1px dashed color-mix(in srgb,var(--section-color) 55%,var(--line)); border-radius:7px; background:color-mix(in srgb,var(--section-color) 8%,var(--surface)); color:var(--section-color); font:inherit; font-size:10px; font-weight:550; text-align:start; cursor:pointer; transition:background .15s ease,border-color .15s ease }
+.relationship-empty-action { justify-content:flex-start }
+.relationship-add-action { justify-self:start; min-height:26px; border-style:solid; border-color:transparent; background:transparent }
+.relationship-link-action { min-height:26px; border-style:solid; border-color:transparent; background:transparent; color:var(--rel-partner); white-space:nowrap }
+.relationship-empty-action:hover,.relationship-add-action:hover,.relationship-link-action:hover { border-color:color-mix(in srgb,var(--section-color) 50%,var(--line)); background:var(--section-tint) }
 .relationship-group h3 {
   display:flex;
   align-items:center;
@@ -810,47 +868,6 @@
 .link-spouse-actions button:first-child svg,.link-spouse-control>button svg { color:var(--accent) }
 .link-spouse-actions button:disabled { opacity:.45; cursor:not-allowed }
 .link-spouse-empty { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--subtle); font-size:9px }
-.details-actions {
-  width:100%;
-  box-sizing:border-box;
-  flex:0 0 auto;
-  position:sticky;
-  inset-block-end:0;
-  z-index:2;
-  margin-block-start:0;
-  padding-block-start:10px;
-  border-block-start:1px solid var(--line-soft)
-}
-.details-actions h3 {
-  margin:0;
-  color:var(--muted);
-  font-size:9px;
-  font-weight:600
-}
-.details-actions .relative-action-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:6px;
-  margin-top:9px
-}
-.details-actions button {
-  height:29px;
-  display:flex;
-  align-items:center;
-  gap:6px;
-  padding:0 8px;
-  border:1px solid var(--line);
-  border-radius:6px;
-  background:var(--surface-raised);
-  color:var(--muted);
-  font-size:9px;
-  cursor:pointer
-}
-.details-actions button:hover {
-  border-color:var(--accent-strong);
-  color:var(--accent)
-}
-.details-actions button svg { width:14px; height:14px; flex:none; color:var(--accent) }
 .panel-backdrop,.modal-shade {
   position:fixed;
   inset:0;
@@ -927,7 +944,7 @@
 }
 
 .modal-shade {
-  z-index:12;
+  z-index:110;
   display:grid;
   place-items:center;
   padding:18px
@@ -1360,7 +1377,6 @@ html[dir=rtl] .node-actions { right:auto; left:6px }
 html[dir=rtl] .family-speed-dial .speed-dial-items { right:auto; left:-5px }
 html[dir=rtl] .speed-dial-item { flex-direction:row-reverse; justify-content:flex-end }
 html[dir=rtl] .details-panel { align-items:stretch; text-align:right }
-html[dir=rtl] .details-actions button { flex-direction:row-reverse; justify-content:flex-end }
 html[dir=rtl] .people-panel { left:auto; right:0; border-right:0; border-left:1px solid var(--line) }
 html[dir=rtl] .relationship-dialog select,html[dir=rtl] .member-dialog input,html[dir=rtl] .member-dialog select,html[dir=rtl] .member-dialog textarea,html[dir=rtl] .family-member-picker-trigger { direction:rtl; text-align:right }
 html[dir=rtl] .duplicate-warning button { text-align:right }
@@ -1994,19 +2010,23 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 /* Kinfolk theme tokens. Relationship colors below are intentionally shared by
    all themes; only the application surfaces and UI accents change. */
 .tree-app[data-theme] {
-  --rel-parent:#43c7b3;
-  --rel-partner:#e779ae;
-  --rel-former:#d77a88;
+  --rel-parent:#9184e8;
+  --rel-partner:#d76cae;
+  --rel-child:#e9ad4f;
+  --rel-sibling:#43bbdf;
   --rel-adoption:#61c59b;
+  --rel-former:#d77a88;
   --branch-0:#43c7b3;
-  --branch-1:#d76cae;
-  --branch-2:#e9ad4f;
-  --branch-3:#9184e8;
-  --branch-4:#43bbdf;
+  --branch-1:var(--rel-partner);
+  --branch-2:var(--rel-child);
+  --branch-3:var(--rel-parent);
+  --branch-4:var(--rel-sibling);
   --branch-5:#eb7889;
-  --branch-6:#99c75e;
+  --branch-6:var(--rel-adoption);
   --branch-7:#e9875b;
   --focus:var(--accent-strong);
+  --danger:#ed9aa2;
+  --danger-strong:#ffc0c5;
   --gender-male:#b7e9f7;
   --gender-female:#f4c1dc;
   --gender-male-bg:color-mix(in srgb,#43bbdf 16%,var(--surface));
@@ -2034,6 +2054,8 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --canvas:#fcfbf9;
   --canvas-dot:#e9e3da;
   --focus:#315f40;
+  --danger:#a33f48;
+  --danger-strong:#812c35;
   --gender-male:#205f7b;
   --gender-female:#8e3c61;
   --gender-male-bg:#e5f0f3;
@@ -2059,6 +2081,8 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --canvas:#191c2e;
   --canvas-dot:#3b3f57;
   --focus:#d7cbff;
+  --danger:#f09aa4;
+  --danger-strong:#ffc0c5;
 }
 
 .tree-app[data-theme=chocolate] {
@@ -2079,6 +2103,8 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   --canvas:#2a1e18;
   --canvas-dot:#4c382c;
   --focus:#f0c09c;
+  --danger:#ef9a84;
+  --danger-strong:#ffc0a9;
   --gender-male:#b7e9f7;
   --gender-female:#f4c1dc;
   --gender-male-bg:color-mix(in srgb,#43bbdf 16%,var(--surface));
@@ -2152,7 +2178,7 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
 }
 
 /* Keep the title and family count together and close to the tree canvas. */
-.tree-main > .canvas-heading {
+.tree-workspace > .canvas-heading {
   min-height:42px;
   height:42px;
   flex:none;
@@ -2160,13 +2186,13 @@ html[dir=rtl] .relationship-guide-popover { right:auto; left:0 }
   margin-top:3px;
   padding:0 2px;
 }
-.tree-main > .canvas-heading > div { display:flex; align-items:center; gap:11px }
-.tree-main > .canvas-heading h2 { margin:0; font-size:15px; line-height:1.2 }
-.tree-main > .canvas-heading .generation-badge { margin:0; padding:4px 9px }
+.tree-workspace > .canvas-heading > div { display:flex; align-items:center; gap:11px }
+.tree-workspace > .canvas-heading h2 { margin:0; font-size:15px; line-height:1.2 }
+.tree-workspace > .canvas-heading .generation-badge { margin:0; padding:4px 9px }
 @media(max-width:600px) {
-  .tree-main > .canvas-heading { min-height:38px; height:38px; margin-top:2px }
-  .tree-main > .canvas-heading h2 { font-size:13px }
-  .tree-main > .canvas-heading .generation-badge { padding:3px 7px; font-size:10px!important }
+  .tree-workspace > .canvas-heading { min-height:38px; height:38px; margin-top:2px }
+  .tree-workspace > .canvas-heading h2 { font-size:13px }
+  .tree-workspace > .canvas-heading .generation-badge { padding:3px 7px; font-size:10px!important }
 }
 
 /* Warm Light interactive surfaces lift gently from the creamy page. */

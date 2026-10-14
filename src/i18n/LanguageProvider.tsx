@@ -1,7 +1,8 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LanguageContext, type Language } from './LanguageContext'
+import { parentageArabic, parentageEnglish } from './parentage'
 
-const english: Record<string, string> = {
+const english: Record<string, string> = { ...parentageEnglish,
   'Age years zero': '{count} yrs',
   'Age years one': '{count} yr',
   'Age years two': '{count} yrs',
@@ -56,9 +57,27 @@ const english: Record<string, string> = {
   'Layout': 'Layout',
   'Death dates cannot be in the future.': 'Death dates cannot be in the future.',
   'Set the parent gender before linking a parent and child.': 'Set the parent gender before linking a parent and child.',
+  'Age group child male': 'Child',
+  'Age group child female': 'Child',
+  'Age group child neutral': 'Child',
+  'Age group teen male': 'Teen',
+  'Age group teen female': 'Teen',
+  'Age group teen neutral': 'Teen',
+  'Age group adult male': 'Adult',
+  'Age group adult female': 'Adult',
+  'Age group adult neutral': 'Adult',
+  'Age group elder male': 'Elder',
+  'Age group elder female': 'Elder',
+  'Age group elder neutral': 'Elder',
+  'Link': 'Link',
+  'Center on tree': 'Center on tree',
+  'Add parent': 'Add parent',
+  'Add child': 'Add child',
+  'Add partner': 'Add partner',
+  'Add sibling': 'Add sibling',
 }
 
-const arabic: Record<string, string> = {
+const arabic: Record<string, string> = { ...parentageArabic,
   'Midnight': '\u0645\u0646\u062a\u0635\u0641 \u0627\u0644\u0644\u064a\u0644',
   'Warm light': '\u0636\u0648\u0621 \u062f\u0627\u0641\u0626',
   'Chocolate': '\u0634\u0648\u0643\u0648\u0644\u0627\u062a\u0629',
@@ -197,6 +216,22 @@ const arabic: Record<string, string> = {
   '{action} {name} branch, {count} children': '{action} \u0641\u0631\u0639 {name} ({count} \u0623\u0637\u0641\u0627\u0644)',
   'Expand': '\u062a\u0648\u0633\u064a\u0639',
   'Collapse': '\u0637\u064a',
+  'Age group child male': 'طفل',
+  'Age group child female': 'طفلة',
+  'Age group child neutral': 'طفل/طفلة',
+  'Age group teen male': 'مراهق',
+  'Age group teen female': 'مراهقة',
+  'Age group teen neutral': 'مراهق/مراهقة',
+  'Age group adult male': 'رجل',
+  'Age group adult female': 'امرأة',
+  'Age group adult neutral': 'بالغ/بالغة',
+  'Age group elder male': 'مسن',
+  'Age group elder female': 'مسنة',
+  'Age group elder neutral': 'مسن/مسنة',
+  'Link': 'ربط',
+  'Center on tree': 'توسيط في الشجرة',
+  'Add parent': 'إضافة والد',
+  'Add sibling': 'إضافة أخ أو أخت',
 }
 
 function initialLanguage(): Language {

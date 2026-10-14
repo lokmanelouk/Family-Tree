@@ -1,5 +1,5 @@
-import { Baby, Check, Ellipsis, GitBranch, HeartHandshake, Link2, Trash2, UserRoundPlus, UsersRound, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Baby, Check, ChevronDown, ChevronRight, GitBranch, HeartHandshake, Pencil, Plus, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
 import { ProfileAvatarPicker } from './ProfileAvatarPicker'
@@ -7,7 +7,9 @@ import { useLanguage } from '../../i18n/useLanguage'
 import { validateRelationship } from '../../lib/tree-logic'
 import { FamilyMemberPicker } from './FamilyMemberPicker'
 import { getMemberAge, type MemberAge } from '../../lib/member-age'
+import { getRootBranchMap } from '../../lib/tree-layout'
 import type { Language } from '../../i18n/LanguageContext'
+import { getParentageKey, interpolateParentage } from '../../i18n/parentage'
 
 type MemberDetailsPanelProps = {
   member: FamilyMember
@@ -25,32 +27,18 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
   const [photoError, setPhotoError] = useState('')
   const [linkingSpouse, setLinkingSpouse] = useState(false)
   const [spouseCandidateId, setSpouseCandidateId] = useState('')
-  const [optionsOpen, setOptionsOpen] = useState(false)
-  const optionsRef = useRef<HTMLDivElement>(null)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const parents = findMembers(members, member.parentIds)
   const partners = findMembers(members, member.spouseIds)
   const siblings = findMembers(members, member.siblingIds)
   const children = members.filter((entry) => entry.parentIds.includes(member.id))
-  const ageAtDeath = member.deathDate ? getMemberAge(member.birthDate, member.deathDate) : null
+  const detailsBranchColor = getRootBranchMap(members).get(member.id)
+  const age = getMemberAge(member.birthDate, member.deathDate)
+  const ageAtDeath = member.deathDate ? age : null
   const spouseCandidates = useMemo(() => members.filter((candidate) =>
     candidate.id !== member.id && !member.spouseIds.includes(candidate.id)
     && validateRelationship(members, member.id, candidate.id, 'partner') === null,
   ), [member.id, member.spouseIds, members])
-
-  useEffect(() => {
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!optionsRef.current?.contains(event.target as Node)) setOptionsOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOptionsOpen(false)
-    }
-    window.addEventListener('pointerdown', closeOnOutside)
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.removeEventListener('pointerdown', closeOnOutside)
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -63,50 +51,58 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
       <div className="details-top">
         <span>{t('PERSON DETAILS')}</span>
         <div className="details-top-actions">
-          <div className="details-options-wrap" ref={optionsRef}>
-            <button type="button" title={t('More options')} aria-label={t('More options')} aria-haspopup="menu" aria-expanded={optionsOpen} onClick={() => setOptionsOpen((open) => !open)}><Ellipsis size={18} /></button>
-            {optionsOpen && <div className="details-options-menu" role="menu"><button type="button" role="menuitem" className="details-delete-option" onClick={() => { setOptionsOpen(false); onDelete() }}><Trash2 size={14} />{t('Delete family member')}</button></div>}
-          </div>
+          <button type="button" title={t('Edit profile photo')} aria-label={t('Edit profile photo')} onClick={() => document.querySelector<HTMLButtonElement>('.details-portrait .profile-avatar-trigger')?.click()}><Pencil size={16} /></button>
+          <button type="button" className="details-delete-action" title={t('Delete family member')} aria-label={t('Delete family member')} onClick={onDelete}><Trash2 size={16} /></button>
           <button type="button" title={t('Close details')} aria-label={t('Close details')} onClick={onClose}><X size={17} /></button>
         </div>
       </div>
       <div className="details-scroll-body">
-        <div className="details-profile">
+        <div className={`details-profile${member.deathDate ? ' is-deceased' : ''}`} style={detailsBranchColor ? { '--details-ring': detailsBranchColor } as CSSProperties : undefined}>
           <div className="details-portrait"><ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} /></div>
-          <h2>{member.name}</h2>
-          <p className="details-relation">{t(member.relationship)}</p>
-          <div className="details-dates">{formatLifeDates(member.birthDate, member.deathDate, t)}</div>
-          {ageAtDeath && <div className="details-age-at-death">{formatDeathAge(ageAtDeath, language, t)}</div>}
+          <div className="details-profile-copy">
+            <h2>{member.name}</h2>
+            {member.gender && <span className={`details-gender-chip gender-${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</span>}
+            {getParentageKey(member.gender, parents.length) && <p className="details-parentage">{renderParentage(t(getParentageKey(member.gender, parents.length)!), parents.slice(0, 2))}</p>}
+            <div className="details-summary-line">
+              {member.deathDate ? <>
+                <span>{formatLifeSpan(member.birthDate, member.deathDate)}</span>
+                {ageAtDeath && <><span className="details-summary-divider" aria-hidden="true" /><span>{formatDeathAge(ageAtDeath, language, t)}</span></>}
+              </> : member.birthDate && <>
+                <span>{t('Born')} <bdi dir="ltr">{member.birthDate.slice(0, 4)}</bdi></span>
+                {age && <><span className="details-summary-divider" aria-hidden="true" /><span>{formatAge(age, language, t)}</span></>}
+              </>}
+            </div>
+          </div>
         </div>
         <div className="details-links">
-          <RelationshipGroup icon={<GitBranch size={15} />} title={t('Parents')} people={parents} empty={t('No parents linked')} onSelect={onSelectRelative} />
-          <RelationshipGroup icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} empty={t('No partners linked')} onSelect={onSelectRelative} />
-          <section className="link-spouse-control">
-            {!linkingSpouse ? <button type="button" onClick={() => setLinkingSpouse(true)}><Link2 size={14} />{t('Link existing spouse')}</button> : <>
-              {spouseCandidates.length ? <>
-                <FamilyMemberPicker members={spouseCandidates} value={spouseCandidateId} placeholder={t('Select a family member')} onChange={setSpouseCandidateId} />
-                <div className="link-spouse-actions">
-                  <button type="button" disabled={!spouseCandidateId} onClick={() => { onLinkSpouse(member.id, spouseCandidateId); setLinkingSpouse(false); setSpouseCandidateId('') }}><Check size={14} />{t('Link spouse')}</button>
-                  <button type="button" onClick={() => { setLinkingSpouse(false); setSpouseCandidateId('') }}>{t('Cancel')}</button>
-                </div>
-              </> : <div className="link-spouse-empty"><span>{t('No eligible family members to link')}</span><button type="button" onClick={() => setLinkingSpouse(false)}>{t('Close')}</button></div>}
-            </>}
-          </section>
-          <RelationshipGroup icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} empty={t('No siblings linked')} onSelect={onSelectRelative} />
-          <RelationshipGroup icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('No children linked')} onSelect={onSelectRelative} />
+          <RelationshipGroup kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} empty={t('Add partner')} addLabel={t('Add partner')} onAdd={() => onAddRelative(member.id, 'partner')} collapsed={collapsedSections.has('partners')} onToggle={() => toggleSection(setCollapsedSections, 'partners')} onSelect={onSelectRelative} action={!linkingSpouse ? <button type="button" className="relationship-link-action" onClick={() => setLinkingSpouse(true)}><Plus size={13} />{t('Link')}</button> : null}>
+            {linkingSpouse && <div className="link-spouse-control">{spouseCandidates.length ? <><FamilyMemberPicker members={spouseCandidates} value={spouseCandidateId} placeholder={t('Select a family member')} onChange={setSpouseCandidateId} /><div className="link-spouse-actions"><button type="button" disabled={!spouseCandidateId} onClick={() => { onLinkSpouse(member.id, spouseCandidateId); setLinkingSpouse(false); setSpouseCandidateId('') }}><Check size={14} />{t('Link spouse')}</button><button type="button" onClick={() => { setLinkingSpouse(false); setSpouseCandidateId('') }}>{t('Cancel')}</button></div></> : <div className="link-spouse-empty"><span>{t('No eligible family members to link')}</span><button type="button" onClick={() => setLinkingSpouse(false)}>{t('Close')}</button></div>}</div>}
+          </RelationshipGroup>
+          <RelationshipGroup kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('Add child')} addLabel={t('Add child')} onAdd={() => onAddRelative(member.id, 'child')} collapsed={collapsedSections.has('children')} onToggle={() => toggleSection(setCollapsedSections, 'children')} onSelect={onSelectRelative} />
+          <RelationshipGroup kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} adoptedIds={member.adoptedParentIds ?? []} adoptedLabel={t('Adoption')} empty={t('Add parent')} addLabel={t('Add parent')} onAdd={() => onAddRelative(member.id, 'parent')} collapsed={collapsedSections.has('parents')} onToggle={() => toggleSection(setCollapsedSections, 'parents')} onSelect={onSelectRelative} />
+          <RelationshipGroup kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} empty={t('Add sibling')} addLabel={t('Add sibling')} onAdd={() => onAddRelative(member.id, 'sibling')} collapsed={collapsedSections.has('siblings')} onToggle={() => toggleSection(setCollapsedSections, 'siblings')} onSelect={onSelectRelative} />
         </div>
       </div>
-      <section className="details-actions">
-        <h3>{t('Add relative')}</h3>
-        <div className="relative-action-grid">
-          <button type="button" onClick={() => onAddRelative(member.id, 'parent')}><UserRoundPlus size={14} /> {t('Parent')}</button>
-          <button type="button" onClick={() => onAddRelative(member.id, 'child')}><Baby size={14} /> {t('Child')}</button>
-          <button type="button" onClick={() => onAddRelative(member.id, 'partner')}><HeartHandshake size={14} /> {t('Partner')}</button>
-          <button type="button" onClick={() => onAddRelative(member.id, 'sibling')}><UsersRound size={14} /> {t('Sibling')}</button>
-        </div>
-      </section>
     </aside>
   )
+}
+
+function renderParentage(pattern: string, parents: FamilyMember[]): ReactNode {
+  return <span dir="auto">{interpolateParentage(pattern, parents.map((parent) => parent.name)).map((part, index) => part.type === 'name' ? <bdi dir="auto" key={`parent-${index}`}>{part.value}</bdi> : part.value)}</span>
+}
+
+function formatAge(age: MemberAge, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
+  const category = new Intl.PluralRules(language).select(age.count)
+  const message = t(`Age ${age.unit} ${category}`, { count: '__AGE_COUNT__' })
+  const [before = '', after = ''] = message.split('__AGE_COUNT__')
+  return <>{before}{message.includes('__AGE_COUNT__') && <bdi dir="ltr">{age.count}</bdi>}{after}</>
+}
+
+function formatLifeSpan(birthDate: string | undefined, deathDate: string): ReactNode {
+  const born = birthDate?.match(/^(\d{4})/)?.[1]
+  const died = deathDate.match(/^(\d{4})/)?.[1]
+  if (!died) return null
+  return <><bdi dir="ltr">{born ?? '\u2014'} {'\u2013'} {died}</bdi></>
 }
 
 function formatDeathAge(age: MemberAge, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
@@ -124,21 +120,34 @@ function sameAvatar(left: FamilyMember['avatar'], right: FamilyMember['avatar'])
   return left.skin === right.skin && left.hair === right.hair && left.shirt === right.shirt && left.hairstyle === right.hairstyle && left.accessory === right.accessory
 }
 
-function formatLifeDates(birthDate: string | undefined, deathDate: string | undefined, t: (message: string) => string): ReactNode {
-  const year = (date: string | undefined) => date?.match(/^(\d{4})/)?.[1]
-  const born = year(birthDate)
-  const died = year(deathDate)
-  if (born && died) return <span dir="auto">{t('Born')}: <bdi dir="ltr">{born}</bdi> – {t('Died')}: <bdi dir="ltr">{died}</bdi></span>
-  if (born) return <span dir="auto">{t('Born')}: <bdi dir="ltr">{born}</bdi> – {t('Present')}</span>
-  if (died) return <span dir="auto">{t('Died')}: <bdi dir="ltr">{died}</bdi></span>
-  return t('Birth date unknown')
+function toggleSection(setCollapsed: (update: (current: Set<string>) => Set<string>) => void, key: string) {
+  setCollapsed((current) => {
+    const next = new Set(current)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
 }
 
-function RelationshipGroup({ icon, title, people, empty, onSelect }: { icon: ReactNode; title: string; people: FamilyMember[]; empty: string; onSelect: (member: FamilyMember) => void }) {
+function RelationshipGroup({ icon, title, people, adoptedIds = [], adoptedLabel, empty, addLabel, onAdd, collapsed, onToggle, kind, action, children, onSelect }: { icon: ReactNode; title: string; people: FamilyMember[]; adoptedIds?: string[]; adoptedLabel?: string; empty: string; addLabel: string; onAdd: () => void; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; children?: ReactNode; onSelect: (member: FamilyMember) => void }) {
   return (
-    <section className="relationship-group">
-      <h3>{icon}{title}</h3>
-      {people.length ? people.map((person) => <button type="button" className="relationship-person-button" key={person.id} onClick={() => onSelect(person)}>{person.name}</button>) : <p>{empty}</p>}
+    <section className={`relationship-group relationship-group-${kind}`}>
+      <div className="relationship-group-heading">
+        <button type="button" className="relationship-group-toggle" aria-expanded={!collapsed} onClick={onToggle}>
+          <span className="relationship-group-icon">{icon}</span>
+          <span>{title}</span>
+          {collapsed ? <ChevronRight className="relationship-collapse-chevron" size={15} /> : <ChevronDown size={15} />}
+        </button>
+        {action}
+      </div>
+      {!collapsed && <div className="relationship-group-body">
+        {children}
+        {people.length ? people.map((person) => {
+          const adopted = adoptedIds.includes(person.id)
+          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}`} key={person.id} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<bdi>{person.name}</bdi></button>
+        }) : <button type="button" className="relationship-empty-action" onClick={onAdd}><Plus size={13} />{empty}</button>}
+        {people.length > 0 && <button type="button" className="relationship-add-action" onClick={onAdd}><Plus size={13} />{addLabel}</button>}
+      </div>}
     </section>
   )
 }

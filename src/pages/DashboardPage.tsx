@@ -266,6 +266,7 @@ export function DashboardPage() {
           onExport={downloadTree}
           onImport={(file) => void restoreTree(file)}
         />
+        <div className="tree-workspace">
         <div className="canvas-heading">
           <div>
             <h2>{t("Family tree")}</h2>
@@ -282,29 +283,31 @@ export function DashboardPage() {
             </span>
           </div>
         </div>
-        <FamilyTreeCanvas
-          members={tree.members}
-          collapsedIds={collapsedIds}
-          collapsedAncestorIds={collapsedAncestorIds}
-          zoom={zoom}
-          selectedId={selectedId}
-          focusId={focusMode ? selectedId : null}
-          mode={nodeMode}
-          layoutRevision={layoutRevision}
-          onSelect={(member) => {
-            setSelectedId((current) =>
-              current === member.id ? null : member.id,
-            );
-            setFocusMode(false);
-          }}
-          onToggleBranch={toggleBranch}
-          onToggleAncestors={toggleAncestors}
-          onAddRelative={(member, kind) => openAdd(member.id, kind)}
-          onProposeRelationship={(source, target) =>
-            setPendingDrop({ source, target })
-          }
-          onEmptyAdd={() => openAdd("", "child")}
-        />
+        <div className="canvas-stage">
+          <FamilyTreeCanvas
+            members={tree.members}
+            collapsedIds={collapsedIds}
+            collapsedAncestorIds={collapsedAncestorIds}
+            zoom={zoom}
+            selectedId={selectedId}
+            focusId={focusMode ? selectedId : null}
+            mode={nodeMode}
+            layoutRevision={layoutRevision}
+            onSelect={(member) => {
+              setSelectedId((current) =>
+                current === member.id ? null : member.id,
+              );
+              setFocusMode(false);
+            }}
+            onToggleBranch={toggleBranch}
+            onToggleAncestors={toggleAncestors}
+            onAddRelative={(member, kind) => openAdd(member.id, kind)}
+            onProposeRelationship={(source, target) =>
+              setPendingDrop({ source, target })
+            }
+            onEmptyAdd={() => openAdd("", "child")}
+          />
+        </div>
         <div className="canvas-footer" aria-label={t("Keyboard shortcuts")}>
           <span className="canvas-shortcuts">
             <span className="shortcut-item">
@@ -318,21 +321,22 @@ export function DashboardPage() {
             </span>
           </span>
         </div>
+        {selectedMember && (
+          <MemberDetailsPanel
+            member={selectedMember}
+            members={tree.members}
+            onClose={() => setSelectedId(null)}
+            onAddRelative={openAdd}
+            onLinkSpouse={(memberId, spouseId) =>
+              tree.updateRelationship(memberId, spouseId, "partner")
+            }
+            onSelectRelative={findMember}
+            onUpdateProfile={tree.updateProfile}
+            onDelete={() => setDeletePending(selectedMember)}
+          />
+        )}
+        </div>
       </section>
-      {selectedMember && (
-        <MemberDetailsPanel
-          member={selectedMember}
-          members={tree.members}
-          onClose={() => setSelectedId(null)}
-          onAddRelative={openAdd}
-          onLinkSpouse={(memberId, spouseId) =>
-            tree.updateRelationship(memberId, spouseId, "partner")
-          }
-          onSelectRelative={findMember}
-          onUpdateProfile={tree.updateProfile}
-          onDelete={() => setDeletePending(selectedMember)}
-        />
-      )}
       {peopleOpen && (
         <FamilyMembersPanel
           members={tree.members}

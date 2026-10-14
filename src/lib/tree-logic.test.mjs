@@ -6,6 +6,30 @@ import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history
 import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
 import { exportTree, parseTreeBackup } from './tree-backup.ts'
+import { getParentageKey, interpolateParentage, parentageArabic, parentageEnglish } from '../i18n/parentage.ts'
+
+test('parentage interpolation covers gender, parent count, and both languages', () => {
+  const cases = [
+    ['male', 'single', 'Son of James', 'ابن جيمس'],
+    ['male', 'multiple', 'Son of James & Eleanor', 'ابن جيمس وإليانور'],
+    ['female', 'single', 'Daughter of James', 'ابنة جيمس'],
+    ['female', 'multiple', 'Daughter of James & Eleanor', 'ابنة جيمس وإليانور'],
+    ['neutral', 'single', 'Child of James', 'من ذرية جيمس'],
+    ['neutral', 'multiple', 'Child of James & Eleanor', 'من ذرية جيمس وإليانور'],
+  ]
+  for (const [gender, count, english, arabic] of cases) {
+    const parentCount = count === 'single' ? 1 : 2
+    const key = getParentageKey(gender, parentCount)
+    assert.ok(key)
+    for (const [translations, expected, names] of [[parentageEnglish, english, parentCount === 1 ? ['James'] : ['James', 'Eleanor']], [parentageArabic, arabic, parentCount === 1 ? ['جيمس'] : ['جيمس', 'إليانور']]]) {
+      const result = interpolateParentage(translations[key], names).map((part) => part.value).join('')
+      assert.equal(result, expected)
+      assert.doesNotMatch(result, /\{parent(?:A|B)?\}/)
+    }
+  }
+  assert.equal(getParentageKey('male', 0), null)
+  assert.deepEqual(interpolateParentage(parentageEnglish.parentLinkMaleSingle, []), [])
+})
 
 test('collapsing an ancestor hides its descendant branch and descendant spouse', () => {
   const hidden = getHiddenIds(familyMembers, new Set(['james']))
