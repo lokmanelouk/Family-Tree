@@ -11,6 +11,8 @@ import { isMemberDeceased } from '../../lib/member-status'
 import { getRootBranchMap } from '../../lib/tree-layout'
 import type { Language } from '../../i18n/LanguageContext'
 import { getParentageKey, interpolateParentage } from '../../i18n/parentage'
+import { FamilyAvatar } from './FamilyAvatar'
+import { getFullName } from '../../lib/member-name'
 
 type MemberDetailsPanelProps = {
   member: FamilyMember
@@ -63,7 +65,7 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
         <div className={`details-profile${deceased ? ' is-deceased' : ''}`} style={detailsBranchColor ? { '--details-ring': detailsBranchColor } as CSSProperties : undefined}>
           <div className="details-portrait"><ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} /></div>
           <div className="details-profile-copy">
-            <h2><bdi dir="auto">{member.name}</bdi></h2>
+            <h2><bdi dir="auto">{getFullName(member)}</bdi></h2>
             {member.gender && <span className={`details-gender-chip gender-${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</span>}
             {getParentageKey(member.gender, parents.length) && <p className="details-parentage">{renderParentage(t(getParentageKey(member.gender, parents.length)!), parents.slice(0, 2))}</p>}
             <div className="details-summary-line">
@@ -95,7 +97,21 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
 }
 
 function renderParentage(pattern: string, parents: FamilyMember[]): ReactNode {
-  return <span dir="auto">{interpolateParentage(pattern, parents.map((parent) => parent.name)).map((part, index) => part.type === 'name' ? <bdi dir="auto" key={`parent-${index}`}>{part.value}</bdi> : part.value)}</span>
+  return <span dir="auto">{interpolateParentage(pattern, parents.map(getFullName)).map((part, index) => part.type === 'name' ? <bdi dir="auto" key={`parent-${index}`}>{part.value}</bdi> : part.value)}</span>
+}
+
+function renderRelativeSummary(member: FamilyMember, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
+  const age = getMemberAge(member.birthDate, isMemberDeceased(member) ? member.deathDate : undefined)
+  const birthYear = member.birthDate?.match(/^(\d{4})/)?.[1]
+  const deathYear = member.deathDate?.match(/^(\d{4})/)?.[1]
+  if (isMemberDeceased(member)) {
+    if (birthYear && deathYear) return <bdi dir="ltr">{birthYear} {'\u2013'} {deathYear}</bdi>
+    if (deathYear) return <bdi dir="ltr">{deathYear}</bdi>
+    if (birthYear) return <><span>{t('Born')} <bdi dir="ltr">{birthYear}</bdi></span><span className="relationship-summary-divider" />{t('Deceased')}</>
+    return t('Deceased')
+  }
+  if (age) return formatAge(age, language, t)
+  return birthYear ? <>{t('Born')} <bdi dir="ltr">{birthYear}</bdi></> : null
 }
 
 function formatAge(age: MemberAge, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
@@ -137,6 +153,7 @@ function toggleSection(setCollapsed: (update: (current: Set<string>) => Set<stri
 }
 
 function RelationshipGroup({ t, icon, title, people, adoptedIds = [], adoptedLabel, empty, addLabel, onAdd, collapsed, onToggle, kind, action, children, onSelect }: { t: (message: string, values?: Record<string, string | number>) => string; icon: ReactNode; title: string; people: FamilyMember[]; adoptedIds?: string[]; adoptedLabel?: string; empty: string; addLabel: string; onAdd: () => void; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; children?: ReactNode; onSelect: (member: FamilyMember) => void }) {
+  const { language } = useLanguage()
   return (
     <section className={`relationship-group relationship-group-${kind}`}>
       <div className="relationship-group-heading">
@@ -151,7 +168,7 @@ function RelationshipGroup({ t, icon, title, people, adoptedIds = [], adoptedLab
         {children}
         {people.length ? people.map((person) => {
           const adopted = adoptedIds.includes(person.id)
-          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}`} key={person.id} title={t('Open {name}', { name: person.name })} aria-label={t('Open {name}', { name: person.name })} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<bdi dir="auto">{person.name}</bdi><ChevronRight className="relationship-person-chevron" size={14} aria-hidden="true" /></button>
+          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}${isMemberDeceased(person) ? ' is-deceased' : ''}`} key={person.id} title={t('Open {name}', { name: getFullName(person) })} aria-label={t('Open {name}', { name: getFullName(person) })} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<span className={`relationship-person-avatar${person.gender ? ` gender-${person.gender}` : ''}`}><FamilyAvatar member={person} compact decorative /></span><span className="relationship-person-copy"><bdi dir="auto">{getFullName(person)}</bdi><small>{renderRelativeSummary(person, language, t)}</small></span><ChevronRight className="relationship-person-chevron" size={14} aria-hidden="true" /></button>
         }) : <button type="button" className="relationship-empty-action" onClick={onAdd}><Plus size={13} />{empty}</button>}
         {people.length > 0 && <button type="button" className="relationship-add-action" onClick={onAdd}><Plus size={13} />{addLabel}</button>}
       </div>}

@@ -13,6 +13,7 @@ import { useFamilyTree } from "../hooks/useFamilyTree";
 import { getChildCounts } from "../lib/tree-logic";
 import { computeTreeLayout, type TreeNodeMode } from "../lib/tree-layout";
 import { exportTree, parseTreeBackup } from "../lib/tree-backup";
+import { getFullName } from "../lib/member-name";
 import type { FamilyMember, RelationshipKind } from "../types/family";
 import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
@@ -211,7 +212,7 @@ export function DashboardPage() {
     tree.deleteMember(deletePending.id);
     setSelectedId(null);
     setStatus(
-      t("{name} was removed from the tree.", { name: deletePending.name }),
+      t("{name} was removed from the tree.", { name: getFullName(deletePending) }),
     );
     setDeletePending(null);
   }
@@ -357,7 +358,8 @@ export function DashboardPage() {
           onAdd={(
             targetId,
             kind,
-            name,
+            firstName,
+            lastName,
             gender,
             birthDate,
             photo,
@@ -370,7 +372,8 @@ export function DashboardPage() {
             tree.addRelated(
               targetId,
               kind,
-              name,
+              firstName,
+              lastName,
               gender,
               birthDate,
               photo,
@@ -406,7 +409,7 @@ export function DashboardPage() {
       {deletePending && (
         <ConfirmationDialog
           danger
-          title={<>{t("Delete {name}?").split("{name}")[0]}<bdi dir="auto">{deletePending.name}</bdi>{t("Delete {name}?").split("{name}")[1]}</>}
+          title={<>{t("Delete {name}?").split("{name}")[0]}<bdi dir="auto">{getFullName(deletePending)}</bdi>{t("Delete {name}?").split("{name}")[1]}</>}
           message={deletePending.gender === "male" ? "This also removes his links." : deletePending.gender === "female" ? "This also removes her links." : "This also removes their links."}
           confirmLabel="Delete"
           onCancel={() => setDeletePending(null)}

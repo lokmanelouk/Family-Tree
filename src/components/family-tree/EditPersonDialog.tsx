@@ -7,17 +7,23 @@ import { getBirthDateError, getDeathDateError } from '../../lib/birth-date'
 import { DatePicker } from './DatePicker'
 import { ProfileAvatarPicker } from './ProfileAvatarPicker'
 import { isMemberDeceased } from '../../lib/member-status'
+import { getFullName, getNameParts } from '../../lib/member-name'
+import { LastNameField } from './LastNameField'
+import { GenderSegmentedControl } from './GenderSegmentedControl'
 
 type EditPersonDialogProps = {
   member: FamilyMember
   members: FamilyMember[]
   onClose: () => void
-  onSave: (memberId: string, details: Pick<FamilyMember, 'name' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>) => void
+  onSave: (memberId: string, details: Pick<FamilyMember, 'name' | 'firstName' | 'lastName' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>) => void
 }
 
 export function EditPersonDialog({ member, members, onClose, onSave }: EditPersonDialogProps) {
   const { t } = useLanguage()
-  const [name, setName] = useState(member.name)
+  const initialName = getNameParts(member)
+  const [firstName, setFirstName] = useState(initialName.firstName)
+  const [lastName, setLastName] = useState(initialName.lastName)
+  const [firstNameTouched, setFirstNameTouched] = useState(false)
   const [gender, setGender] = useState<FamilyMember['gender']>(member.gender ?? 'male')
   const [birthDate, setBirthDate] = useState(member.birthDate ?? '')
   const [deathDate, setDeathDate] = useState(member.deathDate ?? '')
@@ -32,6 +38,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const birthDateError = getBirthDateError(birthDate)
   const deathDateError = getDeathDateError(deathDate, birthDate)
   const editTitleParts = t('Edit {name}').split('{name}')
+  const fullName = getFullName({ name: [firstName, lastName].filter(Boolean).join(' '), firstName, lastName })
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -59,24 +66,24 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
     setAttemptedSubmit(true)
     const validationMessage = validateGenderChange()
     setRelationshipError(validationMessage)
-    if (!name.trim() || birthDateError || (lifeStatus === 'deceased' && deathDateError) || validationMessage) return
-    onSave(member.id, { name: name.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
+    if (!firstName.trim() || birthDateError || (lifeStatus === 'deceased' && deathDateError) || validationMessage) return
+    onSave(member.id, { name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
     onClose()
   }
 
   return <div className="modal-shade edit-person-shade" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="member-dialog edit-person-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-person-title">
-      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<bdi dir="auto">{member.name}</bdi>{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={onClose}><X size={17} /></button></div>
-      <form onSubmit={submit}>
+      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<bdi dir="auto">{getFullName(member)}</bdi>{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={onClose}><X size={17} /></button></div>
+      <form noValidate onSubmit={submit}>
         <div className="edit-person-fields">
           <div className="member-form-header-row">
             <div className="member-avatar-field"><span className="photo-upload-heading">{t('Profile photo')}</span><ProfileAvatarPicker avatarId={avatarId} avatar={avatar} photo={photo} error={photoError} onChange={(nextAvatarId, nextPhoto) => { setAvatarId(nextAvatarId); setPhoto(nextPhoto); setAvatar(avatarPresets.find((preset) => preset.id === nextAvatarId)?.avatar ?? avatar); setPhotoError('') }} onError={setPhotoError} /></div>
             <div className="member-name-field">
-              <label htmlFor="edit-person-name">{t('Name')}</label><input id="edit-person-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} required autoFocus />
-              <div className="gender-field"><span id="edit-person-gender-label">{t('Gender')}</span><div className="gender-options" role="radiogroup" aria-labelledby="edit-person-gender-label">
-                <button type="button" role="radio" aria-checked={gender === 'male'} className={gender === 'male' ? 'selected' : ''} onClick={() => { setGender('male'); setRelationshipError('') }}>{t('Male')}</button>
-                <button type="button" role="radio" aria-checked={gender === 'female'} className={gender === 'female' ? 'selected' : ''} onClick={() => { setGender('female'); setRelationshipError('') }}>{t('Female')}</button>
-              </div></div>
+              <div className="member-name-fields-row">
+                <div className="member-form-field"><label htmlFor="edit-person-first-name">{t('First name')}</label><input id="edit-person-first-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} onBlur={() => setFirstNameTouched(true)} maxLength={60} required autoFocus aria-invalid={(firstNameTouched || attemptedSubmit) && !firstName.trim()} /><small className="first-name-validation" role={(firstNameTouched || attemptedSubmit) && !firstName.trim() ? 'alert' : undefined}>{(firstNameTouched || attemptedSubmit) && !firstName.trim() ? t('First name required') : ''}</small></div>
+                <div className="member-form-field"><label htmlFor="edit-person-last-name">{t('Last name optional')}</label><LastNameField id="edit-person-last-name" value={lastName} members={members} onChange={setLastName} /></div>
+              </div>
+              <GenderSegmentedControl value={gender ?? 'male'} onChange={(value) => { setGender(value); setRelationshipError('') }} label={t('Gender')} />
             </div>
           </div>
           <div className="member-form-details-row">
@@ -87,7 +94,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
           </div>
         </div>
         {relationshipError && <p className="edit-person-error" role="alert">{t(relationshipError)}</p>}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="primary-button" disabled={!name.trim() || Boolean(birthDateError || (lifeStatus === 'deceased' && (deathDateTouched || attemptedSubmit) && deathDateError))}>{t('Save changes')}</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="primary-button" disabled={Boolean(birthDateError || (lifeStatus === 'deceased' && (deathDateTouched || attemptedSubmit) && deathDateError))}>{t('Save changes')}</button></div>
       </form>
     </section>
   </div>

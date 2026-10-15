@@ -1023,16 +1023,78 @@ html[dir="rtl"] .relationship-group-toggle > .relationship-collapse-chevron {
 }
 .relationship-group-body > .relationship-person-button {
   width: 100%;
-  display:flex;
-  align-items:center;
-  gap:7px;
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  padding-block: 5px;
-  padding-inline: 7px;
+  padding-block: 4px;
+  padding-inline: 5px;
   color: var(--text);
   font-size: 10px;
 }
-.relationship-group-body > .relationship-person-button > bdi { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.relationship-person-avatar {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-hover);
+}
+.relationship-person-avatar.gender-male {
+  border-color: color-mix(in srgb, var(--gender-male) 72%, var(--line));
+}
+.relationship-person-avatar.gender-female {
+  border-color: color-mix(in srgb, var(--gender-female) 72%, var(--line));
+}
+.relationship-person-avatar .family-avatar-art.compact {
+  width: 28px;
+  height: 28px;
+}
+.relationship-person-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  text-align: start;
+}
+.relationship-person-copy > bdi {
+  width: 100%;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.relationship-person-copy > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.15;
+}
+.relationship-person-button.is-deceased .relationship-person-avatar {
+  border-color: var(--deceased-ring, #5b6075);
+}
+.relationship-person-button.is-deceased .relationship-person-avatar .family-avatar-art {
+  filter: grayscale(1);
+  opacity: 0.78;
+}
+.relationship-person-button.is-deceased .relationship-person-copy > bdi,
+.relationship-person-button.is-deceased .relationship-person-copy > small {
+  color: color-mix(in srgb, var(--deceased-text, #8b90a5) 82%, var(--text));
+}
+.relationship-summary-divider {
+  width: 3px;
+  height: 3px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
 .relationship-person-chevron { flex:none; margin-inline-start:auto; color:var(--subtle); transition:color .14s ease,transform .14s ease }
 .relationship-person-button:hover .relationship-person-chevron,.relationship-person-button:focus-visible .relationship-person-chevron { color:var(--accent) }
 html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
@@ -2974,6 +3036,78 @@ html[dir="rtl"] .duplicate-override {
 .member-name-field {
   min-width: 0;
 }
+.member-name-fields-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.member-name-fields-row .member-form-field {
+  min-width: 0;
+}
+.member-name-fields-row .member-form-field > label {
+  display: block;
+  margin-block: 0 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+.member-name-fields-row input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-inline: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.member-name-fields-row input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.member-name-fields-row .edit-person-error {
+  display: block;
+  margin-block: 5px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--danger-strong);
+  font-size: 10px;
+}
+.surname-suggestions {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised, var(--surface));
+  color: var(--text);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 28%);
+}
+.surname-suggestions button {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 7px;
+  padding-inline: 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.surname-suggestions button:hover,
+.surname-suggestions button[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.surname-suggestions button span {
+  color: var(--muted);
+  font-size: 11px;
+}
 .member-name-field label,
 .member-form-field > label {
   margin: 0 0 6px;
@@ -3034,6 +3168,71 @@ html[dir="rtl"] .duplicate-override {
 .gender-options button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+.gender-segmented-control {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+}
+.gender-segment-indicator {
+  position: absolute;
+  z-index: -1;
+  inset-block: 3px;
+  inset-inline-start: 3px;
+  width: calc(50% - 4px);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+.gender-segment-indicator.is-male {
+  border-color: color-mix(in srgb, var(--gender-male) 42%, var(--line));
+  background: var(--gender-male-bg);
+}
+.gender-segment-indicator.is-female {
+  border-color: color-mix(in srgb, var(--gender-female) 42%, var(--line));
+  background: var(--gender-female-bg);
+  transform: translateX(100%);
+}
+html[dir="rtl"] .gender-segment-indicator.is-female {
+  transform: translateX(-100%);
+}
+.gender-segment-option {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 34px;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.gender-segment-option.male.is-selected {
+  color: var(--gender-male);
+}
+.gender-segment-option.female.is-selected {
+  color: var(--gender-female);
+}
+.gender-segment-option:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.gender-segment-option svg {
+  flex: none;
 }
 .member-form-details-row {
   display: grid;
@@ -3443,6 +3642,12 @@ html[dir="rtl"] .family-member-picker-list {
   .gender-options button {
     min-width: 0;
     flex: 1;
+  }
+  .member-form-header-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .member-name-fields-row {
+    grid-template-columns: 1fr;
   }
 }
 /* Roomier controls and typography keep the tree comfortable to explore. */

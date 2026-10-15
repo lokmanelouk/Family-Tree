@@ -1,8 +1,8 @@
 import type { FamilyMember } from '../../types/family'
 
-export function AvatarIllustration({ avatar, name, compact = false }: { avatar: FamilyMember['avatar']; name: string; compact?: boolean }) {
+export function AvatarIllustration({ avatar, name, compact = false, decorative = false }: { avatar: FamilyMember['avatar']; name: string; compact?: boolean; decorative?: boolean }) {
   const { skin, hair, shirt, hairstyle, accessory } = avatar
-  return <svg className={`family-avatar-art ${compact ? 'compact' : ''}`} viewBox="0 0 88 88" role="img" aria-label={`Illustration of ${name}`}>
+  return <svg className={`family-avatar-art ${compact ? 'compact' : ''}`} viewBox="0 0 88 88" role={decorative ? undefined : 'img'} aria-label={decorative ? undefined : `Illustration of ${name}`} aria-hidden={decorative || undefined} focusable="false">
     <ellipse cx="44" cy="85" rx="31" ry="20" fill={shirt} />
     <path d="M32 64h24v16H32z" fill={skin} />
     <ellipse cx="44" cy="42" rx="25" ry="29" fill={hair} />

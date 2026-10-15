@@ -1,4 +1,5 @@
 import type { FamilyMember, RelationshipKind } from '../types/family'
+import { getFullName, splitName } from './member-name.ts'
 
 export function getChildren(members: FamilyMember[], memberId: string) {
   return members.filter((member) => member.parentIds.includes(memberId))
@@ -215,8 +216,15 @@ export function linkRecordedParentCouples(members: FamilyMember[]): FamilyMember
 }
 
 export function createRelatedMember(members: FamilyMember[], targetId: string, kind: RelationshipKind, name: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']): FamilyMember[] {
+  const { firstName, lastName } = splitName(name)
+  return createRelatedMemberWithNames(members, targetId, kind, firstName, lastName, id, birthDate, photo, avatar, gender, fatherId, motherId, deathDate, lifeStatus)
+}
+
+export function createRelatedMemberWithNames(members: FamilyMember[], targetId: string, kind: RelationshipKind, firstName: string, lastName: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']): FamilyMember[] {
   const target = members.find((member) => member.id === targetId)
-  const cleanName = name.trim()
+  const cleanFirstName = firstName.trim()
+  const cleanLastName = lastName.trim()
+  const cleanName = getFullName({ name: [cleanFirstName, cleanLastName].filter(Boolean).join(' '), firstName: cleanFirstName, lastName: cleanLastName })
   if (!cleanName || members.some((member) => member.id === id)) return members
   if (kind === 'partner' && target) {
     if ((target.gender && gender && target.gender === gender) || !targetId) return members
@@ -242,7 +250,7 @@ export function createRelatedMember(members: FamilyMember[], targetId: string, k
   ]
   if (!target && members.length > 0) return members
   const newMember: FamilyMember = {
-    id, name: cleanName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(lifeStatus ? { lifeStatus } : {}), ...(photo ? { photo } : {}),
+    id, name: cleanName, firstName: cleanFirstName, lastName: cleanLastName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(lifeStatus ? { lifeStatus } : {}), ...(photo ? { photo } : {}),
     relationship: !target ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : gender === 'female' ? 'Wife' : 'Partner' : kind === 'parent' ? gender === 'male' ? 'Father' : gender === 'female' ? 'Mother' : 'Parent' : gender === 'male' ? 'Son' : gender === 'female' ? 'Daughter' : 'Child',
     parentIds: isDescendant && members.length ? [father?.id, mother?.id].filter((parentId): parentId is string => Boolean(parentId)) : [], spouseIds: target && kind === 'partner' ? [target.id] : [], siblingIds: [],
     avatar: avatar ?? looks[cleanName.length % looks.length],
@@ -295,17 +303,21 @@ export function updateMemberProfile(members: FamilyMember[], memberId: string, p
   return members.map((member) => member.id === memberId ? { ...member, photo, avatar } : member)
 }
 
-export function updateMemberDetails(members: FamilyMember[], memberId: string, details: Pick<FamilyMember, 'name' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>): FamilyMember[] {
+export function updateMemberDetails(members: FamilyMember[], memberId: string, details: Pick<FamilyMember, 'name' | 'firstName' | 'lastName' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>): FamilyMember[] {
   const current = members.find((member) => member.id === memberId)
-  const name = details.name.trim()
+  const firstName = details.firstName?.trim() ?? ''
+  const lastName = details.lastName?.trim() ?? ''
+  const name = getFullName({ name: details.name, firstName, lastName })
   if (!current || !name) return members
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase()
   const sameAvatar = current.avatar.skin === details.avatar.skin && current.avatar.hair === details.avatar.hair && current.avatar.shirt === details.avatar.shirt && current.avatar.hairstyle === details.avatar.hairstyle && current.avatar.accessory === details.avatar.accessory
-  const unchanged = current.name === name && current.initials === initials && current.gender === details.gender && current.birthDate === details.birthDate && current.deathDate === details.deathDate && current.lifeStatus === details.lifeStatus && current.bio === details.bio && current.photo === details.photo && sameAvatar
+  const unchanged = current.name === name && current.firstName === firstName && current.lastName === lastName && current.initials === initials && current.gender === details.gender && current.birthDate === details.birthDate && current.deathDate === details.deathDate && current.lifeStatus === details.lifeStatus && current.bio === details.bio && current.photo === details.photo && sameAvatar
   if (unchanged) return members
   return members.map((member) => member.id === memberId ? {
     ...member,
     name,
+    firstName,
+    lastName,
     initials,
     gender: details.gender,
     lifeStatus: details.lifeStatus,

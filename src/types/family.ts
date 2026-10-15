@@ -2,6 +2,8 @@ export type FamilyMember = {
   id: string
   initials: string
   name: string
+  firstName?: string
+  lastName?: string
   relationship: string
   gender?: 'male' | 'female'
   birthDate?: string
