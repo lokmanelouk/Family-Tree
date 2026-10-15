@@ -4,6 +4,7 @@ import { applyRelationship, createRelatedMemberWithNames, linkRecordedParentCoup
 import { recordTreeChange, redoTreeChange, undoTreeChange, type TreeHistory } from '../lib/tree-history'
 import type { FamilyMember, RelationshipKind } from '../types/family'
 import { migrateMemberNames } from '../lib/member-name'
+import { isValidTreeSnapshot } from '../lib/family-validation'
 
 type State = TreeHistory
 type Action =
@@ -19,9 +20,18 @@ type Action =
 const initialState: State = { members: linkRecordedParentCouples(migrateMemberNames(familyMembers)), past: [], future: [] }
 
 function reducer(state: State, action: Action): State {
-  if (action.type === 'undo') return undoTreeChange(state)
-  if (action.type === 'redo') return redoTreeChange(state)
-  if (action.type === 'restore') return { members: linkRecordedParentCouples(migrateMemberNames(action.members)), past: [...state.past.slice(-39), state.members], future: [] }
+  if (action.type === 'undo') {
+    const next = undoTreeChange(state)
+    return isValidTreeSnapshot(next.members, new Date().toISOString().slice(0, 10)) ? next : state
+  }
+  if (action.type === 'redo') {
+    const next = redoTreeChange(state)
+    return isValidTreeSnapshot(next.members, new Date().toISOString().slice(0, 10)) ? next : state
+  }
+  if (action.type === 'restore') {
+    const restored = linkRecordedParentCouples(migrateMemberNames(action.members))
+    return { members: restored, past: [...state.past.slice(-39), state.members], future: [] }
+  }
   let members = state.members
   if (action.type === 'add-related') members = createRelatedMemberWithNames(members, action.targetId, action.kind, action.firstName, action.lastName, action.id, action.birthDate, action.photo, action.avatar, action.gender, action.fatherId, action.motherId, action.deathDate, action.lifeStatus)
   if (action.type === 'relationship') members = applyRelationship(members, action.sourceId, action.targetId, action.kind)

@@ -1769,6 +1769,46 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
   }
 }
 
+.validation-warning-box {
+  margin-block-start: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #d8a33e 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, #d8a33e 10%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.validation-warning-box ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-inline-start: 18px;
+}
+
+.validation-warning-actions {
+  display: flex;
+  justify-content: end;
+  gap: 8px;
+  margin-block-start: 10px;
+}
+
+.validation-warning-actions button {
+  min-height: 34px;
+  padding-inline: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.validation-warning-actions button:last-child {
+  border-color: color-mix(in srgb, #d8a33e 52%, var(--line));
+}
+
 @media (max-width: 600px) {
   .tree-main {
     height: 100dvh;

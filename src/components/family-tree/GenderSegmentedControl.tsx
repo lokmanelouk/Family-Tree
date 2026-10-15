@@ -5,7 +5,7 @@ import { useLanguage } from '../../i18n/useLanguage'
 type Gender = 'male' | 'female'
 
 type GenderSegmentedControlProps = {
-  value: Gender
+  value: Gender | null
   label: string
   onChange: (value: Gender) => void
 }
@@ -27,8 +27,8 @@ export function GenderSegmentedControl({ value, label, onChange }: GenderSegment
   return <div className="gender-field">
     <span>{label}</span>
     <div className="gender-segmented-control" role="radiogroup" aria-label={label}>
-      <span className={`gender-segment-indicator is-${value}`} aria-hidden="true" />
-      <button ref={maleRef} type="button" role="radio" aria-checked={value === 'male'} tabIndex={value === 'male' ? 0 : -1} className={`gender-segment-option male${value === 'male' ? ' is-selected' : ''}`} onClick={() => onChange('male')} onKeyDown={handleKeyDown}><Mars size={15} strokeWidth={1.7} /><span>{t('Male')}</span></button>
+      {value && <span className={`gender-segment-indicator is-${value}`} aria-hidden="true" />}
+      <button ref={maleRef} type="button" role="radio" aria-checked={value === 'male'} tabIndex={value === 'male' || value === null ? 0 : -1} className={`gender-segment-option male${value === 'male' ? ' is-selected' : ''}`} onClick={() => onChange('male')} onKeyDown={handleKeyDown}><Mars size={15} strokeWidth={1.7} /><span>{t('Male')}</span></button>
       <button ref={femaleRef} type="button" role="radio" aria-checked={value === 'female'} tabIndex={value === 'female' ? 0 : -1} className={`gender-segment-option female${value === 'female' ? ' is-selected' : ''}`} onClick={() => onChange('female')} onKeyDown={handleKeyDown}><Venus size={15} strokeWidth={1.7} /><span>{t('Female')}</span></button>
     </div>
   </div>

@@ -10,6 +10,8 @@ import { isMemberDeceased } from '../../lib/member-status'
 import { getFullName, getNameParts } from '../../lib/member-name'
 import { LastNameField } from './LastNameField'
 import { GenderSegmentedControl } from './GenderSegmentedControl'
+import { collectValidationIssues, validateEditedMemberRelations, type ValidationIssue } from '../../lib/family-validation'
+import { ValidationIssues, ValidationMessage } from './ValidationFeedback'
 
 type EditPersonDialogProps = {
   member: FamilyMember
@@ -26,6 +28,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const [firstNameTouched, setFirstNameTouched] = useState(false)
   const [gender, setGender] = useState<FamilyMember['gender']>(member.gender ?? 'male')
   const [birthDate, setBirthDate] = useState(member.birthDate ?? '')
+  const [birthDateTouched, setBirthDateTouched] = useState(false)
   const [deathDate, setDeathDate] = useState(member.deathDate ?? '')
   const [lifeStatus, setLifeStatus] = useState<NonNullable<FamilyMember['lifeStatus']>>(isMemberDeceased(member) ? 'deceased' : 'living')
   const [deathDateTouched, setDeathDateTouched] = useState(false)
@@ -35,8 +38,13 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const [avatarId, setAvatarId] = useState(() => avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom')
   const [photoError, setPhotoError] = useState('')
   const [relationshipError, setRelationshipError] = useState('')
+  const [validationErrors, setValidationErrors] = useState<ValidationIssue[]>([])
+  const [validationWarnings, setValidationWarnings] = useState<ValidationIssue[]>([])
   const birthDateError = getBirthDateError(birthDate)
   const deathDateError = getDeathDateError(deathDate, birthDate)
+  const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
+  const deathValidationErrors = validationErrors.filter((issue) => ['Enter a valid death date.', 'Death dates cannot be in the future.', 'Death date must be after birth date.'].includes(issue.messageKey))
+  const relationshipValidationErrors = validationErrors.filter((issue) => !birthValidationErrors.includes(issue) && !deathValidationErrors.includes(issue))
   const editTitleParts = t('Edit {name}').split('{name}')
   const fullName = getFullName({ name: [firstName, lastName].filter(Boolean).join(' '), firstName, lastName })
 
@@ -61,14 +69,29 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
     return ''
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function saveChanges() {
+    onSave(member.id, { name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
+    onClose()
+  }
+
+  function evaluate(allowWarnings = false) {
     setAttemptedSubmit(true)
     const validationMessage = validateGenderChange()
     setRelationshipError(validationMessage)
-    if (!firstName.trim() || birthDateError || (lifeStatus === 'deceased' && deathDateError) || validationMessage) return
-    onSave(member.id, { name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
-    onClose()
+    if (!firstName.trim() || validationMessage) return
+    const issues = collectValidationIssues(validateEditedMemberRelations(member, members, birthDate || undefined, lifeStatus === 'deceased' ? deathDate || undefined : undefined, new Date().toISOString().slice(0, 10)))
+    const errors = issues.filter((issue) => issue.type === 'error')
+    const warnings = issues.filter((issue) => issue.type === 'warning')
+    setValidationErrors(errors)
+    if (errors.length) return
+    if (warnings.length && !allowWarnings) { setValidationWarnings(warnings); return }
+    setValidationWarnings([])
+    saveChanges()
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    evaluate()
   }
 
   return <div className="modal-shade edit-person-shade" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -87,14 +110,16 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
             </div>
           </div>
           <div className="member-form-details-row">
-            <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} label="Choose birth date" onChange={setBirthDate} />{birthDateError && <small className="custom-date-error">{t(birthDateError)}</small>}
+            <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} label="Choose birth date" showValidationError={false} onBlur={() => setBirthDateTouched(true)} onChange={setBirthDate} />{birthDateTouched && !attemptedSubmit && birthDateError && <small className="custom-date-error" role="alert">{t(birthDateError)}</small>}{birthValidationErrors.map((issue, index) => <small className="custom-date-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></small>)}
               <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span><Check size={10} strokeWidth={3} /></span></span></button>
-              {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
+              {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{deathDateTouched && !attemptedSubmit && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}{deathValidationErrors.map((issue, index) => <small className="custom-date-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></small>)}</div>}
             </div>
           </div>
         </div>
         {relationshipError && <p className="edit-person-error" role="alert">{t(relationshipError)}</p>}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="primary-button" disabled={Boolean(birthDateError || (lifeStatus === 'deceased' && (deathDateTouched || attemptedSubmit) && deathDateError))}>{t('Save changes')}</button></div>
+        {relationshipValidationErrors.map((issue, index) => <p className="edit-person-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></p>)}
+        <ValidationIssues issues={validationWarnings} onBack={() => setValidationWarnings([])} onContinue={() => evaluate(true)} />
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="primary-button">{t('Save changes')}</button></div>
       </form>
     </section>
   </div>

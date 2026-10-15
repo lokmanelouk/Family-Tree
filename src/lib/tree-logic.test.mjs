@@ -49,7 +49,7 @@ test('relationship validation rejects sibling, spouse, and repeated links that a
 })
 
 test('a valid partner relationship is added symmetrically', () => {
-  const newMember = { ...familyMembers[4], id: 'alex', name: 'Alex Morgan', parentIds: [], spouseIds: [], siblingIds: [] }
+  const newMember = { ...familyMembers[4], id: 'alex', name: 'Alex Morgan', gender: 'male', parentIds: [], spouseIds: [], siblingIds: [] }
   const graph = [...familyMembers, newMember]
   assert.equal(validateRelationship(graph, 'sarah', 'alex', 'partner'), null)
   const changed = applyRelationship(graph, 'sarah', 'alex', 'partner')
@@ -59,15 +59,15 @@ test('a valid partner relationship is added symmetrically', () => {
 })
 
 test('multiple partners remain valid and share a display generation with the selected relative', () => {
-  const alex = { ...familyMembers[4], id: 'alex', name: 'Alex Morgan', parentIds: [], spouseIds: [], siblingIds: [] }
-  const robin = { ...familyMembers[4], id: 'robin', name: 'Robin Morgan', parentIds: [], spouseIds: [], siblingIds: [] }
-  const once = applyRelationship([...familyMembers, alex, robin], 'sarah', 'alex', 'partner')
-  const twice = applyRelationship(once, 'sarah', 'robin', 'partner')
-  assert.equal(validateRelationship(once, 'sarah', 'robin', 'partner'), null)
-  assert.deepEqual(twice.find((person) => person.id === 'sarah')?.spouseIds, ['alex', 'robin'])
+  const alex = { ...familyMembers[4], id: 'alex', name: 'Alex Morgan', gender: 'female', parentIds: [], spouseIds: [], siblingIds: [] }
+  const robin = { ...familyMembers[4], id: 'robin', name: 'Robin Morgan', gender: 'female', parentIds: [], spouseIds: [], siblingIds: [] }
+  const once = applyRelationship([...familyMembers, alex, robin], 'james', 'alex', 'partner')
+  const twice = applyRelationship(once, 'james', 'robin', 'partner')
+  assert.equal(validateRelationship(once, 'james', 'robin', 'partner'), null)
+  assert.deepEqual(twice.find((person) => person.id === 'james')?.spouseIds, ['eleanor', 'alex', 'robin'])
   const generations = getGenerationMap(twice)
-  assert.equal(generations.get('sarah'), generations.get('alex'))
-  assert.equal(generations.get('sarah'), generations.get('robin'))
+  assert.equal(generations.get('james'), generations.get('alex'))
+  assert.equal(generations.get('james'), generations.get('robin'))
 })
 
 test('an invalid proposed relationship leaves the original family graph unchanged', () => {

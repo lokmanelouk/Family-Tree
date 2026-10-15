@@ -1,5 +1,6 @@
 import type { FamilyMember, RelationshipKind } from '../types/family'
 import { getFullName, splitName } from './member-name.ts'
+import { collectValidationIssues, validateRelationshipRules } from './family-validation.ts'
 
 export function getChildren(members: FamilyMember[], memberId: string) {
   return members.filter((member) => member.parentIds.includes(memberId))
@@ -137,6 +138,8 @@ export function validateRelationship(members: FamilyMember[], sourceId: string, 
   const source = members.find((member) => member.id === sourceId)
   const target = members.find((member) => member.id === targetId)
   if (!source || !target) return 'One of those family members could not be found.'
+  const validationError = collectValidationIssues(validateRelationshipRules(members, source, target, kind)).find((issue) => issue.type === 'error')
+  if (validationError) return validationError.messageKey === 'A person cannot be their own ancestor.' ? 'That would create a family cycle. A descendant cannot become an ancestor.' : validationError.messageKey
   if (kind === 'partner') {
     const sourceLinked = source.spouseIds.includes(target.id)
     const targetLinked = target.spouseIds.includes(source.id)
@@ -235,10 +238,7 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
   const isDescendant = kind === 'child' || kind === 'sibling'
   const father = fatherId ? members.find((member) => member.id === fatherId) : undefined
   const mother = motherId ? members.find((member) => member.id === motherId) : undefined
-  const parentPairLinked = Boolean(father && mother && (father.spouseIds.includes(mother.id) || mother.spouseIds.includes(father.id)))
-  if (isDescendant && members.length && (!father && !mother
-    || (father && father.gender !== 'male') || (mother && mother.gender !== 'female') || (father && mother && father.id === mother.id)
-    || (father && mother && !parentPairLinked && validateRelationship(members, father.id, mother.id, 'partner') !== null))) return members
+  if (isDescendant && members.length && (!father && !mother || (father && mother && father.id === mother.id))) return members
   if (isDescendant && kind === 'child' && target && father?.id !== target.id && mother?.id !== target.id) return members
   if (isDescendant && kind === 'sibling' && target && father && target.id !== father.id) return members
   if (kind === 'parent' && target && target.parentIds.some((parentId) => members.find((member) => member.id === parentId)?.gender === gender)) return members
@@ -258,7 +258,7 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
   let result = [...members, newMember]
   // Recording a father and mother together also records their partnership, so
   // the pair is visible and can be edited consistently anywhere in the tree.
-  if (isDescendant && father && mother) result = result.map((member) => {
+  if (isDescendant && father && mother && validateRelationship(result, father.id, mother.id, 'partner') === null) result = result.map((member) => {
     if (member.id === father.id) return { ...member, spouseIds: [...new Set([...member.spouseIds, mother.id])] }
     if (member.id === mother.id) return { ...member, spouseIds: [...new Set([...member.spouseIds, father.id])] }
     return member
