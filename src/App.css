@@ -2203,6 +2203,7 @@ html[dir="rtl"] .duplicate-override {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
@@ -2371,9 +2372,12 @@ html[dir="rtl"] .duplicate-override {
 
 .sidebar-preferences {
   display: grid;
+  min-width: 0;
   gap: 7px;
   margin-top: 12px;
-  padding: 8px 5px 7px;
+  padding-block: 8px 7px;
+  padding-inline: 5px;
+  overflow-x: hidden;
   background: transparent;
   border: 0;
 }
@@ -2384,7 +2388,7 @@ html[dir="rtl"] .duplicate-override {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 0 10px;
+  padding-inline: 10px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   border-radius: 10px;
@@ -3007,17 +3011,68 @@ html[dir="rtl"] .duplicate-override {
 .member-form-field > label {
   display: block;
 }
-.member-status-field {
+.member-status-switch {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-block-start: 12px;
-}
-.member-status-field > span {
+  padding-block: 5px;
+  padding-inline: 2px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-size: 10px;
   font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+.member-status-switch:hover {
+  color: var(--text);
+}
+.member-status-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.member-status-track {
+  width: 38px;
+  height: 22px;
+  flex: 0 0 38px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.member-status-track > span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.member-status-switch.is-on .member-status-track {
+  justify-content: flex-end;
+  border-color: var(--deceased-ring, #5b6075);
+  background: color-mix(in srgb, var(--deceased-ring, #5b6075) 35%, var(--surface));
+}
+.member-status-switch.is-on .member-status-track > span {
+  background: #c4c7d0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-status-switch,
+  .member-status-track,
+  .member-status-track > span {
+    transition: none;
+  }
 }
 .status-death-date-field {
   margin-block-start: 11px;

@@ -6,6 +6,7 @@ import { useLanguage } from '../../i18n/useLanguage'
 import { getBirthDateError, getDeathDateError } from '../../lib/birth-date'
 import { DatePicker } from './DatePicker'
 import { ProfileAvatarPicker } from './ProfileAvatarPicker'
+import { isMemberDeceased } from '../../lib/member-status'
 
 type EditPersonDialogProps = {
   member: FamilyMember
@@ -20,7 +21,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const [gender, setGender] = useState<FamilyMember['gender']>(member.gender ?? 'male')
   const [birthDate, setBirthDate] = useState(member.birthDate ?? '')
   const [deathDate, setDeathDate] = useState(member.deathDate ?? '')
-  const [lifeStatus, setLifeStatus] = useState<NonNullable<FamilyMember['lifeStatus']>>(member.lifeStatus ?? (member.deathDate ? 'deceased' : 'living'))
+  const [lifeStatus, setLifeStatus] = useState<NonNullable<FamilyMember['lifeStatus']>>(isMemberDeceased(member) ? 'deceased' : 'living')
   const [deathDateTouched, setDeathDateTouched] = useState(false)
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
   const [photo, setPhoto] = useState(member.photo ?? '')
@@ -80,10 +81,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
           </div>
           <div className="member-form-details-row">
             <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} onChange={setBirthDate} />{birthDateError && <small className="custom-date-error">{t(birthDateError)}</small>}
-              <div className="member-status-field"><span>{t('Status')}</span><div className="gender-options" role="radiogroup" aria-label={t('Status')}>
-                <button type="button" role="radio" aria-checked={lifeStatus === 'living'} className={lifeStatus === 'living' ? 'selected' : ''} onClick={() => setLifeStatus('living')}>{t('Living')}</button>
-                <button type="button" role="radio" aria-checked={lifeStatus === 'deceased'} className={lifeStatus === 'deceased' ? 'selected' : ''} onClick={() => setLifeStatus('deceased')}>{t('Deceased')}</button>
-              </div></div>
+              <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span /></span></button>
               {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
             </div>
           </div>

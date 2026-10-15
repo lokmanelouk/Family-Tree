@@ -136,10 +136,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
         <div className="member-form-details-row">
           <div className="member-form-field">
             <label htmlFor="relative-birth-date">{t('Birth date optional')}</label><DatePicker id="relative-birth-date" value={birthDate} onChange={(value) => { setBirthDate(value); setConfirmedDifferent(false) }} />
-            <div className="member-status-field"><span>{t('Status')}</span><div className="gender-options" role="radiogroup" aria-label={t('Status')}>
-              <button type="button" role="radio" aria-checked={lifeStatus === 'living'} className={lifeStatus === 'living' ? 'selected' : ''} onClick={() => setLifeStatus('living')}>{t('Living')}</button>
-              <button type="button" role="radio" aria-checked={lifeStatus === 'deceased'} className={lifeStatus === 'deceased' ? 'selected' : ''} onClick={() => setLifeStatus('deceased')}>{t('Deceased')}</button>
-            </div></div>
+            <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span /></span></button>
             {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="relative-death-date">{t('Death date optional')}</label><DatePicker id="relative-death-date" value={deathDate} autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
           </div>
           <div className="member-form-field">
