@@ -214,7 +214,7 @@ export function linkRecordedParentCouples(members: FamilyMember[]): FamilyMember
   return result
 }
 
-export function createRelatedMember(members: FamilyMember[], targetId: string, kind: RelationshipKind, name: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string, deathDate?: string): FamilyMember[] {
+export function createRelatedMember(members: FamilyMember[], targetId: string, kind: RelationshipKind, name: string, id: string, birthDate?: string, photo?: string, avatar?: FamilyMember['avatar'], gender?: FamilyMember['gender'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']): FamilyMember[] {
   const target = members.find((member) => member.id === targetId)
   const cleanName = name.trim()
   if (!cleanName || members.some((member) => member.id === id)) return members
@@ -228,9 +228,10 @@ export function createRelatedMember(members: FamilyMember[], targetId: string, k
   const father = fatherId ? members.find((member) => member.id === fatherId) : undefined
   const mother = motherId ? members.find((member) => member.id === motherId) : undefined
   const parentPairLinked = Boolean(father && mother && (father.spouseIds.includes(mother.id) || mother.spouseIds.includes(father.id)))
-  if (isDescendant && members.length && (!father || father.gender !== 'male' || !mother || mother.gender !== 'female' || father.id === mother.id
-    || (!parentPairLinked && validateRelationship(members, father.id, mother.id, 'partner') !== null))) return members
-  if (isDescendant && kind === 'child' && target && father && mother && father.id !== target.id && mother.id !== target.id) return members
+  if (isDescendant && members.length && (!father && !mother
+    || (father && father.gender !== 'male') || (mother && mother.gender !== 'female') || (father && mother && father.id === mother.id)
+    || (father && mother && !parentPairLinked && validateRelationship(members, father.id, mother.id, 'partner') !== null))) return members
+  if (isDescendant && kind === 'child' && target && father?.id !== target.id && mother?.id !== target.id) return members
   if (isDescendant && kind === 'sibling' && target && father && target.id !== father.id) return members
   if (kind === 'parent' && target && target.parentIds.some((parentId) => members.find((member) => member.id === parentId)?.gender === gender)) return members
   const names = cleanName.split(/\s+/)
@@ -241,9 +242,9 @@ export function createRelatedMember(members: FamilyMember[], targetId: string, k
   ]
   if (!target && members.length > 0) return members
   const newMember: FamilyMember = {
-    id, name: cleanName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(photo ? { photo } : {}),
+    id, name: cleanName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(lifeStatus ? { lifeStatus } : {}), ...(photo ? { photo } : {}),
     relationship: !target ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : gender === 'female' ? 'Wife' : 'Partner' : kind === 'parent' ? gender === 'male' ? 'Father' : gender === 'female' ? 'Mother' : 'Parent' : gender === 'male' ? 'Son' : gender === 'female' ? 'Daughter' : 'Child',
-    parentIds: isDescendant && members.length ? [father!.id, mother!.id] : [], spouseIds: target && kind === 'partner' ? [target.id] : [], siblingIds: [],
+    parentIds: isDescendant && members.length ? [father?.id, mother?.id].filter((parentId): parentId is string => Boolean(parentId)) : [], spouseIds: target && kind === 'partner' ? [target.id] : [], siblingIds: [],
     avatar: avatar ?? looks[cleanName.length % looks.length],
   }
   let result = [...members, newMember]
@@ -292,4 +293,26 @@ export function updateMemberProfile(members: FamilyMember[], memberId: string, p
   const sameAvatar = current.avatar.skin === avatar.skin && current.avatar.hair === avatar.hair && current.avatar.shirt === avatar.shirt && current.avatar.hairstyle === avatar.hairstyle && current.avatar.accessory === avatar.accessory
   if (current.photo === photo && sameAvatar) return members
   return members.map((member) => member.id === memberId ? { ...member, photo, avatar } : member)
+}
+
+export function updateMemberDetails(members: FamilyMember[], memberId: string, details: Pick<FamilyMember, 'name' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>): FamilyMember[] {
+  const current = members.find((member) => member.id === memberId)
+  const name = details.name.trim()
+  if (!current || !name) return members
+  const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase()
+  const sameAvatar = current.avatar.skin === details.avatar.skin && current.avatar.hair === details.avatar.hair && current.avatar.shirt === details.avatar.shirt && current.avatar.hairstyle === details.avatar.hairstyle && current.avatar.accessory === details.avatar.accessory
+  const unchanged = current.name === name && current.initials === initials && current.gender === details.gender && current.birthDate === details.birthDate && current.deathDate === details.deathDate && current.lifeStatus === details.lifeStatus && current.bio === details.bio && current.photo === details.photo && sameAvatar
+  if (unchanged) return members
+  return members.map((member) => member.id === memberId ? {
+    ...member,
+    name,
+    initials,
+    gender: details.gender,
+    lifeStatus: details.lifeStatus,
+    photo: details.photo,
+    avatar: details.avatar,
+    ...(details.birthDate ? { birthDate: details.birthDate } : { birthDate: undefined }),
+    ...(details.deathDate ? { deathDate: details.deathDate } : { deathDate: undefined }),
+    ...(details.bio?.trim() ? { bio: details.bio.trim() } : { bio: undefined }),
+  } : member)
 }

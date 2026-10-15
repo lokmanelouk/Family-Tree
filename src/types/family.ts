@@ -6,6 +6,8 @@ export type FamilyMember = {
   gender?: 'male' | 'female'
   birthDate?: string
   deathDate?: string
+  lifeStatus?: 'living' | 'deceased'
+  bio?: string
   photo?: string
   parentIds: string[]
   spouseIds: string[]

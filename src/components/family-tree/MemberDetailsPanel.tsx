@@ -7,6 +7,7 @@ import { useLanguage } from '../../i18n/useLanguage'
 import { validateRelationship } from '../../lib/tree-logic'
 import { FamilyMemberPicker } from './FamilyMemberPicker'
 import { getMemberAge, type MemberAge } from '../../lib/member-age'
+import { isMemberDeceased } from '../../lib/member-status'
 import { getRootBranchMap } from '../../lib/tree-layout'
 import type { Language } from '../../i18n/LanguageContext'
 import { getParentageKey, interpolateParentage } from '../../i18n/parentage'
@@ -19,10 +20,11 @@ type MemberDetailsPanelProps = {
   onLinkSpouse: (memberId: string, spouseId: string) => void
   onSelectRelative: (member: FamilyMember) => void
   onUpdateProfile: (memberId: string, photo: string | undefined, avatar: FamilyMember['avatar']) => void
+  onEdit: () => void
   onDelete: () => void
 }
 
-export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onLinkSpouse, onSelectRelative, onUpdateProfile, onDelete }: MemberDetailsPanelProps) {
+export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onLinkSpouse, onSelectRelative, onUpdateProfile, onEdit, onDelete }: MemberDetailsPanelProps) {
   const { t, language } = useLanguage()
   const [photoError, setPhotoError] = useState('')
   const [linkingSpouse, setLinkingSpouse] = useState(false)
@@ -33,8 +35,9 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
   const siblings = findMembers(members, member.siblingIds)
   const children = members.filter((entry) => entry.parentIds.includes(member.id))
   const detailsBranchColor = getRootBranchMap(members).get(member.id)
+  const deceased = isMemberDeceased(member)
   const age = getMemberAge(member.birthDate, member.deathDate)
-  const ageAtDeath = member.deathDate ? age : null
+  const ageAtDeath = deceased && member.birthDate && member.deathDate ? age : null
   const spouseCandidates = useMemo(() => members.filter((candidate) =>
     candidate.id !== member.id && !member.spouseIds.includes(candidate.id)
     && validateRelationship(members, member.id, candidate.id, 'partner') === null,
@@ -51,36 +54,40 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
       <div className="details-top">
         <span>{t('PERSON DETAILS')}</span>
         <div className="details-top-actions">
-          <button type="button" title={t('Edit profile photo')} aria-label={t('Edit profile photo')} onClick={() => document.querySelector<HTMLButtonElement>('.details-portrait .profile-avatar-trigger')?.click()}><Pencil size={16} /></button>
+          <button type="button" title={t('Edit person details')} aria-label={t('Edit person details')} onClick={onEdit}><Pencil size={16} /></button>
           <button type="button" className="details-delete-action" title={t('Delete family member')} aria-label={t('Delete family member')} onClick={onDelete}><Trash2 size={16} /></button>
           <button type="button" title={t('Close details')} aria-label={t('Close details')} onClick={onClose}><X size={17} /></button>
         </div>
       </div>
       <div className="details-scroll-body">
-        <div className={`details-profile${member.deathDate ? ' is-deceased' : ''}`} style={detailsBranchColor ? { '--details-ring': detailsBranchColor } as CSSProperties : undefined}>
+        <div className={`details-profile${deceased ? ' is-deceased' : ''}`} style={detailsBranchColor ? { '--details-ring': detailsBranchColor } as CSSProperties : undefined}>
           <div className="details-portrait"><ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} /></div>
           <div className="details-profile-copy">
-            <h2>{member.name}</h2>
+            <h2><bdi dir="auto">{member.name}</bdi></h2>
             {member.gender && <span className={`details-gender-chip gender-${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</span>}
             {getParentageKey(member.gender, parents.length) && <p className="details-parentage">{renderParentage(t(getParentageKey(member.gender, parents.length)!), parents.slice(0, 2))}</p>}
             <div className="details-summary-line">
-              {member.deathDate ? <>
-                <span>{formatLifeSpan(member.birthDate, member.deathDate)}</span>
+              {deceased ? <>
+                {member.deathDate && member.birthDate && <span>{formatLifeSpan(member.birthDate, member.deathDate)}</span>}
+                {member.deathDate && !member.birthDate && <span>{t('Died')} <bdi dir="ltr">{member.deathDate.match(/^(\d{4})/)?.[1]}</bdi></span>}
                 {ageAtDeath && <><span className="details-summary-divider" aria-hidden="true" /><span>{formatDeathAge(ageAtDeath, language, t)}</span></>}
+                {!member.deathDate && member.birthDate && <span>{t('Born')} <bdi dir="ltr">{member.birthDate.slice(0, 4)}</bdi></span>}
+                {!member.deathDate && <><span className="details-summary-divider" aria-hidden="true" /><span>{t('Deceased')}</span></>}
               </> : member.birthDate && <>
                 <span>{t('Born')} <bdi dir="ltr">{member.birthDate.slice(0, 4)}</bdi></span>
                 {age && <><span className="details-summary-divider" aria-hidden="true" /><span>{formatAge(age, language, t)}</span></>}
               </>}
             </div>
+            {member.bio && <p className="details-bio">{member.bio}</p>}
           </div>
         </div>
         <div className="details-links">
-          <RelationshipGroup kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} empty={t('Add partner')} addLabel={t('Add partner')} onAdd={() => onAddRelative(member.id, 'partner')} collapsed={collapsedSections.has('partners')} onToggle={() => toggleSection(setCollapsedSections, 'partners')} onSelect={onSelectRelative} action={!linkingSpouse ? <button type="button" className="relationship-link-action" onClick={() => setLinkingSpouse(true)}><Plus size={13} />{t('Link')}</button> : null}>
+          <RelationshipGroup t={t} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} empty={t('Add partner')} addLabel={t('Add partner')} onAdd={() => onAddRelative(member.id, 'partner')} collapsed={collapsedSections.has('partners')} onToggle={() => toggleSection(setCollapsedSections, 'partners')} onSelect={onSelectRelative} action={!linkingSpouse ? <button type="button" className="relationship-link-action" onClick={() => setLinkingSpouse(true)}><Plus size={13} />{t('Link')}</button> : null}>
             {linkingSpouse && <div className="link-spouse-control">{spouseCandidates.length ? <><FamilyMemberPicker members={spouseCandidates} value={spouseCandidateId} placeholder={t('Select a family member')} onChange={setSpouseCandidateId} /><div className="link-spouse-actions"><button type="button" disabled={!spouseCandidateId} onClick={() => { onLinkSpouse(member.id, spouseCandidateId); setLinkingSpouse(false); setSpouseCandidateId('') }}><Check size={14} />{t('Link spouse')}</button><button type="button" onClick={() => { setLinkingSpouse(false); setSpouseCandidateId('') }}>{t('Cancel')}</button></div></> : <div className="link-spouse-empty"><span>{t('No eligible family members to link')}</span><button type="button" onClick={() => setLinkingSpouse(false)}>{t('Close')}</button></div>}</div>}
           </RelationshipGroup>
-          <RelationshipGroup kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('Add child')} addLabel={t('Add child')} onAdd={() => onAddRelative(member.id, 'child')} collapsed={collapsedSections.has('children')} onToggle={() => toggleSection(setCollapsedSections, 'children')} onSelect={onSelectRelative} />
-          <RelationshipGroup kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} adoptedIds={member.adoptedParentIds ?? []} adoptedLabel={t('Adoption')} empty={t('Add parent')} addLabel={t('Add parent')} onAdd={() => onAddRelative(member.id, 'parent')} collapsed={collapsedSections.has('parents')} onToggle={() => toggleSection(setCollapsedSections, 'parents')} onSelect={onSelectRelative} />
-          <RelationshipGroup kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} empty={t('Add sibling')} addLabel={t('Add sibling')} onAdd={() => onAddRelative(member.id, 'sibling')} collapsed={collapsedSections.has('siblings')} onToggle={() => toggleSection(setCollapsedSections, 'siblings')} onSelect={onSelectRelative} />
+          <RelationshipGroup t={t} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} empty={t('Add child')} addLabel={t('Add child')} onAdd={() => onAddRelative(member.id, 'child')} collapsed={collapsedSections.has('children')} onToggle={() => toggleSection(setCollapsedSections, 'children')} onSelect={onSelectRelative} />
+          <RelationshipGroup t={t} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} adoptedIds={member.adoptedParentIds ?? []} adoptedLabel={t('Adoption')} empty={t('Add parent')} addLabel={t('Add parent')} onAdd={() => onAddRelative(member.id, 'parent')} collapsed={collapsedSections.has('parents')} onToggle={() => toggleSection(setCollapsedSections, 'parents')} onSelect={onSelectRelative} />
+          <RelationshipGroup t={t} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} empty={t('Add sibling')} addLabel={t('Add sibling')} onAdd={() => onAddRelative(member.id, 'sibling')} collapsed={collapsedSections.has('siblings')} onToggle={() => toggleSection(setCollapsedSections, 'siblings')} onSelect={onSelectRelative} />
         </div>
       </div>
     </aside>
@@ -129,7 +136,7 @@ function toggleSection(setCollapsed: (update: (current: Set<string>) => Set<stri
   })
 }
 
-function RelationshipGroup({ icon, title, people, adoptedIds = [], adoptedLabel, empty, addLabel, onAdd, collapsed, onToggle, kind, action, children, onSelect }: { icon: ReactNode; title: string; people: FamilyMember[]; adoptedIds?: string[]; adoptedLabel?: string; empty: string; addLabel: string; onAdd: () => void; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; children?: ReactNode; onSelect: (member: FamilyMember) => void }) {
+function RelationshipGroup({ t, icon, title, people, adoptedIds = [], adoptedLabel, empty, addLabel, onAdd, collapsed, onToggle, kind, action, children, onSelect }: { t: (message: string, values?: Record<string, string | number>) => string; icon: ReactNode; title: string; people: FamilyMember[]; adoptedIds?: string[]; adoptedLabel?: string; empty: string; addLabel: string; onAdd: () => void; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; children?: ReactNode; onSelect: (member: FamilyMember) => void }) {
   return (
     <section className={`relationship-group relationship-group-${kind}`}>
       <div className="relationship-group-heading">
@@ -144,7 +151,7 @@ function RelationshipGroup({ icon, title, people, adoptedIds = [], adoptedLabel,
         {children}
         {people.length ? people.map((person) => {
           const adopted = adoptedIds.includes(person.id)
-          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}`} key={person.id} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<bdi>{person.name}</bdi></button>
+          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}`} key={person.id} title={t('Open {name}', { name: person.name })} aria-label={t('Open {name}', { name: person.name })} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<bdi dir="auto">{person.name}</bdi><ChevronRight className="relationship-person-chevron" size={14} aria-hidden="true" /></button>
         }) : <button type="button" className="relationship-empty-action" onClick={onAdd}><Plus size={13} />{empty}</button>}
         {people.length > 0 && <button type="button" className="relationship-add-action" onClick={onAdd}><Plus size={13} />{addLabel}</button>}
       </div>}

@@ -7,6 +7,7 @@ import { FamilyAvatar } from './FamilyAvatar'
 import { FamilyMemberSpeedDial } from './FamilyMemberSpeedDial'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getMemberAge } from '../../lib/member-age'
+import { isMemberDeceased } from '../../lib/member-status'
 
 type PersonCardProps = {
   member: FamilyMember
@@ -32,24 +33,26 @@ type PersonCardProps = {
 
 export function PersonCard({ member, mode, branchColor, isSelected, isFocused, childCount, isCollapsed, hasParents, areAncestorsCollapsed, isDropTarget, onHoverChange, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onDragStart, onDragEnd, onDrop, onDragOver }: PersonCardProps) {
   const { t, language } = useLanguage()
-  const age = member.deathDate ? null : getMemberAge(member.birthDate)
+  const deceased = isMemberDeceased(member)
+  const age = deceased ? null : getMemberAge(member.birthDate)
   const ageCategory = age ? new Intl.PluralRules(language).select(age.count) : null
   const ageMessage = age && ageCategory ? t(`Age ${age.unit} ${ageCategory}`, { count: '__AGE_COUNT__' }) : ''
   const [ageBefore = '', ageAfter = ''] = ageMessage.split('__AGE_COUNT__')
   const ageValue = age ? `${ageBefore}${age.count}${ageAfter}` : ''
   const birthYear = member.birthDate?.match(/^(\d{4})/)?.[1]
   const deathYear = member.deathDate?.match(/^(\d{4})/)?.[1]
-  const lifeSpan = member.deathDate ? [birthYear, deathYear].filter(Boolean).join(' – ') : ''
+  const lifeSpan = deceased && member.deathDate ? [birthYear, deathYear].filter(Boolean).join(' – ') : ''
   const deceasedTooltip = deathYear ? t('Died {year}', { year: deathYear }) : ''
-  const cardSubtitle = member.deathDate ? lifeSpan : ageValue
+  const bornLabel = birthYear ? t('Born {year}', { year: birthYear }) : ''
+  const cardSubtitle = deceased ? lifeSpan || bornLabel || t('Deceased') : ageValue
   const branchAction = t(isCollapsed ? 'Expand' : 'Collapse')
   const childLabel = childCount === 1 ? t('1 child') : t('{count} children', { count: childCount })
   const branchTooltip = t('{action} branch with {count} children', { action: branchAction, count: childCount })
   return (
-    <article className={`person-node ${member.deathDate ? 'is-deceased' : ''} ${mode === 'circle' ? 'circle-node' : ''} ${member.spouseIds.length || member.formerSpouseIds?.length ? 'has-spouse' : ''} ${branchColor !== null ? 'branch-colored' : ''} ${isSelected ? 'is-selected' : ''} ${isFocused ? '' : 'is-dimmed'} ${isDropTarget ? 'drop-target' : ''}`} style={branchColor !== null ? { '--branch-color': branchColor } as CSSProperties : undefined} data-member-id={member.id} onPointerEnter={() => onHoverChange(member.id)} onPointerLeave={() => onHoverChange(null)} onDragOver={onDragOver} onDrop={(event) => onDrop(event, member)}>
-      <button className="member-main" dir="auto" onClick={() => onSelect(member)} onPointerEnter={() => onHoverChange(member.id)} aria-pressed={isSelected} aria-label={`${member.name}${cardSubtitle ? `, ${cardSubtitle}` : ''}${deceasedTooltip ? `, ${deceasedTooltip}` : ''}`} title={deceasedTooltip || undefined}>
+    <article className={`person-node ${deceased ? 'is-deceased' : ''} ${mode === 'circle' ? 'circle-node' : ''} ${member.spouseIds.length || member.formerSpouseIds?.length ? 'has-spouse' : ''} ${branchColor !== null ? 'branch-colored' : ''} ${isSelected ? 'is-selected' : ''} ${isFocused ? '' : 'is-dimmed'} ${isDropTarget ? 'drop-target' : ''}`} style={branchColor !== null ? { '--branch-color': branchColor } as CSSProperties : undefined} data-member-id={member.id} onPointerEnter={() => onHoverChange(member.id)} onPointerLeave={() => onHoverChange(null)} onDragOver={onDragOver} onDrop={(event) => onDrop(event, member)}>
+      <button className="member-main" dir="auto" onClick={() => onSelect(member)} onPointerEnter={() => onHoverChange(member.id)} aria-pressed={isSelected} aria-label={`${member.name}${cardSubtitle ? `, ${cardSubtitle}` : ''}${deceasedTooltip ? `, ${deceasedTooltip}` : deceased ? `, ${t('Deceased')}` : ''}`} title={deceasedTooltip || (deceased ? t('Deceased') : undefined)}>
         <span className="node-avatar"><FamilyAvatar member={member} compact /></span>
-        <span className="node-copy"><strong>{member.name}</strong>{member.deathDate && lifeSpan && <small className="node-age node-lifespan"><bdi dir="ltr">{lifeSpan}</bdi></small>}{age && <small className="node-age" dir="auto"><bdi>{age.count}</bdi>{ageAfter}</small>}{member.gender && <small className={`node-gender ${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</small>}</span>
+        <span className="node-copy"><strong><bdi dir="auto">{member.name}</bdi></strong>{deceased && member.deathDate && lifeSpan && <small className="node-age node-lifespan"><bdi dir="ltr">{lifeSpan}</bdi></small>}{deceased && !member.deathDate && <small className="node-age node-deceased-label">{bornLabel && <><bdi dir="auto">{t('Born')}</bdi> <bdi dir="ltr">{birthYear}</bdi></>}<span>{t('Deceased')}</span></small>}{age && <small className="node-age" dir="auto"><bdi>{age.count}</bdi>{ageAfter}</small>}{member.gender && <small className={`node-gender ${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</small>}</span>
       </button>
       <div className="node-actions">
         <button className="node-action drag-handle" draggable onDragStart={(event) => onDragStart(event, member)} onDragEnd={onDragEnd} aria-label={t('Drag {name} to propose a relationship change', { name: member.name })} title={t('Drag to propose a relationship change')}><GripVertical size={15} /></button>

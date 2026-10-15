@@ -1,15 +1,16 @@
 import { useCallback, useReducer } from 'react'
 import { familyMembers } from '../data/family'
-import { applyRelationship, createRelatedMember, linkRecordedParentCouples, removeMember, updateMemberProfile } from '../lib/tree-logic'
+import { applyRelationship, createRelatedMember, linkRecordedParentCouples, removeMember, updateMemberDetails, updateMemberProfile } from '../lib/tree-logic'
 import { recordTreeChange, redoTreeChange, undoTreeChange, type TreeHistory } from '../lib/tree-history'
 import type { FamilyMember, RelationshipKind } from '../types/family'
 
 type State = TreeHistory
 type Action =
-  | { type: 'add-related'; targetId: string; kind: RelationshipKind; name: string; gender?: FamilyMember['gender']; id: string; birthDate?: string; deathDate?: string; photo?: string; avatar?: import('../types/family').FamilyMember['avatar']; fatherId?: string; motherId?: string }
+  | { type: 'add-related'; targetId: string; kind: RelationshipKind; name: string; gender?: FamilyMember['gender']; id: string; birthDate?: string; deathDate?: string; lifeStatus?: FamilyMember['lifeStatus']; photo?: string; avatar?: import('../types/family').FamilyMember['avatar']; fatherId?: string; motherId?: string }
   | { type: 'relationship'; sourceId: string; targetId: string; kind: RelationshipKind }
   | { type: 'delete'; memberId: string }
   | { type: 'update-profile'; memberId: string; photo?: string; avatar: FamilyMember['avatar'] }
+  | { type: 'update-details'; memberId: string; details: Pick<FamilyMember, 'name' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'> }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'restore'; members: import('../types/family').FamilyMember[] }
@@ -21,20 +22,22 @@ function reducer(state: State, action: Action): State {
   if (action.type === 'redo') return redoTreeChange(state)
   if (action.type === 'restore') return { members: linkRecordedParentCouples(action.members), past: [...state.past.slice(-39), state.members], future: [] }
   let members = state.members
-  if (action.type === 'add-related') members = createRelatedMember(members, action.targetId, action.kind, action.name, action.id, action.birthDate, action.photo, action.avatar, action.gender, action.fatherId, action.motherId, action.deathDate)
+  if (action.type === 'add-related') members = createRelatedMember(members, action.targetId, action.kind, action.name, action.id, action.birthDate, action.photo, action.avatar, action.gender, action.fatherId, action.motherId, action.deathDate, action.lifeStatus)
   if (action.type === 'relationship') members = applyRelationship(members, action.sourceId, action.targetId, action.kind)
   if (action.type === 'delete') members = removeMember(members, action.memberId)
   if (action.type === 'update-profile') members = updateMemberProfile(members, action.memberId, action.photo, action.avatar)
+  if (action.type === 'update-details') members = updateMemberDetails(members, action.memberId, action.details)
   if (members === state.members) return state
   return recordTreeChange(state, members)
 }
 
 export function useFamilyTree() {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const addRelated = useCallback((targetId: string, kind: RelationshipKind, name: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: import('../types/family').FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string) => dispatch({ type: 'add-related', targetId, kind, name, gender, birthDate, deathDate, photo, avatar, fatherId, motherId, id: `member-${crypto.randomUUID()}` }), [])
+  const addRelated = useCallback((targetId: string, kind: RelationshipKind, name: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: import('../types/family').FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']) => dispatch({ type: 'add-related', targetId, kind, name, gender, birthDate, deathDate, lifeStatus, photo, avatar, fatherId, motherId, id: `member-${crypto.randomUUID()}` }), [])
   const updateRelationship = useCallback((sourceId: string, targetId: string, kind: RelationshipKind) => dispatch({ type: 'relationship', sourceId, targetId, kind }), [])
   const deleteMember = useCallback((memberId: string) => dispatch({ type: 'delete', memberId }), [])
   const updateProfile = useCallback((memberId: string, photo: string | undefined, avatar: FamilyMember['avatar']) => dispatch({ type: 'update-profile', memberId, photo, avatar }), [])
+  const updateDetails = useCallback((memberId: string, details: Pick<FamilyMember, 'name' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>) => dispatch({ type: 'update-details', memberId, details }), [])
   const undo = useCallback(() => dispatch({ type: 'undo' }), [])
   const redo = useCallback(() => dispatch({ type: 'redo' }), [])
   const restore = useCallback((members: import('../types/family').FamilyMember[]) => dispatch({ type: 'restore', members }), [])
@@ -42,6 +45,6 @@ export function useFamilyTree() {
     members: state.members,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
-    addRelated, updateRelationship, deleteMember, updateProfile, undo, redo, restore,
+    addRelated, updateRelationship, deleteMember, updateProfile, updateDetails, undo, redo, restore,
   }
 }

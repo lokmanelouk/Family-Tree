@@ -3,6 +3,7 @@ import { AddFamilyMemberDialog } from "../components/family-tree/AddFamilyMember
 import { FamilyMembersPanel } from "../components/family-tree/FamilyMembersPanel";
 import { FamilyTreeCanvas } from "../components/family-tree/FamilyTreeCanvas";
 import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel";
+import { EditPersonDialog } from "../components/family-tree/EditPersonDialog";
 import { TreeToolbar } from "../components/family-tree/TreeToolbar";
 import { ConfirmationDialog } from "../components/dialogs/ConfirmationDialog";
 import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChangeDialog";
@@ -47,6 +48,7 @@ export function DashboardPage() {
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null);
   const [pendingDrop, setPendingDrop] = useState<DropRequest | null>(null);
   const [deletePending, setDeletePending] = useState<FamilyMember | null>(null);
+  const [editPending, setEditPending] = useState<FamilyMember | null>(null);
   const [restorePending, setRestorePending] = useState<RestoreRequest | null>(
     null,
   );
@@ -332,6 +334,7 @@ export function DashboardPage() {
             }
             onSelectRelative={findMember}
             onUpdateProfile={tree.updateProfile}
+            onEdit={() => setEditPending(selectedMember)}
             onDelete={() => setDeletePending(selectedMember)}
           />
         )}
@@ -362,6 +365,7 @@ export function DashboardPage() {
             fatherId,
             motherId,
             deathDate,
+            lifeStatus,
           ) => {
             tree.addRelated(
               targetId,
@@ -374,10 +378,20 @@ export function DashboardPage() {
               fatherId,
               motherId,
               deathDate,
+              lifeStatus,
             );
             setStatus(t("Family member added to the tree."));
           }}
           onSelectExisting={findMember}
+        />
+      )}
+      {editPending && (
+        <EditPersonDialog
+          key={editPending.id}
+          member={editPending}
+          members={tree.members}
+          onClose={() => setEditPending(null)}
+          onSave={tree.updateDetails}
         />
       )}
       {pendingDrop && (
@@ -392,16 +406,16 @@ export function DashboardPage() {
       {deletePending && (
         <ConfirmationDialog
           danger
-          title={t("Delete {name}?", { name: deletePending.name })}
-          message="This removes this person and their relationship links from the tree. Other family members will stay in the tree."
-          confirmLabel="Delete person"
+          title={<>{t("Delete {name}?").split("{name}")[0]}<bdi dir="auto">{deletePending.name}</bdi>{t("Delete {name}?").split("{name}")[1]}</>}
+          message={deletePending.gender === "male" ? "This also removes his links." : deletePending.gender === "female" ? "This also removes her links." : "This also removes their links."}
+          confirmLabel="Delete"
           onCancel={() => setDeletePending(null)}
           onConfirm={confirmDelete}
         />
       )}
       {restorePending && (
         <ConfirmationDialog
-          title="Restore this family tree?"
+          title={t("Restore this family tree?")}
           message={t(
             "The selected backup contains {count} people and will replace the current tree. You can undo the restore afterward.",
             { count: restorePending.members.length },

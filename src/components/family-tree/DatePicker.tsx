@@ -7,6 +7,9 @@ type DatePickerProps = {
   id: string
   value: string
   onChange: (value: string) => void
+  autoFocus?: boolean
+  showValidationError?: boolean
+  onBlur?: () => void
 }
 
 function parseDate(value: string) {
@@ -46,7 +49,7 @@ function caretAfterDigits(formatted: string, digitCount: number) {
   return formatted.length
 }
 
-export function DatePicker({ id, value, onChange }: DatePickerProps) {
+export function DatePicker({ id, value, onChange, autoFocus = false, showValidationError = true, onBlur }: DatePickerProps) {
   const { language, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [month, setMonth] = useState(() => {
@@ -66,7 +69,7 @@ export function DatePicker({ id, value, onChange }: DatePickerProps) {
   const selectedDate = parseDate(value)
   const locale = language === 'ar' ? 'ar' : 'en'
   const currentYear = new Date().getFullYear()
-  const dateError = getBirthDateError(value)
+  const dateError = showValidationError ? getBirthDateError(value) : ''
   const weekDays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2025, 0, 5 + index)))
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1)
   const leadingDays = firstDay.getDay()
@@ -170,7 +173,7 @@ export function DatePicker({ id, value, onChange }: DatePickerProps) {
 
   return <div className="custom-date-picker" ref={rootRef}>
     <div className={`custom-date-field${dateError ? ' has-error' : ''}`}>
-      <input ref={inputRef} id={id} type="text" inputMode="numeric" autoComplete="off" value={value} placeholder="YYYY-MM-DD or YYYY" aria-invalid={Boolean(dateError)} aria-describedby={dateError ? `${pickerId}-error` : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onKeyDown={handleInputKeyDown} onChange={(event) => {
+      <input ref={inputRef} id={id} type="text" inputMode="numeric" autoComplete="off" autoFocus={autoFocus} value={value} placeholder="YYYY-MM-DD or YYYY" aria-invalid={Boolean(dateError)} aria-describedby={dateError ? `${pickerId}-error` : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onBlur={onBlur} onKeyDown={handleInputKeyDown} onChange={(event) => {
         const raw = event.currentTarget.value
         const caret = event.currentTarget.selectionStart ?? raw.length
         const digitOffset = raw.slice(0, caret).replace(/\D/g, '').length

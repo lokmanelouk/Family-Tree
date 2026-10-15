@@ -29,3 +29,18 @@ export function getBirthDateError(value: string, now = new Date()) {
   }
   return ''
 }
+
+export function getDeathDateError(value: string, birthDate?: string, now = new Date()) {
+  if (!value.trim()) return ''
+  const error = getBirthDateError(value, now)
+  if (error) return error === 'Birth dates cannot be in the future.' ? 'Death dates cannot be in the future.' : error
+  if (!birthDate?.trim()) return ''
+  const birthError = getBirthDateError(birthDate, now)
+  if (birthError) return ''
+  const birthYear = Number(birthDate.slice(0, 4))
+  const deathYear = Number(value.slice(0, 4))
+  if (deathYear < birthYear) return 'Death date must be after birth date.'
+  if (deathYear > birthYear) return ''
+  if (birthDate.length !== 10 || value.length !== 10 || value <= birthDate) return 'Death date must be after birth date.'
+  return ''
+}
