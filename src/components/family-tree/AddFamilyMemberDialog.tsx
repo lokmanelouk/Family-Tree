@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets, defaultAvatar } from '../../data/avatar-presets'
 import { findPossibleDuplicates } from '../../lib/family-search'
@@ -136,8 +136,8 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
         <div className="member-form-details-row">
           <div className="member-form-field">
             <label htmlFor="relative-birth-date">{t('Birth date optional')}</label><DatePicker id="relative-birth-date" value={birthDate} onChange={(value) => { setBirthDate(value); setConfirmedDifferent(false) }} />
-            <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span /></span></button>
-            {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="relative-death-date">{t('Death date optional')}</label><DatePicker id="relative-death-date" value={deathDate} autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
+            <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span><Check size={10} strokeWidth={3} /></span></span></button>
+            {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="relative-death-date">{t('Death date optional')}</label><DatePicker id="relative-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
           </div>
           <div className="member-form-field">
             <label dir="auto">{relationshipLabel ? <>{relationshipLabel[0]}<bdi>{selectedTarget?.name}</bdi>{relationshipLabel[1]}</> : t('Relationship to')}</label>

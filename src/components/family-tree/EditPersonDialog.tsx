@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -80,9 +80,9 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
             </div>
           </div>
           <div className="member-form-details-row">
-            <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} onChange={setBirthDate} />{birthDateError && <small className="custom-date-error">{t(birthDateError)}</small>}
-              <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span /></span></button>
-              {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
+            <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} label="Choose birth date" onChange={setBirthDate} />{birthDateError && <small className="custom-date-error">{t(birthDateError)}</small>}
+              <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span><Check size={10} strokeWidth={3} /></span></span></button>
+              {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{(deathDateTouched || attemptedSubmit) && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}</div>}
             </div>
           </div>
         </div>

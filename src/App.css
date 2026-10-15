@@ -139,7 +139,7 @@
   gap: 9px;
   margin-top: auto;
   padding: 11px 6px 2px;
-  border-top: 1px solid var(--line-soft);
+  border-block-start: 1px solid var(--line-soft);
 }
 .sidebar-family-avatar {
   width: 29px;
@@ -2525,7 +2525,7 @@ html[dir="rtl"] .duplicate-override {
   display: flex;
   align-items: center;
   gap: 2px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-raised);
@@ -2601,6 +2601,17 @@ html[dir="rtl"] .duplicate-override {
   box-shadow: 0 14px 30px #0005;
   animation: dialog-in 0.16s ease both;
 }
+.custom-calendar-portal {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: min(300px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .custom-calendar-header {
   display: flex;
   align-items: center;
@@ -2647,6 +2658,7 @@ html[dir="rtl"] .duplicate-override {
 }
 .custom-date-field input {
   cursor: text;
+  unicode-bidi: isolate;
 }
 .custom-date-field input::placeholder {
   font-size: 11px;
@@ -2698,6 +2710,11 @@ html[dir="rtl"] .duplicate-override {
   gap: 6px;
   animation: calendar-view-in 0.16s ease both;
 }
+.year-choice-grid {
+  min-height: 0;
+  align-content: start;
+  padding-block-start: 2px;
+}
 .custom-calendar-choice {
   min-height: 42px;
   border: 1px solid transparent;
@@ -2719,9 +2736,13 @@ html[dir="rtl"] .duplicate-override {
   color: var(--accent);
   transform: translateY(-1px);
 }
+.custom-calendar-choice.related-year {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
 .custom-calendar-choice.selected {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--calendar-selected-text, var(--bg));
   font-weight: 700;
 }
 .custom-calendar-choice:disabled {
@@ -2783,11 +2804,12 @@ html[dir="rtl"] .duplicate-override {
   opacity: 0.6;
 }
 .custom-calendar-day.today {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+  background: transparent;
 }
 .custom-calendar-day.selected {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--calendar-selected-text, var(--bg));
   font-weight: 700;
 }
 .custom-calendar-day:disabled {
@@ -2797,10 +2819,24 @@ html[dir="rtl"] .duplicate-override {
 }
 .custom-calendar-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
-  padding-top: 7px;
+  height: 38px;
+  min-height: 38px;
+  box-sizing: border-box;
+  margin-block-start: 8px;
+  padding-block-start: 7px;
   border-top: 1px solid var(--line-soft);
+}
+.custom-calendar-footer-slot {
+  min-width: 0;
+  min-height: 29px;
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
+.custom-calendar-footer-slot:last-child {
+  justify-content: flex-end;
 }
 .family-member-picker-trigger {
   width: 100%;
@@ -3058,14 +3094,26 @@ html[dir="rtl"] .duplicate-override {
   border-radius: 50%;
   background: var(--muted);
   transition: transform 0.18s ease, background 0.18s ease;
+  display: grid;
+  place-items: center;
+  color: #25292c;
+}
+.member-status-track > span > svg {
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .14s ease, transform .14s ease;
 }
 .member-status-switch.is-on .member-status-track {
   justify-content: flex-end;
-  border-color: var(--deceased-ring, #5b6075);
-  background: color-mix(in srgb, var(--deceased-ring, #5b6075) 35%, var(--surface));
+  border-color: var(--status-on-border, #778091);
+  background: var(--status-on, #687183);
 }
 .member-status-switch.is-on .member-status-track > span {
-  background: #c4c7d0;
+  background: #eef0f4;
+}
+.member-status-switch.is-on .member-status-track > span > svg {
+  opacity: 1;
+  transform: scale(1);
 }
 @media (prefers-reduced-motion: reduce) {
   .member-status-switch,
@@ -4393,6 +4441,9 @@ html[dir="rtl"] .relationship-guide-popover {
   --gender-female: #f4c1dc;
   --gender-male-bg: color-mix(in srgb, #43bbdf 16%, var(--surface));
   --gender-female-bg: color-mix(in srgb, #d76cae 16%, var(--surface));
+  --status-on: #687183;
+  --status-on-border: #9299a7;
+  --calendar-selected-text: #151727;
   color-scheme: dark;
   background: var(--bg);
   color: var(--text);
@@ -4422,6 +4473,14 @@ html[dir="rtl"] .relationship-guide-popover {
   --gender-female: #8e3c61;
   --gender-male-bg: #e5f0f3;
   --gender-female-bg: #f5e8ef;
+  --rel-partner: #a33d71;
+  --rel-child: #805500;
+  --rel-parent: #604898;
+  --rel-sibling: #216781;
+  --rel-adoption: #287650;
+  --status-on: #747b87;
+  --status-on-border: #59616d;
+  --calendar-selected-text: #ffffff;
   color-scheme: light;
 }
 
@@ -4471,7 +4530,53 @@ html[dir="rtl"] .relationship-guide-popover {
   --gender-female: #f4c1dc;
   --gender-male-bg: color-mix(in srgb, #43bbdf 16%, var(--surface));
   --gender-female-bg: color-mix(in srgb, #d76cae 16%, var(--surface));
+  --rel-parent: #d1acd1;
+  --rel-partner: #e6a2aa;
+  --rel-child: #eac179;
+  --rel-sibling: #a9c8d1;
+  --rel-adoption: #9cc99b;
+  --status-on: #8b7b69;
+  --status-on-border: #ad9983;
+  --calendar-selected-text: #251b17;
   color-scheme: dark;
+}
+
+.tree-app[data-theme="warm-light"] .details-panel {
+  border: 1px solid #cfc5b7;
+  box-shadow: 0 8px 24px #34291d20;
+}
+
+.tree-app[data-theme="chocolate"] .details-panel {
+  border: 1px solid #80604b;
+  box-shadow: 0 8px 24px #120b0880;
+}
+
+.tree-app[data-theme="midnight"] .details-panel {
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px #080a1680;
+}
+
+.tree-app[data-theme="warm-light"] .tree-lines path.spouse-line {
+  stroke-width: 2.8px;
+}
+
+.tree-app[data-theme="chocolate"] .tree-lines path.spouse-line {
+  stroke-width: 2.8px;
+}
+
+.tree-app[data-theme] .tree-lines path.spouse-line {
+  stroke-width: 2.8px;
+}
+
+html[dir="rtl"] .custom-calendar-header > button:first-child svg,
+html[dir="rtl"] .custom-calendar-header > button:last-child svg {
+  transform: scaleX(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member-status-track > span > svg {
+    transition: none;
+  }
 }
 
 /* Relationship semantics do not shift with the selected UI theme. */
