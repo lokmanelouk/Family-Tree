@@ -1,11 +1,32 @@
 import type { FamilyMember } from '../types/family'
 import { getFullName, getNameParts, normalizeNameForMatch } from './member-name.ts'
 
-export function findPossibleDuplicates(members: FamilyMember[], name: string, birthDate?: string) {
+export type DuplicateMatch = { person: FamilyMember; type: 'strong' | 'possible' }
+
+function birthYear(date?: string) {
+  const match = date?.trim().match(/^(\d{4})/)
+  return match ? Number(match[1]) : null
+}
+
+function sameParents(parentIds: string[], right: FamilyMember) {
+  return parentIds.length > 0 && parentIds.length === right.parentIds.length
+    && parentIds.every((id) => right.parentIds.includes(id))
+}
+
+export function findPossibleDuplicates(members: FamilyMember[], name: string, birthDate?: string, parentIds: string[] = []): DuplicateMatch[] {
   const normalized = normalizeNameForMatch(name)
   if (!normalized) return []
-  return members.filter((person) => normalizeNameForMatch(getFullName(person)) === normalized)
-    .map((person) => ({ person, sameBirthDate: Boolean(birthDate && person.birthDate === birthDate) }))
+  const newYear = birthYear(birthDate)
+  return members.flatMap((person) => {
+    if (normalizeNameForMatch(getFullName(person)) !== normalized) return []
+    const existingYear = birthYear(person.birthDate)
+    if (newYear !== null && existingYear !== null) {
+      const difference = Math.abs(newYear - existingYear)
+      return difference <= 1 ? [{ person, type: 'strong' as const }] : []
+    }
+    const strong = sameParents(parentIds, person)
+    return [{ person, type: strong ? 'strong' as const : 'possible' as const }]
+  })
 }
 
 export function searchFamilyMembers(members: FamilyMember[], query: string) {

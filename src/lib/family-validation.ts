@@ -48,7 +48,7 @@ function ageInYears(birthDate?: string, endDate?: string) {
 }
 
 function issueNames(member: FamilyMember) {
-  return { person: getFullName(member) }
+  return { name: getFullName(member) }
 }
 
 export function validatePersonDates(birthDate: string | undefined, deathDate: string | undefined, today: string): ValidationOutcome {
@@ -105,21 +105,41 @@ export function validateParentDeath(parent: FamilyMember, child: FamilyMember, r
   return result('error', '{parent} died before {child} was born.', { parent: getFullName(parent), child: getFullName(child) })
 }
 
+export function validateChildBornAfterParentDeath(parent: FamilyMember, child: FamilyMember): ValidationOutcome {
+  return compareDates(parent.deathDate, child.birthDate) !== null && compareDates(parent.deathDate, child.birthDate)! < 0
+    ? result('error', 'Child was born after parent died.', { parent: getFullName(parent), child: getFullName(child) })
+    : ok
+}
+
 export function validateParentRole(parent: FamilyMember, role: 'father' | 'mother'): ValidationOutcome {
   const expected = role === 'father' ? 'male' : 'female'
   return parent.gender === expected ? ok : result('warning', '{parent} is not marked as {gender}.', { parent: getFullName(parent), gender: expected })
 }
 
 export function validateAgeLimit(member: FamilyMember, today: string): ValidationOutcome {
-  const age = ageInYears(member.birthDate, member.deathDate ?? today)
-  return age !== null && age > MAX_PERSON_AGE
-    ? result('warning', '{person} is older than {years} years.', { ...issueNames(member), years: MAX_PERSON_AGE })
-    : ok
+  const endDate = member.deathDate ?? (member.lifeStatus === 'living' ? today : undefined)
+  const age = ageInYears(member.birthDate, endDate)
+  if (age === null || age <= MAX_PERSON_AGE) return ok
+  const birthYear = yearOf(member.birthDate)?.year
+  const messageKey = member.gender === 'male'
+    ? 'Born in {year}, {name} would be over 120 years old (male).'
+    : member.gender === 'female'
+      ? 'Born in {year}, {name} would be over 120 years old (female).'
+      : 'Born in {year}, {name} would be over 120 years old (neutral).'
+  return birthYear ? result('warning', messageKey, { ...issueNames(member), year: birthYear }) : ok
 }
 
 export function validatePartnerDuplicate(source: FamilyMember, target: FamilyMember): ValidationOutcome {
   return source.spouseIds.includes(target.id) || target.spouseIds.includes(source.id)
     ? result('error', 'These family members are already partners.')
+    : ok
+}
+
+export function validatePartnerAgeGap(source: FamilyMember, target: FamilyMember): ValidationOutcome {
+  const sourceBirthYear = yearOf(source.birthDate)?.year
+  const targetBirthYear = yearOf(target.birthDate)?.year
+  return sourceBirthYear !== undefined && targetBirthYear !== undefined && Math.abs(sourceBirthYear - targetBirthYear) > 30
+    ? result('warning', 'Age difference over 30 years.')
     : ok
 }
 
@@ -137,10 +157,45 @@ export function validatePartnerConstraints(source: FamilyMember, target: FamilyM
 
 export function validateRelationshipRules(members: FamilyMember[], source: FamilyMember, target: FamilyMember, kind: RelationshipKind): ValidationOutcome[] {
   const outcomes: ValidationOutcome[] = [validateSelfRelation(source, target, kind)]
-  if (kind === 'partner') outcomes.push(validatePartnerDuplicate(source, target), ...validatePartnerConstraints(source, target))
+  const shareParent = source.parentIds.some((parentId) => target.parentIds.includes(parentId))
+  const areSiblings = shareParent || source.siblingIds.includes(target.id) || target.siblingIds.includes(source.id)
+  const isPartner = source.spouseIds.includes(target.id) || target.spouseIds.includes(source.id)
+  if (kind === 'partner') {
+    outcomes.push(validatePartnerDuplicate(source, target), ...validatePartnerConstraints(source, target))
+    if (areSiblings) outcomes.push(result('error', 'This person is already a sibling.'))
+    if (reachesAncestor(members, source.id, target.id) || reachesAncestor(members, target.id, source.id)) outcomes.push(result('error', 'A person cannot be their own ancestor.'))
+  }
+  if (kind === 'sibling') {
+    if (!source.parentIds.length) outcomes.push(result('error', 'Add a parent first.'))
+    if (source.siblingIds.includes(target.id) || target.siblingIds.includes(source.id)) outcomes.push(result('error', 'These family members are already siblings.'))
+    if (reachesAncestor(members, source.id, target.id) || reachesAncestor(members, target.id, source.id)) outcomes.push(result('error', 'An ancestor and descendant cannot be linked as siblings.'))
+    if (isPartner) outcomes.push(result('error', 'This person is already a partner.'))
+    for (const parentId of source.parentIds) {
+      const parent = members.find((person) => person.id === parentId)
+      if (!parent || target.parentIds.includes(parentId)) continue
+      const role = parent.gender === 'male' ? 'father' : parent.gender === 'female' ? 'mother' : 'parent'
+      const conflictingParent = target.parentIds.map((id) => members.find((person) => person.id === id)).find((person) => person && person.id !== parentId && role !== 'parent' && person.gender === parent.gender)
+      if (conflictingParent) outcomes.push(result('error', role === 'father' ? 'A person can have only one father.' : 'A person can have only one mother.'))
+      outcomes.push(validateAncestorCycle(members, parent, target), validateParentAge(parent, target), validateParentDeath(parent, target, role))
+      if (role !== 'parent') outcomes.push(validateParentRole(parent, role))
+    }
+  }
   if (kind === 'parent' || kind === 'child' || kind === 'adopted') {
     const parent = kind === 'parent' ? target : source
     const child = kind === 'parent' ? source : target
+    if (kind === 'parent') {
+      if (source.parentIds.length >= 2) outcomes.push(result('error', 'This person already has two parents.'))
+      const existingParents = source.parentIds.map((id) => members.find((person) => person.id === id)).filter((person): person is FamilyMember => Boolean(person))
+      const sameRole = existingParents.find((person) => person.gender && target.gender && person.gender === target.gender)
+      if (sameRole) outcomes.push(result('error', target.gender === 'male' ? 'A person can have only one father.' : 'A person can have only one mother.'))
+      if (isPartner) outcomes.push(result('error', 'This person is already a partner.'))
+      if (areSiblings) outcomes.push(result('error', 'This person is already a sibling.'))
+    }
+    if (kind === 'child') {
+      if (target.parentIds.length >= 2) outcomes.push(result('error', 'This person already has two parents.'))
+      if (isPartner) outcomes.push(result('error', 'This person is already a partner.'))
+      if (areSiblings) outcomes.push(result('error', 'This person is already a sibling.'))
+    }
     outcomes.push(validateAncestorCycle(members, parent, child))
     outcomes.push(validateParentAge(parent, child))
     const role = parent.gender === 'male' ? 'father' : parent.gender === 'female' ? 'mother' : 'parent'
@@ -171,7 +226,30 @@ export function validateEditedMemberRelations(member: FamilyMember, members: Fam
 }
 
 export function collectValidationIssues(outcomes: ValidationOutcome[]) {
-  return outcomes.flatMap((outcome) => outcome.ok ? [] : [outcome.result])
+  const issues = outcomes.flatMap((outcome) => outcome.ok ? [] : [outcome.result])
+  const merged: ValidationIssue[] = []
+  const processed = new Set<ValidationIssue>()
+  const mergePairs = [
+    { source: '{parent} must be older than {child}.', result: 'Both parents must be older than {child}.' },
+    { source: '{parent} is less than {years} years older than {child}.', result: 'Both parents are less than {years} years older than {child}.' },
+  ]
+  for (const issue of issues) {
+    if (processed.has(issue)) continue
+    const mergeRule = mergePairs.find((entry) => issue.messageKey === entry.source)
+    const matching = mergeRule ? issues.filter((candidate) => !processed.has(candidate) && candidate.messageKey === mergeRule.source && candidate.values.child === issue.values.child) : []
+    if (mergeRule && matching.length > 1) {
+      matching.forEach((candidate) => processed.add(candidate))
+      merged.push({
+        type: issue.type,
+        messageKey: mergeRule.result,
+        values: { a: matching[0].values.parent, b: matching[1].values.parent, child: issue.values.child, ...(issue.values.years === undefined ? {} : { years: issue.values.years }) },
+      })
+    } else {
+      processed.add(issue)
+      merged.push(issue)
+    }
+  }
+  return merged
 }
 
 export function isValidTreeSnapshot(members: FamilyMember[], today: string) {
@@ -192,7 +270,6 @@ export function isValidTreeSnapshot(members: FamilyMember[], today: string) {
     for (const spouseId of child.spouseIds) {
       const spouse = members.find((person) => person.id === spouseId)
       if (!spouse || !spouse.spouseIds.includes(child.id)) return false
-      if (collectValidationIssues(validatePartnerConstraints(child, spouse)).some((issue) => issue.type === 'error')) return false
       if (collectValidationIssues(validatePartnerConstraints(child, spouse)).some((issue) => issue.type === 'error')) return false
     }
   }

@@ -11,7 +11,9 @@ import { getFullName, getNameParts } from '../../lib/member-name'
 import { LastNameField } from './LastNameField'
 import { GenderSegmentedControl } from './GenderSegmentedControl'
 import { collectValidationIssues, validateEditedMemberRelations, type ValidationIssue } from '../../lib/family-validation'
-import { ValidationIssues, ValidationMessage } from './ValidationFeedback'
+import { ValidationNotice } from './ValidationFeedback'
+import { capitalizeLatinWordStarts } from '../../lib/name-capitalization'
+import { PersonName } from './PersonName'
 
 type EditPersonDialogProps = {
   member: FamilyMember
@@ -45,6 +47,20 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
   const deathValidationErrors = validationErrors.filter((issue) => ['Enter a valid death date.', 'Death dates cannot be in the future.', 'Death date must be after birth date.'].includes(issue.messageKey))
   const relationshipValidationErrors = validationErrors.filter((issue) => !birthValidationErrors.includes(issue) && !deathValidationErrors.includes(issue))
+  const memberFullName = getFullName(member)
+  const birthRelationIssues = relationshipValidationErrors.filter((issue) => issue.messageKey.includes('must be older') || issue.messageKey.startsWith('Both parents') || issue.messageKey === '{parent} died before {child} was born.' && issue.values.child === memberFullName)
+  const deathRelationIssues = relationshipValidationErrors.filter((issue) => issue.messageKey === '{parent} died before {child} was born.' && issue.values.parent === memberFullName)
+  const formRelationIssues = relationshipValidationErrors.filter((issue) => !birthRelationIssues.includes(issue) && !deathRelationIssues.includes(issue))
+  const dateWarnings = validationWarnings.filter((issue) => issue.messageKey.startsWith('Born in '))
+  const birthRelationWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('parents are less') || issue.messageKey.includes('is less than'))
+  const genderWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('is not marked'))
+  const formWarnings = validationWarnings.filter((issue) => !dateWarnings.includes(issue) && !birthRelationWarnings.includes(issue) && !genderWarnings.includes(issue))
+  const birthWarnings = [...(isMemberDeceased({ lifeStatus, deathDate }) && deathDate ? [] : dateWarnings), ...birthRelationWarnings]
+  const deathWarnings = isMemberDeceased({ lifeStatus, deathDate }) && deathDate ? dateWarnings : []
+  const birthTouchedIssue: ValidationIssue | undefined = birthDateTouched && !attemptedSubmit && birthDateError ? { type: 'error', messageKey: birthDateError, values: {} } : undefined
+  const deathTouchedIssue: ValidationIssue | undefined = deathDateTouched && !attemptedSubmit && deathDateError ? { type: 'error', messageKey: deathDateError, values: {} } : undefined
+  const birthFieldIssue = birthValidationErrors[0] ?? birthTouchedIssue ?? birthWarnings[0] ?? birthRelationIssues[0]
+  const deathFieldIssue = deathValidationErrors[0] ?? deathTouchedIssue ?? deathWarnings[0] ?? deathRelationIssues[0]
   const editTitleParts = t('Edit {name}').split('{name}')
   const fullName = getFullName({ name: [firstName, lastName].filter(Boolean).join(' '), firstName, lastName })
 
@@ -94,32 +110,32 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
     evaluate()
   }
 
-  return <div className="modal-shade edit-person-shade" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+  return <div className="modal-shade edit-person-shade">
     <section className="member-dialog edit-person-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-person-title">
-      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<bdi dir="auto">{getFullName(member)}</bdi>{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={onClose}><X size={17} /></button></div>
+      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<PersonName name={getFullName(member)} />{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={onClose}><X size={17} /></button></div>
       <form noValidate onSubmit={submit}>
         <div className="edit-person-fields">
           <div className="member-form-header-row">
             <div className="member-avatar-field"><span className="photo-upload-heading">{t('Profile photo')}</span><ProfileAvatarPicker avatarId={avatarId} avatar={avatar} photo={photo} error={photoError} onChange={(nextAvatarId, nextPhoto) => { setAvatarId(nextAvatarId); setPhoto(nextPhoto); setAvatar(avatarPresets.find((preset) => preset.id === nextAvatarId)?.avatar ?? avatar); setPhotoError('') }} onError={setPhotoError} /></div>
             <div className="member-name-field">
               <div className="member-name-fields-row">
-                <div className="member-form-field"><label htmlFor="edit-person-first-name">{t('First name')}</label><input id="edit-person-first-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} onBlur={() => setFirstNameTouched(true)} maxLength={60} required autoFocus aria-invalid={(firstNameTouched || attemptedSubmit) && !firstName.trim()} /><small className="first-name-validation" role={(firstNameTouched || attemptedSubmit) && !firstName.trim() ? 'alert' : undefined}>{(firstNameTouched || attemptedSubmit) && !firstName.trim() ? t('First name required') : ''}</small></div>
-                <div className="member-form-field"><label htmlFor="edit-person-last-name">{t('Last name optional')}</label><LastNameField id="edit-person-last-name" value={lastName} members={members} onChange={setLastName} /></div>
+                <div className="member-form-field"><label htmlFor="edit-person-first-name">{t('First name')}</label><input id="edit-person-first-name" value={firstName} onChange={(event) => { setFirstName(event.target.value); setValidationErrors([]) }} onBlur={() => { setFirstName((value) => capitalizeLatinWordStarts(value)); setFirstNameTouched(true) }} maxLength={60} required autoFocus aria-invalid={(firstNameTouched || attemptedSubmit) && !firstName.trim()} /><small className="first-name-validation" role={(firstNameTouched || attemptedSubmit) && !firstName.trim() ? 'alert' : undefined}>{(firstNameTouched || attemptedSubmit) && !firstName.trim() ? t('First name required') : ''}</small></div>
+                <div className="member-form-field"><label htmlFor="edit-person-last-name">{t('Last name optional')}</label><LastNameField id="edit-person-last-name" value={lastName} members={members} onChange={(value) => { setLastName(value); setValidationErrors([]) }} onBlur={() => setLastName((value) => capitalizeLatinWordStarts(value))} /></div>
               </div>
-              <GenderSegmentedControl value={gender ?? 'male'} onChange={(value) => { setGender(value); setRelationshipError('') }} label={t('Gender')} />
+              <GenderSegmentedControl value={gender ?? 'male'} onChange={(value) => { setGender(value); setRelationshipError(''); setValidationWarnings([]) }} label={t('Gender')} />
+              {relationshipError && <ValidationNotice issue={{ type: 'error', messageKey: relationshipError, values: {} }} members={members} />}
+              {genderWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`gender-warning-${index}`} />)}
             </div>
           </div>
           <div className="member-form-details-row">
-            <div className="member-form-field"><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} label="Choose birth date" showValidationError={false} onBlur={() => setBirthDateTouched(true)} onChange={setBirthDate} />{birthDateTouched && !attemptedSubmit && birthDateError && <small className="custom-date-error" role="alert">{t(birthDateError)}</small>}{birthValidationErrors.map((issue, index) => <small className="custom-date-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></small>)}
+            <div className={`member-form-field${birthFieldIssue ? ` validation-field-${birthFieldIssue.type}` : ''}`}><label htmlFor="edit-person-birth-date">{t('Birth date optional')}</label><DatePicker id="edit-person-birth-date" value={birthDate} label="Choose birth date" showValidationError={false} onBlur={() => setBirthDateTouched(true)} onChange={(value) => { setBirthDate(value); setValidationErrors([]); setValidationWarnings([]) }} />{birthValidationErrors[0] && <ValidationNotice issue={birthValidationErrors[0]} members={members} />}{birthTouchedIssue && <ValidationNotice issue={birthTouchedIssue} members={members} />}{birthRelationIssues.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`birth-${issue.messageKey}-${index}`} />)}{birthWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`birth-warning-${index}`} />)}</div>
               <button type="button" role="switch" aria-checked={lifeStatus === 'deceased'} className={`member-status-switch${lifeStatus === 'deceased' ? ' is-on' : ''}`} onClick={() => setLifeStatus((current) => current === 'deceased' ? 'living' : 'deceased')}><span>{t('Deceased')}</span><span className="member-status-track" aria-hidden="true"><span><Check size={10} strokeWidth={3} /></span></span></button>
-              {lifeStatus === 'deceased' && <div className="member-form-field death-date-field status-death-date-field"><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={setDeathDate} />{deathDateTouched && !attemptedSubmit && deathDateError && <small className="custom-date-error" role="alert">{t(deathDateError)}</small>}{deathValidationErrors.map((issue, index) => <small className="custom-date-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></small>)}</div>}
-            </div>
+              {lifeStatus === 'deceased' && <div className={`member-form-field death-date-field status-death-date-field${deathFieldIssue ? ` validation-field-${deathFieldIssue.type}` : ''}`}><label htmlFor="edit-person-death-date">{t('Death date optional')}</label><DatePicker id="edit-person-death-date" value={deathDate} initialDateHint={birthDate} label="Choose death date" autoFocus showValidationError={false} onBlur={() => setDeathDateTouched(true)} onChange={(value) => { setDeathDate(value); setValidationErrors([]); setValidationWarnings([]) }} />{deathValidationErrors[0] && <ValidationNotice issue={deathValidationErrors[0]} members={members} />}{deathTouchedIssue && <ValidationNotice issue={deathTouchedIssue} members={members} />}{deathRelationIssues.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`death-${issue.messageKey}-${index}`} />)}{deathWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`death-warning-${index}`} />)}</div>}
           </div>
         </div>
-        {relationshipError && <p className="edit-person-error" role="alert">{t(relationshipError)}</p>}
-        {relationshipValidationErrors.map((issue, index) => <p className="edit-person-error" role="alert" key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} /></p>)}
-        <ValidationIssues issues={validationWarnings} onBack={() => setValidationWarnings([])} onContinue={() => evaluate(true)} />
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="primary-button">{t('Save changes')}</button></div>
+        {formRelationIssues.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}
+        {formWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`form-warning-${index}`} />)}
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type={validationWarnings.length ? 'button' : 'submit'} className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} onClick={validationWarnings.length ? () => evaluate(true) : undefined} title={validationErrors.length ? t('Fix the errors above before continuing.') : undefined} disabled={Boolean(validationErrors.length)}>{t(validationWarnings.length ? 'Save anyway' : 'Save changes')}</button></div>
       </form>
     </section>
   </div>

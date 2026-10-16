@@ -24,6 +24,13 @@ export function getFullName(member: Pick<FamilyMember, 'name' | 'firstName' | 'l
   return [firstName, lastName].filter(Boolean).join(' ') || member.name.trim()
 }
 
+export function getDisambiguatedFullName(member: FamilyMember, members: FamilyMember[]) {
+  const fullName = getFullName(member)
+  const matchingMembers = members.filter((person) => normalizeNameForMatch(getFullName(person)) === normalizeNameForMatch(fullName))
+  const year = member.birthDate?.match(/^\d{4}/)?.[0]
+  return matchingMembers.length > 1 && year ? `${fullName} (${year})` : fullName
+}
+
 export function migrateMemberNames(members: FamilyMember[]) {
   return members.map((member) => {
     if (member.firstName?.trim() && member.lastName !== undefined) return member

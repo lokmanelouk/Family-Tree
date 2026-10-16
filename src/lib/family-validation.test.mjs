@@ -8,12 +8,14 @@ import {
   validateParentDeath,
   validateParentRole,
   validatePartnerDuplicate,
+  validatePartnerAgeGap,
   validatePartnerConstraints,
   validatePersonDates,
   validateRelationshipRules,
   validateSelfRelation,
   isValidTreeSnapshot,
 } from './family-validation.ts'
+import { interpolateMessageParts } from './message-format.ts'
 
 function person(id, options = {}) {
   return {
@@ -25,6 +27,7 @@ function person(id, options = {}) {
     gender: options.gender,
     birthDate: options.birthDate,
     deathDate: options.deathDate,
+    lifeStatus: options.lifeStatus,
     parentIds: options.parentIds ?? [],
     spouseIds: options.spouseIds ?? [],
     siblingIds: options.siblingIds ?? [],
@@ -46,6 +49,33 @@ test('parent age gap warns under 15 years and accepts the threshold', () => {
   assert.equal(issue(validateParentAge(person('p', { birthDate: '1990' }), person('c', { birthDate: '2004' }))).type, 'warning')
   assert.equal(issue(validateParentAge(person('p', { birthDate: '1990' }), person('c', { birthDate: '2005' }))), null)
   assert.equal(issue(validateParentAge(person('p'), person('c'))), null)
+})
+
+test('matching parent age errors and warnings merge into one two-name message', () => {
+  const child = person('child', { name: 'Sam', birthDate: '2000' })
+  const mother = person('mother', { name: 'Layla', gender: 'female', birthDate: '1990' })
+  const father = person('father', { name: 'Zack', gender: 'male', birthDate: '1990' })
+  const warning = collectValidationIssues([
+    validateParentAge(father, child),
+    validateParentAge(mother, child),
+  ])
+  assert.deepEqual(warning, [{ type: 'warning', messageKey: 'Both parents are less than {years} years older than {child}.', values: { a: 'Zack', b: 'Layla', child: 'Sam', years: 15 } }])
+  const error = collectValidationIssues([
+    validateParentAge(person('father', { name: 'Zack', birthDate: '2000' }), child),
+    validateParentAge(person('mother', { name: 'Layla', birthDate: '2001' }), child),
+  ])
+  assert.deepEqual(error, [{ type: 'error', messageKey: 'Both parents must be older than {child}.', values: { a: 'Zack', b: 'Layla', child: 'Sam' } }])
+})
+
+test('validation message interpolation replaces every named value without marker text', () => {
+  const parts = interpolateMessageParts('{a} and {b} must be older than {child}.', { a: 'Zack', b: 'Layla', child: 'Sam' })
+  const message = parts.map((part) => part.value).join('')
+  assert.equal(message, 'Zack and Layla must be older than Sam.')
+  assert.doesNotMatch(message, /__VALUE/)
+  const arabicParts = interpolateMessageParts('يجب أن يكون كل من {a} و{b} أكبر سنًا من {child}.', { a: 'زكريا', b: 'ليلى', child: 'سام' })
+  const arabicMessage = arabicParts.map((part) => part.value).join('')
+  assert.equal(arabicMessage, 'يجب أن يكون كل من زكريا وليلى أكبر سنًا من سام.')
+  assert.doesNotMatch(arabicMessage, /__VALUE/)
 })
 
 test('ancestor validation follows the complete ancestor chain', () => {
@@ -76,6 +106,12 @@ test('partner constraints preserve monogamy for women and allow multiple wives f
   assert.ok(collectValidationIssues(validatePartnerConstraints(person('a', { gender: 'male' }), person('b', { gender: 'male' }))).some((item) => item.type === 'error'))
 })
 
+test('partner age gap warns only when both known birth years differ by more than 30 years', () => {
+  assert.deepEqual(issue(validatePartnerAgeGap(person('a', { birthDate: '1940' }), person('b', { birthDate: '1980' }))), { type: 'warning', messageKey: 'Age difference over 30 years.', values: {} })
+  assert.equal(issue(validatePartnerAgeGap(person('a', { birthDate: '1950' }), person('b', { birthDate: '1980' }))), null)
+  assert.equal(issue(validatePartnerAgeGap(person('a', { birthDate: '1950' }), person('b'))), null)
+})
+
 test('relationship rules check partner duplicates and parent cycles', () => {
   const a = person('a', { spouseIds: ['b'] })
   const b = person('b')
@@ -83,6 +119,18 @@ test('relationship rules check partner duplicates and parent cycles', () => {
   const parent = person('parent', { parentIds: ['child'], birthDate: '1940' })
   const child = person('child', { birthDate: '2000' })
   assert.ok(collectValidationIssues(validateRelationshipRules([parent, child], parent, child, 'child')).some((item) => item.messageKey === 'A person cannot be their own ancestor.'))
+})
+
+test('sibling linking requires a linked parent and validates inherited parent relationships', () => {
+  const personWithoutParents = person('current')
+  const candidate = person('candidate')
+  assert.ok(collectValidationIssues(validateRelationshipRules([personWithoutParents, candidate], personWithoutParents, candidate, 'sibling')).some((item) => item.messageKey === 'Add a parent first.'))
+
+  const father = person('father', { gender: 'male', birthDate: '1950' })
+  const current = person('current', { birthDate: '1990', parentIds: ['father'] })
+  const sibling = person('sibling', { birthDate: '1992' })
+  const issues = collectValidationIssues(validateRelationshipRules([father, current, sibling], current, sibling, 'sibling'))
+  assert.equal(issues.length, 0)
 })
 
 test('date validation checks ordering, calendar validity, future dates, and year-only values', () => {
@@ -101,9 +149,23 @@ test('death date must follow birth date and father gets a one-year tolerance', (
 })
 
 test('age limit warns above 120 and accepts the edge', () => {
-  assert.equal(issue(validateAgeLimit(person('member', { birthDate: '1905' }), '2026')).type, 'warning')
-  assert.equal(issue(validateAgeLimit(person('member', { birthDate: '1906' }), '2026')), null)
+  assert.equal(issue(validateAgeLimit(person('member', { birthDate: '1905', lifeStatus: 'living' }), '2026')).type, 'warning')
+  assert.equal(issue(validateAgeLimit(person('member', { birthDate: '1906', lifeStatus: 'living' }), '2026')), null)
   assert.equal(issue(validateAgeLimit(person('member'), '2026')), null)
+})
+
+test('age limit checks living people against today and deceased people at death', () => {
+  const living = person('ancient', { name: 'Hasan', gender: 'male', birthDate: '1840', lifeStatus: 'living' })
+  assert.deepEqual(issue(validateAgeLimit(living, '2026')), {
+    type: 'warning',
+    messageKey: 'Born in {year}, {name} would be over 120 years old (male).',
+    values: { name: 'Hasan', year: 1840 },
+  })
+
+  assert.equal(issue(validateAgeLimit(person('deceased', { birthDate: '1800', deathDate: '1900', lifeStatus: 'deceased' }), '2026')), null)
+  assert.equal(issue(validateAgeLimit(person('centenarian', { birthDate: '1800', deathDate: '1930', lifeStatus: 'deceased' }), '2026')).type, 'warning')
+  assert.equal(issue(validateAgeLimit(person('unknown-death', { birthDate: '1800', lifeStatus: 'deceased' }), '2026')), null)
+  assert.equal(issue(validateAgeLimit(person('living-record-with-death', { birthDate: '1800', deathDate: '1850', lifeStatus: 'living' }), '2026')), null)
 })
 
 test('parent role mismatch is a warning', () => {

@@ -187,9 +187,12 @@ export function applyRelationship(members: FamilyMember[], sourceId: string, tar
     if (member.id === targetId) return { ...member, spouseIds: member.spouseIds.filter((id) => id !== sourceId), formerSpouseIds: [...new Set([...(member.formerSpouseIds ?? []), sourceId])] }
     return member
   })
-  if (kind === 'sibling') return members.map((member) => member.id === sourceId
-    ? { ...member, siblingIds: [...new Set([...member.siblingIds, targetId])] }
-    : member.id === targetId ? { ...member, siblingIds: [...member.siblingIds, sourceId] } : member)
+  if (kind === 'sibling') {
+    const next = members.map((member) => member.id === sourceId
+      ? { ...member, siblingIds: [...new Set([...member.siblingIds, targetId])] }
+      : member.id === targetId ? { ...member, siblingIds: [...new Set([...member.siblingIds, sourceId])], parentIds: [...new Set([...member.parentIds, ...source.parentIds])] } : member)
+    return linkRecordedParentCouples(next)
+  }
   const parentId = kind === 'parent' ? targetId : sourceId
   const childId = kind === 'parent' ? sourceId : targetId
   const nextMembers = members.map((member) => member.id === childId ? {
@@ -240,7 +243,7 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
   const mother = motherId ? members.find((member) => member.id === motherId) : undefined
   if (isDescendant && members.length && (!father && !mother || (father && mother && father.id === mother.id))) return members
   if (isDescendant && kind === 'child' && target && father?.id !== target.id && mother?.id !== target.id) return members
-  if (isDescendant && kind === 'sibling' && target && father && target.id !== father.id) return members
+  if (isDescendant && kind === 'sibling' && target && !target.parentIds.some((parentId) => [father?.id, mother?.id].includes(parentId))) return members
   if (kind === 'parent' && target && target.parentIds.some((parentId) => members.find((member) => member.id === parentId)?.gender === gender)) return members
   const names = cleanName.split(/\s+/)
   const looks = [

@@ -5,6 +5,7 @@ import { FamilyTreeCanvas } from "../components/family-tree/FamilyTreeCanvas";
 import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel";
 import { EditPersonDialog } from "../components/family-tree/EditPersonDialog";
 import { TreeToolbar } from "../components/family-tree/TreeToolbar";
+import { PersonName } from "../components/family-tree/PersonName";
 import { ConfirmationDialog } from "../components/dialogs/ConfirmationDialog";
 import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChangeDialog";
 import { TreeSidebar } from "../components/layout/TreeSidebar";
@@ -330,8 +331,8 @@ export function DashboardPage() {
             members={tree.members}
             onClose={() => setSelectedId(null)}
             onAddRelative={openAdd}
-            onLinkSpouse={(memberId, spouseId) =>
-              tree.updateRelationship(memberId, spouseId, "partner")
+            onLinkRelative={(memberId, relativeId, kind) =>
+              tree.updateRelationship(memberId, relativeId, kind)
             }
             onSelectRelative={findMember}
             onUpdateProfile={tree.updateProfile}
@@ -409,7 +410,7 @@ export function DashboardPage() {
       {deletePending && (
         <ConfirmationDialog
           danger
-          title={<>{t("Delete {name}?").split("{name}")[0]}<bdi dir="auto">{getFullName(deletePending)}</bdi>{t("Delete {name}?").split("{name}")[1]}</>}
+          title={<>{t("Delete {name}?").split("{name}")[0]}<PersonName name={getFullName(deletePending)} />{t("Delete {name}?").split("{name}")[1]}</>}
           message={deletePending.gender === "male" ? "This also removes his links." : deletePending.gender === "female" ? "This also removes her links." : "This also removes their links."}
           confirmLabel="Delete"
           onCancel={() => setDeletePending(null)}

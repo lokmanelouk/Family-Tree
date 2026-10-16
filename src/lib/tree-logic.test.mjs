@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { familyMembers } from '../data/family.ts'
-import { applyRelationship, createRelatedMember, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
+import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
 import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
@@ -42,8 +42,8 @@ test('relationship validation rejects self-parenting and ancestry cycles', () =>
 })
 
 test('relationship validation rejects sibling, spouse, and repeated links that are structurally invalid', () => {
-  assert.match(validateRelationship(familyMembers, 'james', 'sarah', 'partner') ?? '', /ancestor or descendant/)
-  assert.match(validateRelationship(familyMembers, 'sarah', 'jack', 'partner') ?? '', /Siblings cannot/)
+  assert.match(validateRelationship(familyMembers, 'james', 'sarah', 'partner') ?? '', /descendant cannot become an ancestor/)
+  assert.match(validateRelationship(familyMembers, 'sarah', 'jack', 'partner') ?? '', /already a sibling/)
   assert.match(validateRelationship(familyMembers, 'sarah', 'jack', 'sibling') ?? '', /already siblings/)
   assert.match(validateRelationship(familyMembers, 'james', 'eleanor', 'partner') ?? '', /already partners/)
 })
@@ -112,6 +112,15 @@ test('adding a second parent links a valid father and mother as spouses', () => 
   const completedFamily = createRelatedMember(withFather, child.id, 'parent', 'Test Mother', 'test-mother', undefined, undefined, undefined, 'female')
   assert.ok(completedFamily.find((member) => member.id === 'test-father')?.spouseIds.includes('test-mother'))
   assert.ok(completedFamily.find((member) => member.id === 'test-mother')?.spouseIds.includes('test-father'))
+})
+
+test('a new sibling can keep one shared parent while selecting another parent', () => {
+  const father = { ...familyMembers[0], id: 'father-a', name: 'Father A', firstName: 'Father', lastName: 'A', gender: 'male', birthDate: '1950', parentIds: [], spouseIds: [], siblingIds: [] }
+  const otherFather = { ...familyMembers[1], id: 'father-b', name: 'Father B', firstName: 'Father', lastName: 'B', gender: 'male', birthDate: '1952', parentIds: [], spouseIds: [], siblingIds: [] }
+  const mother = { ...familyMembers[2], id: 'mother', name: 'Mother', firstName: 'Mother', lastName: '', gender: 'female', birthDate: '1955', parentIds: [], spouseIds: [], siblingIds: [] }
+  const current = { ...familyMembers[3], id: 'current', name: 'Current', firstName: 'Current', lastName: '', gender: 'female', birthDate: '1980', parentIds: [father.id, mother.id], spouseIds: [], siblingIds: [] }
+  const tree = createRelatedMemberWithNames([father, otherFather, mother, current], current.id, 'sibling', 'New', 'Sibling', 'new-sibling', '1982', undefined, undefined, 'female', otherFather.id, mother.id)
+  assert.deepEqual(tree.find((member) => member.id === 'new-sibling')?.parentIds, [otherFather.id, mother.id])
 })
 
 test('tree edits support undo and redo snapshots', () => {
@@ -226,12 +235,18 @@ test('root branch navigation groups founding partners and counts independent roo
   assert.equal(branches[2]?.partner?.id, 'layla')
 })
 
-test('possible duplicate lookup distinguishes matching identity details and preserves same-name people', () => {
-  const sameName = { ...familyMembers[4], id: 'sarah-2', birthDate: '1992-07-01' }
-  const people = [...familyMembers, sameName]
-  const matches = findPossibleDuplicates(people, '  SARAH   Morgan ', '1992-07-01')
-  assert.equal(matches.length, 2)
-  assert.ok(matches.some((match) => match.sameBirthDate))
+test('duplicate matching classifies name, birth year, and parent evidence', () => {
+  const existing = { ...familyMembers[4], id: 'sarah-match', birthDate: '1992-07-01' }
+  const people = [...familyMembers, existing]
+  assert.deepEqual(findPossibleDuplicates(people, '  SARAH   Morgan ', '1993').map((match) => [match.person.id, match.type]), [['sarah', 'strong'], ['sarah-match', 'strong']])
+  assert.deepEqual(findPossibleDuplicates(people, 'Sarah Morgan', '1994', existing.parentIds), [])
+  assert.deepEqual(findPossibleDuplicates(people, 'Sarah Morgan').map((match) => [match.person.id, match.type]), [['sarah', 'possible'], ['sarah-match', 'possible']])
+
+  const sameParents = { ...existing, id: 'sarah-same-parents', birthDate: undefined }
+  assert.deepEqual(findPossibleDuplicates([existing], 'Sarah Morgan', undefined, existing.parentIds), [{ person: existing, type: 'strong' }])
+  assert.deepEqual(findPossibleDuplicates([sameParents], 'Sarah Morgan', '1992'), [{ person: sameParents, type: 'possible' }])
+  assert.deepEqual(findPossibleDuplicates([sameParents], 'Sarah Morgan', '1992', existing.parentIds), [{ person: sameParents, type: 'strong' }])
+  assert.deepEqual(findPossibleDuplicates([sameParents], 'Sarah Morgan', '1992', []), [{ person: sameParents, type: 'possible' }])
   assert.equal(searchFamilyMembers(people, 'Sarah').length, 2)
 })
 

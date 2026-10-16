@@ -3,17 +3,19 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FamilyMember } from '../../types/family'
 import { getSurnameSuggestions } from '../../lib/family-search'
 import { useLanguage } from '../../i18n/useLanguage'
+import { PersonName } from './PersonName'
 
 type LastNameFieldProps = {
   id: string
   value: string
   members: FamilyMember[]
   onChange: (value: string) => void
+  onBlur?: () => void
 }
 
 const themeProperties = ['--page', '--surface', '--surface-raised', '--line', '--text', '--muted', '--accent', '--accent-soft']
 
-export function LastNameField({ id, value, members, onChange }: LastNameFieldProps) {
+export function LastNameField({ id, value, members, onChange, onBlur }: LastNameFieldProps) {
   const { t } = useLanguage()
   const listId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -82,9 +84,9 @@ export function LastNameField({ id, value, members, onChange }: LastNameFieldPro
   }
 
   return <>
-    <input ref={inputRef} id={id} value={value} onChange={(event) => { onChange(event.target.value); setActiveIndex(-1); setOpen(true) }} onFocus={() => setOpen(true)} onKeyDown={onInputKeyDown} maxLength={60} placeholder={t('Last name optional')} role="combobox" aria-autocomplete="list" aria-expanded={open && suggestions.length > 0} aria-controls={listId} aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
+    <input ref={inputRef} id={id} value={value} onChange={(event) => { onChange(event.target.value); setActiveIndex(-1); setOpen(true) }} onBlur={onBlur} onFocus={() => setOpen(true)} onKeyDown={onInputKeyDown} maxLength={60} placeholder={t('Last name optional')} role="combobox" aria-autocomplete="list" aria-expanded={open && suggestions.length > 0} aria-controls={listId} aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
     {open && suggestions.length > 0 && createPortal(<div ref={popupRef} id={listId} className="surname-suggestions" role="listbox" style={{ ...themeStyle, position: 'fixed', top: position.top, left: position.left, width: position.width, zIndex: 10000 }}>
-      {suggestions.map((suggestion, index) => <button id={`${listId}-${index}`} type="button" role="option" aria-selected={activeIndex === index} key={suggestion.name} onPointerDown={(event) => event.preventDefault()} onMouseEnter={() => setActiveIndex(index)} onClick={() => { onChange(suggestion.name); setOpen(false); inputRef.current?.focus() }}><bdi dir="auto">{suggestion.name}</bdi><span>(<bdi>{suggestion.count}</bdi>)</span></button>)}
+      {suggestions.map((suggestion, index) => <button id={`${listId}-${index}`} type="button" role="option" aria-selected={activeIndex === index} key={suggestion.name} onPointerDown={(event) => event.preventDefault()} onMouseEnter={() => setActiveIndex(index)} onClick={() => { onChange(suggestion.name); setOpen(false); inputRef.current?.focus() }}><PersonName name={suggestion.name} /><span>(<bdi dir="ltr">{suggestion.count}</bdi>)</span></button>)}
     </div>, document.body)}
   </>
 }
