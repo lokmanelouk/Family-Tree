@@ -17,7 +17,9 @@ type Action =
   | { type: 'redo' }
   | { type: 'restore'; members: import('../types/family').FamilyMember[] }
 
-const initialState: State = { members: linkRecordedParentCouples(migrateMemberNames(familyMembers)), past: [], future: [] }
+function createInitialState(members: FamilyMember[] = familyMembers): State {
+  return { members: linkRecordedParentCouples(migrateMemberNames(members)), past: [], future: [] }
+}
 
 function reducer(state: State, action: Action): State {
   if (action.type === 'undo') {
@@ -42,8 +44,8 @@ function reducer(state: State, action: Action): State {
   return recordTreeChange(state, members)
 }
 
-export function useFamilyTree() {
-  const [state, dispatch] = useReducer(reducer, initialState)
+export function useFamilyTree(initialMembers?: FamilyMember[]) {
+  const [state, dispatch] = useReducer(reducer, initialMembers ?? familyMembers, createInitialState)
   const addRelated = useCallback((targetId: string, kind: RelationshipKind, firstName: string, lastName: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: import('../types/family').FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']) => dispatch({ type: 'add-related', targetId, kind, firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatar, fatherId, motherId, id: `member-${crypto.randomUUID()}` }), [])
   const updateRelationship = useCallback((sourceId: string, targetId: string, kind: RelationshipKind) => dispatch({ type: 'relationship', sourceId, targetId, kind }), [])
   const deleteMember = useCallback((memberId: string) => dispatch({ type: 'delete', memberId }), [])

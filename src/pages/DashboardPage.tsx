@@ -23,9 +23,13 @@ type AddRequest = { targetId: string; kind: RelationshipKind };
 type DropRequest = { source: FamilyMember; target: FamilyMember };
 type RestoreRequest = { members: FamilyMember[]; fileName: string };
 
+const DEBUG_EMPTY_STATE = false;
+const EMPTY_MEMBERS: FamilyMember[] = [];
+
 export function DashboardPage() {
   const { t, language } = useLanguage();
-  const tree = useFamilyTree();
+  const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : undefined);
+  const members = tree.members;
   const { undo, redo } = tree;
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
@@ -47,6 +51,10 @@ export function DashboardPage() {
   );
   const [zoom, setZoom] = useState(1);
   const [layoutRevision, setLayoutRevision] = useState(0);
+  const [navigationTarget, setNavigationTarget] = useState<{
+    id: string;
+    sequence: number;
+  } | null>(null);
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null);
   const [pendingDrop, setPendingDrop] = useState<DropRequest | null>(null);
   const [deletePending, setDeletePending] = useState<FamilyMember | null>(null);
@@ -57,20 +65,44 @@ export function DashboardPage() {
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [status, setStatus] = useState("");
   const selectedMember =
-    tree.members.find((member) => member.id === selectedId) ?? null;
-  const layout = useMemo(() => computeTreeLayout(tree.members), [tree.members]);
+    members.find((member) => member.id === selectedId) ?? null;
+  const layout = useMemo(() => computeTreeLayout(members), [members]);
   const branchIds = useMemo(
     () =>
       new Set(
-        [...getChildCounts(tree.members)]
+        [...getChildCounts(members)]
           .filter(([, count]) => count > 0)
           .map(([id]) => id),
       ),
-    [tree.members],
+    [members],
   );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (
+          addRequest ||
+          editPending ||
+          pendingDrop ||
+          deletePending ||
+          restorePending ||
+          peopleOpen
+        ) {
+          event.preventDefault();
+          setAddRequest(null);
+          setEditPending(null);
+          setPendingDrop(null);
+          setDeletePending(null);
+          setRestorePending(null);
+          setPeopleOpen(false);
+          return;
+        }
+        if (selectedId) {
+          event.preventDefault();
+          setSelectedId(null);
+        }
+        return;
+      }
       const target = event.target as HTMLElement;
       if (target.matches('input, textarea, select, [contenteditable="true"]'))
         return;
@@ -84,17 +116,21 @@ export function DashboardPage() {
       ) {
         event.preventDefault();
         redo();
-      } else if (event.key === "Escape") {
-        setAddRequest(null);
-        setPendingDrop(null);
-        setDeletePending(null);
-        setRestorePending(null);
-        setPeopleOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [redo, undo]);
+  }, [
+    addRequest,
+    deletePending,
+    editPending,
+    peopleOpen,
+    pendingDrop,
+    redo,
+    restorePending,
+    selectedId,
+    undo,
+  ]);
   useEffect(() => {
     try {
       localStorage.setItem("family-tree-theme", theme);
@@ -109,7 +145,7 @@ export function DashboardPage() {
   }, [status]);
 
   function openAdd(
-    targetId = selectedId ?? tree.members[0]?.id ?? "",
+    targetId = selectedId ?? members[0]?.id ?? "",
     kind: RelationshipKind = "child",
   ) {
     setAddRequest({ targetId, kind });
@@ -120,18 +156,14 @@ export function DashboardPage() {
     setSelectedId(member.id);
     setFocusMode(false);
     setPeopleOpen(false);
-    requestAnimationFrame(() =>
-      document
-        .querySelector(`[data-member-id="${CSS.escape(member.id)}"]`)
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-          inline: "center",
-        }),
-    );
+    setZoom((current) => Math.min(1.15, Math.max(current, 1)));
+    setNavigationTarget((current) => ({
+      id: member.id,
+      sequence: (current?.sequence ?? 0) + 1,
+    }));
   }
   function fitTree() {
-    const size = computeTreeLayout(tree.members, nodeMode);
+    const size = computeTreeLayout(members, nodeMode);
     const viewport = document.querySelector(".tree-viewport");
     const availableWidth = viewport?.clientWidth ?? window.innerWidth - 320;
     const availableHeight = viewport?.clientHeight ?? window.innerHeight - 230;
@@ -170,7 +202,7 @@ export function DashboardPage() {
     });
   }
   function downloadTree(branchOnly: boolean) {
-    const content = exportTree(tree.members, branchOnly ? selectedId : null);
+    const content = exportTree(members, branchOnly ? selectedId : null);
     const url = URL.createObjectURL(
       new Blob([content], { type: "application/json" }),
     );
@@ -213,7 +245,9 @@ export function DashboardPage() {
     tree.deleteMember(deletePending.id);
     setSelectedId(null);
     setStatus(
-      t("{name} was removed from the tree.", { name: getFullName(deletePending) }),
+      t("{name} was removed from the tree.", {
+        name: getFullName(deletePending),
+      }),
     );
     setDeletePending(null);
   }
@@ -233,18 +267,20 @@ export function DashboardPage() {
       dir={language === "ar" ? "rtl" : "ltr"}
     >
       <TreeSidebar
-        members={tree.members}
+        members={members}
         theme={theme}
         onSetTheme={setTheme}
         onOpenPeople={() => setPeopleOpen(true)}
       />
       <section className="tree-main">
         <TreeToolbar
-          members={tree.members}
+          members={members}
           zoom={zoom}
           mode={nodeMode}
           selectedId={selectedId}
-          areAllExpanded={collapsedIds.size === 0 && collapsedAncestorIds.size === 0}
+          areAllExpanded={
+            collapsedIds.size === 0 && collapsedAncestorIds.size === 0
+          }
           canUndo={tree.canUndo}
           canRedo={tree.canRedo}
           onAddPerson={() => openAdd()}
@@ -260,8 +296,8 @@ export function DashboardPage() {
           }
           onFit={fitTree}
           onExpandAll={() => {
-            setCollapsedIds(new Set())
-            setCollapsedAncestorIds(new Set())
+            setCollapsedIds(new Set());
+            setCollapsedAncestorIds(new Set());
           }}
           onCollapseAll={() => setCollapsedIds(new Set(branchIds))}
           onUndo={tree.undo}
@@ -271,80 +307,85 @@ export function DashboardPage() {
           onImport={(file) => void restoreTree(file)}
         />
         <div className="tree-workspace">
-        <div className="canvas-heading">
-          <div>
-            <h2>{t("Family tree")}</h2>
-            <span className="generation-badge">
-              {tree.members.length} {t("people")} <i>·</i>{" "}
-              {
-                new Set(
-                  [...layout.positions.values()].map(
-                    (point) => point.generation,
-                  ),
-                ).size
-              }{" "}
-              {t("generations")}
+          <div className="canvas-heading">
+            <div>
+              <h2>{t("Family tree")}</h2>
+              <span className="generation-badge">
+                {members.length} {t("people")} <i>·</i>{" "}
+                {
+                  new Set(
+                    [...layout.positions.values()].map(
+                      (point) => point.generation,
+                    ),
+                  ).size
+                }{" "}
+                {t("generations")}
+              </span>
+            </div>
+          </div>
+          <div className="canvas-stage">
+            <FamilyTreeCanvas
+              members={members}
+              collapsedIds={collapsedIds}
+              collapsedAncestorIds={collapsedAncestorIds}
+              zoom={zoom}
+              selectedId={selectedId}
+              focusId={focusMode ? selectedId : null}
+              mode={nodeMode}
+              layoutRevision={layoutRevision}
+              navigationTarget={navigationTarget}
+              onSelect={(member) => {
+                setSelectedId((current) =>
+                  current === member.id ? null : member.id,
+                );
+                setFocusMode(false);
+              }}
+              onToggleBranch={toggleBranch}
+              onToggleAncestors={toggleAncestors}
+              onAddRelative={(member, kind) => openAdd(member.id, kind)}
+              onProposeRelationship={(source, target) =>
+                setPendingDrop({ source, target })
+              }
+              onEmptyAdd={() => openAdd("", "child")}
+            />
+          </div>
+          <div className="canvas-footer" aria-label={t("Keyboard shortcuts")}>
+            <span className="canvas-shortcuts">
+              <span className="shortcut-item">
+                <bdi className="shortcut-keys" dir="ltr">
+                  <kbd>Ctrl</kbd> + <kbd>Z</kbd>
+                </bdi>
+                <span>{t("Undo")}</span>
+              </span>
+              <span className="footer-separator" aria-hidden="true" />
+              <span className="shortcut-item">
+                <bdi className="shortcut-keys" dir="ltr">
+                  <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
+                </bdi>
+                <span>{t("Redo")}</span>
+              </span>
             </span>
           </div>
-        </div>
-        <div className="canvas-stage">
-          <FamilyTreeCanvas
-            members={tree.members}
-            collapsedIds={collapsedIds}
-            collapsedAncestorIds={collapsedAncestorIds}
-            zoom={zoom}
-            selectedId={selectedId}
-            focusId={focusMode ? selectedId : null}
-            mode={nodeMode}
-            layoutRevision={layoutRevision}
-            onSelect={(member) => {
-              setSelectedId((current) =>
-                current === member.id ? null : member.id,
-              );
-              setFocusMode(false);
-            }}
-            onToggleBranch={toggleBranch}
-            onToggleAncestors={toggleAncestors}
-            onAddRelative={(member, kind) => openAdd(member.id, kind)}
-            onProposeRelationship={(source, target) =>
-              setPendingDrop({ source, target })
-            }
-            onEmptyAdd={() => openAdd("", "child")}
-          />
-        </div>
-        <div className="canvas-footer" aria-label={t("Keyboard shortcuts")}>
-          <span className="canvas-shortcuts">
-            <span className="shortcut-item">
-              <bdi className="shortcut-keys" dir="ltr"><kbd>Ctrl</kbd> + <kbd>Z</kbd></bdi>
-              <span>{t("Undo")}</span>
-            </span>
-            <span className="footer-separator" aria-hidden="true" />
-            <span className="shortcut-item">
-              <bdi className="shortcut-keys" dir="ltr"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></bdi>
-              <span>{t("Redo")}</span>
-            </span>
-          </span>
-        </div>
-        {selectedMember && (
-          <MemberDetailsPanel
-            member={selectedMember}
-            members={tree.members}
-            onClose={() => setSelectedId(null)}
-            onAddRelative={openAdd}
-            onLinkRelative={(memberId, relativeId, kind) =>
-              tree.updateRelationship(memberId, relativeId, kind)
-            }
-            onSelectRelative={findMember}
-            onUpdateProfile={tree.updateProfile}
-            onEdit={() => setEditPending(selectedMember)}
-            onDelete={() => setDeletePending(selectedMember)}
-          />
-        )}
+          {selectedMember && (
+            <MemberDetailsPanel
+              member={selectedMember}
+              members={members}
+              onClose={() => setSelectedId(null)}
+              onAddRelative={openAdd}
+              onLinkRelative={(memberId, relativeId, kind) =>
+                tree.updateRelationship(memberId, relativeId, kind)
+              }
+              onSelectRelative={findMember}
+              onUpdateProfile={tree.updateProfile}
+              onEdit={() => setEditPending(selectedMember)}
+              onDelete={() => setDeletePending(selectedMember)}
+            />
+          )}
         </div>
       </section>
       {peopleOpen && (
         <FamilyMembersPanel
-          members={tree.members}
+          members={members}
           onSelect={findMember}
           onClose={() => setPeopleOpen(false)}
         />
@@ -352,7 +393,7 @@ export function DashboardPage() {
       {addRequest && (
         <AddFamilyMemberDialog
           isOpen
-          members={tree.members}
+          members={members}
           initialTargetId={addRequest.targetId}
           initialKind={addRequest.kind}
           onClose={() => setAddRequest(null)}
@@ -393,7 +434,7 @@ export function DashboardPage() {
         <EditPersonDialog
           key={editPending.id}
           member={editPending}
-          members={tree.members}
+          members={members}
           onClose={() => setEditPending(null)}
           onSave={tree.updateDetails}
         />
@@ -402,7 +443,7 @@ export function DashboardPage() {
         <RelationshipChangeDialog
           source={pendingDrop.source}
           target={pendingDrop.target}
-          members={tree.members}
+          members={members}
           onCancel={() => setPendingDrop(null)}
           onConfirm={confirmRelationship}
         />
@@ -410,8 +451,20 @@ export function DashboardPage() {
       {deletePending && (
         <ConfirmationDialog
           danger
-          title={<>{t("Delete {name}?").split("{name}")[0]}<PersonName name={getFullName(deletePending)} />{t("Delete {name}?").split("{name}")[1]}</>}
-          message={deletePending.gender === "male" ? "This also removes his links." : deletePending.gender === "female" ? "This also removes her links." : "This also removes their links."}
+          title={
+            <>
+              {t("Delete {name}?").split("{name}")[0]}
+              <PersonName name={getFullName(deletePending)} />
+              {t("Delete {name}?").split("{name}")[1]}
+            </>
+          }
+          message={
+            deletePending.gender === "male"
+              ? "This also removes his links."
+              : deletePending.gender === "female"
+                ? "This also removes her links."
+                : "This also removes their links."
+          }
           confirmLabel="Delete"
           onCancel={() => setDeletePending(null)}
           onConfirm={confirmDelete}

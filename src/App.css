@@ -477,6 +477,35 @@
 .tree-viewport:active {
   cursor: grabbing;
 }
+.relationship-badge-tooltip {
+  position: absolute;
+  z-index: 30;
+  box-sizing: border-box;
+  max-width: min(220px, calc(100% - 24px));
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 22px color-mix(in srgb, #000 24%, transparent);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: relationship-tooltip-in 0.14s ease-out both;
+}
+@keyframes relationship-tooltip-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
 .tree-zoom-space {
   position: relative;
   flex: none;
@@ -538,6 +567,26 @@
 .person-node.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.person-node.is-spotlighted:not(.is-selected) {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.person-node.is-search-pulse {
+  animation: search-target-pulse 1.25s ease-out;
+}
+@keyframes search-target-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 54%, transparent);
+    filter: brightness(1.14);
+  }
+  55% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+    filter: none;
+  }
 }
 .member-main {
   width: 100%;
@@ -643,44 +692,69 @@
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--muted);
   text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
 }
-.tree-empty > span {
-  width: 52px;
-  height: 52px;
+.tree-empty-card {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 34px 30px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--accent-soft));
+  box-shadow: 0 16px 44px color-mix(in srgb, #000 18%, transparent);
+}
+.tree-empty-card > span {
+  width: 58px;
+  height: 58px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 15px;
-  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 18px;
+  background: var(--accent-soft);
   color: var(--accent);
 }
-.tree-empty h2 {
-  margin: 15px 0 5px;
+.tree-empty-card h2 {
+  margin: 19px 0 7px;
   color: var(--text);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 21px;
+  font-weight: 650;
 }
-.tree-empty p {
-  margin: 0 0 15px;
-  font-size: 11px;
+.tree-empty-card p {
+  max-width: 310px;
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
 }
-.tree-empty button {
-  height: 33px;
+.tree-empty-card button {
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font-size: 10px;
+  padding: 0 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.tree-empty-card button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.tree-empty-card button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 3px;
 }
 .canvas-footer {
   height: 29px;
@@ -1927,6 +2001,7 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
 
 .tree-world {
   position: relative;
+  transition: transform 0.36s cubic-bezier(0.2, 0, 0, 1);
 }
 .tree-node-position {
   position: absolute;
@@ -3018,6 +3093,32 @@ html[dir="rtl"] .family-member-picker-trigger {
 .family-member-picker-option[aria-selected="true"] {
   border-color: var(--line-soft);
   background: var(--surface-hover);
+}
+.family-member-picker-clear {
+  min-height: 47px;
+  margin-block-start: 5px;
+  padding-block-start: 7px;
+  border-block-start: 1px solid var(--line-soft);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+.family-member-picker-clear:hover,
+.family-member-picker-clear:focus-visible {
+  border-color: transparent;
+  border-block-start-color: var(--line-soft);
+  background: var(--surface-hover);
+}
+.family-member-picker-clear-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.family-member-picker-clear .family-member-picker-copy strong {
+  color: var(--muted);
+  font-weight: 450;
 }
 .family-member-picker-option > .family-avatar-art,
 .family-member-picker-avatar {
@@ -4236,6 +4337,8 @@ html[dir="rtl"] .circle-node .node-actions {
 .tree-lines g.marriage-anchor {
   color: #f0c96f;
   transition: opacity 0.16s;
+  pointer-events: auto;
+  cursor: help;
 }
 .tree-lines g.marriage-anchor circle.marriage-anchor-backdrop {
   fill: var(--surface);
@@ -4314,6 +4417,16 @@ html[dir="rtl"] .circle-node .node-actions {
 .tree-lines.has-active-line-focus g.divorce-anchor.is-active-line,
 .tree-lines.has-active-line-focus g.adoption-anchor.is-active-line {
   opacity: 1;
+}
+.tree-lines.has-active-line-focus g.marriage-anchor.is-active-line,
+.tree-lines.has-active-line-focus g.divorce-anchor.is-active-line,
+.tree-lines.has-active-line-focus g.adoption-anchor.is-active-line {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.tree-lines g.divorce-anchor,
+.tree-lines g.adoption-anchor {
+  pointer-events: auto;
+  cursor: help;
 }
 
 .toolbar-guide-button {

@@ -174,6 +174,12 @@ const english: Record<string, string> = { ...parentageEnglish,
   'Add a parent first.': 'Add a parent first.',
   'An ancestor and descendant cannot be linked as siblings.': 'An ancestor and descendant cannot be linked as siblings.',
   'Fix the errors above before continuing.': 'Fix the errors above before continuing.',
+  'Start your family tree': 'Start your family tree',
+  'Begin by adding your first ancestor or family founder': 'Begin by adding your first ancestor or family founder',
+  'Add first person': 'Add first person',
+  'Married': 'Married',
+  'Divorced or separated': 'Divorced or separated',
+  'Adopted child': 'Adopted child',
 }
 
 const arabic: Record<string, string> = { ...parentageArabic,
@@ -439,6 +445,12 @@ const arabic: Record<string, string> = { ...parentageArabic,
   'Auto-organize and center tree': '\u0625\u0639\u0627\u062f\u0629 \u062a\u0646\u0638\u064a\u0645 \u0627\u0644\u0634\u062c\u0631\u0629 \u0648\u062a\u0648\u0633\u064a\u0637\u0647\u0627',
   'Tree layout tools': '\u0623\u062f\u0648\u0627\u062a \u062a\u062e\u0637\u064a\u0637 \u0627\u0644\u0634\u062c\u0631\u0629',
   'Appearance and language': '\u0627\u0644\u0645\u0638\u0647\u0631 \u0648\u0627\u0644\u0644\u063a\u0629',
+  'Start your family tree': '\u0627\u0628\u062f\u0623 \u0634\u062c\u0631\u0629 \u0639\u0627\u0626\u0644\u062a\u0643',
+  'Begin by adding your first ancestor or family founder': '\u0627\u0628\u062f\u0623 \u0628\u0625\u0636\u0627\u0641\u0629 \u0623\u0648\u0644 \u0633\u0644\u0641 \u0644\u0643 \u0623\u0648 \u0645\u0624\u0633\u0633 \u0627\u0644\u0639\u0627\u0626\u0644\u0629',
+  'Add first person': '\u0625\u0636\u0627\u0641\u0629 \u0623\u0648\u0644 \u0641\u0631\u062f',
+  'Married': '\u0645\u062a\u0632\u0648\u062c\u0627\u0646',
+  'Divorced or separated': '\u0645\u0637\u0644\u0642\u0627\u0646 \u0623\u0648 \u0645\u0646\u0641\u0635\u0644\u0627\u0646',
+  'Adopted child': '\u0637\u0641\u0644 \u0628\u0627\u0644\u062a\u0628\u0646\u064a',
 }
 
 function initialLanguage(): Language {
