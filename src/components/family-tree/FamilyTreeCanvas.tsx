@@ -5,6 +5,7 @@ import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { getChildCounts, getHiddenAncestorIds, getHiddenIds } from '../../lib/tree-logic'
 import { computeTreeLayout, getImmediateFamilyIds, getParentalCoupleColors, getParentChildBranchJunction, getParentChildConnectorPaths, getRootBranchMap, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS, type TreeNodeMode } from '../../lib/tree-layout'
 import { PersonCard } from './PersonCard'
+import { PersonContextMenu } from './PersonContextMenu'
 import { useLanguage } from '../../i18n/useLanguage'
 
 type FamilyTreeCanvasProps = {
@@ -19,18 +20,24 @@ type FamilyTreeCanvasProps = {
   onAddRelative: (member: FamilyMember, kind: RelationshipKind) => void
   onProposeRelationship: (source: FamilyMember, target: FamilyMember) => void
   onEmptyAdd: () => void
+  onEditPerson: (member: FamilyMember) => void
+  onDeletePerson: (member: FamilyMember) => void
+  onCenterPerson: (member: FamilyMember) => void
+  onLinkRelative: (sourceId: string, relativeId: string, kind: RelationshipKind) => void
+  onFocusMember: (member: FamilyMember) => void
   mode: TreeNodeMode
   focusId: string | null
   layoutRevision: number
   navigationTarget: { id: string; sequence: number } | null
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, mode, focusId, layoutRevision, navigationTarget }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onToggleBranch, onToggleAncestors, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onCenterPerson, onLinkRelative, onFocusMember, mode, focusId, layoutRevision, navigationTarget }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [pulseId, setPulseId] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ member: FamilyMember; x: number; y: number } | null>(null)
   const [relationshipTooltip, setRelationshipTooltip] = useState<{ label: string; left: number; top: number } | null>(null)
   const relationshipTooltipAnchor = useRef<SVGGElement | null>(null)
   const relationshipTooltipLabel = useRef<string | null>(null)
@@ -48,6 +55,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const coupleColors = getParentalCoupleColors(members)
   const activeLineMemberId = hoveredId ?? selectedId
   const activeLineIds = activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const layout = useMemo(() => computeTreeLayout(visibleMembers, mode), [visibleMembers, mode])
   const { positions, width, height, nodeWidth, nodeHeight } = layout
   const zoomedWidth = width * zoom
@@ -312,11 +320,12 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
             if (!point) return null
             const coupleKey = member.parentIds.slice().sort().join('|')
             const hasVisibleParents = member.parentIds.some((parentId) => members.some((person) => person.id === parentId))
-            return <div className="tree-node-position" key={member.id} style={{ left: point.x, top: point.y }}><PersonCard member={member} mode={mode} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} childCount={childCounts.get(member.id) ?? 0} isCollapsed={collapsedIds.has(member.id)} hasParents={hasVisibleParents} areAncestorsCollapsed={collapsedAncestorIds.has(member.id)} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onToggleBranch={onToggleBranch} onToggleAncestors={onToggleAncestors} onAddRelative={onAddRelative} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) }} /></div>
+            return <div className="tree-node-position" key={member.id} style={{ left: point.x, top: point.y }}><PersonCard member={member} mode={mode} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} childCount={childCounts.get(member.id) ?? 0} isCollapsed={collapsedIds.has(member.id)} hasParents={hasVisibleParents} areAncestorsCollapsed={collapsedAncestorIds.has(member.id)} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onToggleBranch={onToggleBranch} onToggleAncestors={onToggleAncestors} onAddRelative={onAddRelative} onOpenContextMenu={(person, x, y) => { setContextMenu({ member: person, x, y }); onFocusMember(person) }} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) }} /></div>
           })}
         </div>
       </div>}
       {relationshipTooltip && <div className="relationship-badge-tooltip" role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
+      {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onCenter={onCenterPerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
     </div>
   )
 }

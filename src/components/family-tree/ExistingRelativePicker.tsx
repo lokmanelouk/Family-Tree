@@ -54,7 +54,7 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
       const spaceBelow = window.innerHeight - rect.bottom - 12
       const spaceAbove = rect.top - 12
       const opensUp = spaceBelow < Math.min(260, maxHeight) && spaceAbove > spaceBelow
-      const root = anchor.closest('.tree-app') ?? document.documentElement
+      const root = anchor.closest('.tree-app') ?? anchor
       const computed = getComputedStyle(root)
       setThemeStyle({ ...Object.fromEntries(themeProperties.map((property) => [property, computed.getPropertyValue(property).trim()]).filter(([, value]) => Boolean(value))), direction: computed.direction })
       const rtl = computed.direction === 'rtl'
@@ -110,7 +110,7 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
   const hiddenLabel = t('{count} people hidden ({action})', { count: '__COUNT__', action: t(showHidden ? 'Hide' : 'Show') }).split('__COUNT__')
   if (!position) return null
   const content = <div ref={popupRef} className="existing-relative-picker" role="dialog" aria-label={t('Choose a family member')} style={{ ...themeStyle, position: 'fixed', top: position.top, insetInlineStart: position.inlineStart, width: position.width, maxHeight: position.maxHeight, zIndex: 10050 }}>
-    {!(warnings.length > 0 && pending) && <div className="existing-relative-picker-search"><Search size={16} aria-hidden="true" /><input ref={searchRef} value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setWarnings([]); setPending(null); setShowHidden(false) }} onKeyDown={handleSearchKeyDown} placeholder={t('Search family members')} aria-label={t('Search family members')} /><button type="button" onClick={onClose} aria-label={t('Close')}><X size={15} /></button></div>}
+    {!(warnings.length > 0 && pending) && <div className="existing-relative-picker-search"><Search size={16} aria-hidden="true" /><input ref={searchRef} dir="auto" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setWarnings([]); setPending(null); setShowHidden(false) }} onKeyDown={handleSearchKeyDown} placeholder={t('Search family members')} aria-label={t('Search family members')} /><button type="button" onClick={onClose} aria-label={t('Close')}><X size={15} /></button></div>}
     {warnings.length > 0 && pending ? <div className="existing-relative-confirm" role="alert">
       <div className="existing-relative-confirm-person"><FamilyAvatar member={pending} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(pending, members)} />{renderPersonAge(pending, language, t) && <small><bdi dir="auto">{renderPersonAge(pending, language, t)}</bdi></small>}</span></div>
       <div className="existing-relative-confirm-warning"><TriangleAlert size={18} aria-hidden="true" /><div>{warnings.map((issue, index) => <p key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} members={members} /></p>)}</div></div>
@@ -134,6 +134,8 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
 function entryNote(issues: ValidationIssue[]) {
   const warning = issues.find((issue) => issue.type === 'warning')
   if (!warning) return undefined
+  if (warning.messageKey.startsWith('Mother age at birth:')) return 'Mother over 55 at birth'
+  if (warning.messageKey.startsWith('Father age at birth:')) return 'Father over 80 at birth'
   if (warning.messageKey.includes('less than')) return 'Small age gap'
   if (warning.messageKey.startsWith('Born in ')) return 'Unusually old'
   if (warning.messageKey.includes('is not marked')) return 'Gender does not match'

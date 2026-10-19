@@ -5356,3 +5356,194 @@ html[dir="rtl"] .sidebar-collapse-icon {
     display: none;
   }
 }
+
+html[lang="ar"][data-layout-direction="keep"] body {
+  font-family: "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+}
+
+.tree-app[lang="ar"][data-layout-direction="keep"] :is(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  label,
+  button,
+  small,
+  strong,
+  em,
+  .side-link,
+  .sidebar-brand,
+  .sidebar-info-copy,
+  .sidebar-preference-content,
+  .canvas-heading,
+  .canvas-footer,
+  .details-panel,
+  .relationship-group,
+  .relationship-group-toggle,
+  .relationship-person-button,
+  .relationship-picker-empty,
+  .member-dialog,
+  .confirm-dialog,
+  .relationship-guide-popover,
+  .relationship-guide-item strong,
+  .relationship-guide-item small,
+  .people-panel,
+  .people-list > button,
+  .family-member-picker-copy,
+  .family-member-picker-option,
+  .existing-relative-picker,
+  .existing-relative-picker-copy,
+  .existing-relative-picker-no-results,
+  .surname-suggestions button,
+  .custom-calendar-header,
+  .custom-calendar-footer,
+  .relationship-badge-tooltip,
+  .validation-notice,
+  .duplicate-warning-message,
+  .duplicate-match-summary,
+  .parent-choice-label,
+  .toolbar-add-person,
+  .settings-toggle,
+  .toolbar-menu button,
+  .toolbar-menu label,
+  .search-results button,
+  .no-results,
+  .member-status-switch
+) {
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+
+.tree-app[lang="ar"][data-layout-direction="keep"] .member-dialog input:not([type="file"]),
+.tree-app[lang="ar"][data-layout-direction="keep"] .member-dialog textarea,
+.tree-app[lang="ar"][data-layout-direction="keep"] .relationship-dialog select,
+.tree-app[lang="ar"][data-layout-direction="keep"] .member-dialog select,
+.tree-app[lang="ar"][data-layout-direction="keep"] .family-member-picker-trigger,
+.tree-app[lang="ar"][data-layout-direction="keep"] .toolbar-search input {
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node:not(.circle-node) .node-copy,
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node:not(.circle-node) .node-copy strong,
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node:not(.circle-node) .node-copy small {
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node.circle-node .member-main,
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node.circle-node .node-copy,
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node.circle-node .node-copy strong,
+.tree-app[lang="ar"][data-layout-direction="keep"] .person-node.circle-node .node-copy small {
+  text-align: center;
+}
+
+.tree-app[lang="ar"][data-layout-direction="keep"] .dialog-header > div,
+.tree-app[lang="ar"][data-layout-direction="keep"] .people-panel-heading > div,
+.tree-app[lang="ar"][data-layout-direction="keep"] .relationship-guide-item > span:last-child,
+.tree-app[lang="ar"][data-layout-direction="keep"] .search-results button > span:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+html[lang="ar"][data-layout-direction="keep"] :is(
+  .existing-relative-picker,
+  .existing-relative-picker-copy,
+  .surname-suggestions button,
+  .custom-calendar-header,
+  .custom-calendar-footer,
+  .relationship-badge-tooltip
+) {
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.person-context-menu {
+  box-sizing: border-box;
+  display: grid;
+  width: 224px;
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 14px 36px color-mix(in srgb, #000 30%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.person-context-menu > button {
+  display: grid;
+  min-height: 38px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.person-context-menu > button > svg {
+  color: var(--muted);
+}
+
+.person-context-menu > button:hover:not(:disabled),
+.person-context-menu > button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  background: var(--surface-hover);
+}
+
+.person-context-menu > button.is-destructive {
+  color: var(--danger-strong);
+}
+
+.person-context-menu > button.is-destructive > svg {
+  color: var(--danger-strong);
+}
+
+.person-context-menu > button:disabled {
+  color: var(--subtle);
+  cursor: not-allowed;
+}
+
+.person-context-menu > button small {
+  grid-column: 2 / 4;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.discard-changes-shade {
+  z-index: 10080;
+  background: color-mix(in srgb, #070a0d 45%, transparent);
+}
+
+.discard-changes-dialog {
+  width: min(390px, calc(100vw - 32px));
+}
+
+.discard-changes-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+@media (max-width: 600px) {
+  .person-context-menu {
+    width: min(224px, calc(100vw - 16px));
+  }
+
+  .discard-changes-dialog .dialog-actions {
+    flex-direction: column;
+  }
+}

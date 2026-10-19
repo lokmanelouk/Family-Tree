@@ -18,6 +18,7 @@ import { getFullName } from "../lib/member-name";
 import type { FamilyMember, RelationshipKind } from "../types/family";
 import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
+import { getLayoutDirection, layoutDirection } from "../config/layout";
 
 type AddRequest = { targetId: string; kind: RelationshipKind };
 type DropRequest = { source: FamilyMember; target: FamilyMember };
@@ -78,19 +79,21 @@ export function DashboardPage() {
   );
 
   useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(() => setStatus(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (
-          addRequest ||
-          editPending ||
           pendingDrop ||
           deletePending ||
           restorePending ||
           peopleOpen
         ) {
           event.preventDefault();
-          setAddRequest(null);
-          setEditPending(null);
           setPendingDrop(null);
           setDeletePending(null);
           setRestorePending(null);
@@ -138,12 +141,6 @@ export function DashboardPage() {
       /* Theme remains usable when storage is unavailable. */
     }
   }, [theme]);
-  useEffect(() => {
-    if (!status) return;
-    const timer = window.setTimeout(() => setStatus(""), 3000);
-    return () => window.clearTimeout(timer);
-  }, [status]);
-
   function openAdd(
     targetId = selectedId ?? members[0]?.id ?? "",
     kind: RelationshipKind = "child",
@@ -237,18 +234,13 @@ export function DashboardPage() {
     if (!pendingDrop) return;
     tree.updateRelationship(pendingDrop.source.id, pendingDrop.target.id, kind);
     setSelectedId(pendingDrop.source.id);
-    setStatus(t("Family relationship updated."));
+    setStatus("Family relationship updated.");
     setPendingDrop(null);
   }
   function confirmDelete() {
     if (!deletePending) return;
     tree.deleteMember(deletePending.id);
     setSelectedId(null);
-    setStatus(
-      t("{name} was removed from the tree.", {
-        name: getFullName(deletePending),
-      }),
-    );
     setDeletePending(null);
   }
   function confirmRestore() {
@@ -264,7 +256,9 @@ export function DashboardPage() {
     <main
       className="tree-app"
       data-theme={theme}
-      dir={language === "ar" ? "rtl" : "ltr"}
+      data-layout-direction={layoutDirection}
+      lang={language}
+      dir={getLayoutDirection(language)}
     >
       <TreeSidebar
         members={members}
@@ -347,8 +341,17 @@ export function DashboardPage() {
                 setPendingDrop({ source, target })
               }
               onEmptyAdd={() => openAdd("", "child")}
+              onEditPerson={(member) => { setSelectedId(member.id); setEditPending(member) }}
+              onDeletePerson={(member) => { setSelectedId(member.id); setDeletePending(member) }}
+              onCenterPerson={findMember}
+              onFocusMember={findMember}
+              onLinkRelative={(memberId, relativeId, kind) => {
+                tree.updateRelationship(memberId, relativeId, kind);
+                setStatus("Family relationship updated.");
+              }}
             />
           </div>
+          <div className="status-message" aria-live="polite" key={status}>{status}</div>
           <div className="canvas-footer" aria-label={t("Keyboard shortcuts")}>
             <span className="canvas-shortcuts">
               <span className="shortcut-item">
@@ -372,9 +375,10 @@ export function DashboardPage() {
               members={members}
               onClose={() => setSelectedId(null)}
               onAddRelative={openAdd}
-              onLinkRelative={(memberId, relativeId, kind) =>
-                tree.updateRelationship(memberId, relativeId, kind)
-              }
+              onLinkRelative={(memberId, relativeId, kind) => {
+                tree.updateRelationship(memberId, relativeId, kind);
+                setStatus("Family relationship updated.");
+              }}
               onSelectRelative={findMember}
               onUpdateProfile={tree.updateProfile}
               onEdit={() => setEditPending(selectedMember)}
@@ -425,7 +429,6 @@ export function DashboardPage() {
               deathDate,
               lifeStatus,
             );
-            setStatus(t("Family member added to the tree."));
           }}
           onSelectExisting={findMember}
         />
@@ -482,9 +485,6 @@ export function DashboardPage() {
           onConfirm={confirmRestore}
         />
       )}
-      <div className="status-message" aria-live="polite" key={status}>
-        {status}
-      </div>
       <FamilyQuickLinks />
     </main>
   );

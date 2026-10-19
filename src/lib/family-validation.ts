@@ -2,6 +2,8 @@ import type { FamilyMember, RelationshipKind } from '../types/family'
 import { getFullName } from './member-name.ts'
 
 export const MIN_PARENT_AGE = 15
+export const MAX_MOTHER_AGE_AT_BIRTH = 55
+export const MAX_FATHER_AGE_AT_BIRTH = 80
 export const MAX_PERSON_AGE = 120
 
 export type ValidationIssue = {
@@ -90,9 +92,20 @@ export function validateParentAge(parent: FamilyMember, child: FamilyMember): Va
   const comparison = compareDates(parent.birthDate, child.birthDate)
   if (comparison === null || comparison >= 0) return comparison !== null ? result('error', '{parent} must be older than {child}.', { parent: getFullName(parent), child: getFullName(child) }) : ok
   const age = ageInYears(parent.birthDate, child.birthDate)
-  return age !== null && age < MIN_PARENT_AGE
-    ? result('warning', '{parent} is less than {years} years older than {child}.', { parent: getFullName(parent), years: MIN_PARENT_AGE, child: getFullName(child) })
-    : ok
+  if (age === null) return ok
+  if (age < MIN_PARENT_AGE) return result('warning', '{parent} is less than {years} years older than {child}.', { parent: getFullName(parent), years: MIN_PARENT_AGE, child: getFullName(child) })
+  const ageLimit = parent.gender === 'female' ? MAX_MOTHER_AGE_AT_BIRTH : parent.gender === 'male' ? MAX_FATHER_AGE_AT_BIRTH : undefined
+  if (ageLimit === undefined || age <= ageLimit) return ok
+  const genderLabel = parent.gender === 'female' ? 'Mother' : 'Father'
+  const pluralCategory = new Intl.PluralRules('ar').select(age)
+  return result('warning', `${genderLabel} age at birth: ${pluralCategory}`, { name: getFullName(parent), age })
+}
+
+export function getParentAgeWarningNoteKey(issue: ValidationIssue): string | undefined {
+  if (issue.messageKey.startsWith('Mother age at birth:')) return 'Mother over 55 at birth'
+  if (issue.messageKey.startsWith('Father age at birth:')) return 'Father over 80 at birth'
+  if (issue.messageKey.includes('is less than')) return 'Small age gap'
+  return undefined
 }
 
 export function validateParentDeath(parent: FamilyMember, child: FamilyMember, role: 'father' | 'mother' | 'parent'): ValidationOutcome {

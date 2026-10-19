@@ -92,6 +92,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
           <Search size={19} />
           <input
             ref={searchRef}
+            dir="auto"
             aria-label={t('Search family members')}
             placeholder={t('Find a person (Ctrl+K)')}
             value={query}

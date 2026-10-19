@@ -1,75 +1,38 @@
-# React + TypeScript + Vite
+# 🌳 Family Tree
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Family Tree** is an intuitive, modern web application designed to help you map, explore, and preserve your family history on an interactive visual canvas. Whether you are building a small family diagram or tracing distant generations, **Family Tree** keeps your lineage organized, beautiful, and effortless to navigate.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Key Features
 
-## React Compiler
+- **🎨 3 Distinct Visual Themes:** Custom-crafted color palettes designed for comfort and clarity—**Midnight** (sleek dark mode), **Warm Light** (clean daytime feel), and **Chocolate** (classic vintage aesthetic).
+- **🌐 Native Arabic & RTL Support:** Built ground-up with total Right-To-Left (RTL) layout mirroring, ensuring seamless bilingual and Arabic language experiences.
+- **⚡ Live Canvas Spotlight:** Select any family member to instantly highlight their direct lineage—parents, spouse, and children—while softly dimming the surrounding tree for maximum focus.
+- **🔍 Instant Search & Smooth Pan (`Ctrl + K`):** Find any relative in seconds. Choosing a search result smoothly glides and zooms the canvas directly to their card with a soft pulse highlight.
+- **👤 Compact Profile Nodes:** Side-by-side profile cards display key information cleanly without cluttering your view, even as your tree grows large.
+- **⌨️ Power-User Navigation:** Escape key support to dismiss windows, smooth pinch-to-zoom, and fluid click-and-drag canvas panning.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 🎨 Visual Design & Themes
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Family Tree includes a dynamic theme engine tailored for any lighting condition:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Theme          | Best For      | Description                                                                   |
+| :------------- | :------------ | :---------------------------------------------------------------------------- |
+| **Midnight**   | Night reading | Deep, rich dark background with neon accent badges and high-contrast text.    |
+| **Warm Light** | Daylight      | Crisp, soft paper background with smooth slate typography and warm accents.   |
+| **Chocolate**  | Classic look  | Deep espresso tones with bronze and warm gold highlights for an antique feel. |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🚀 How to Get Started
 
-```
+Using **Family Tree** directly in your browser or desktop application is fast and simple:
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+1. **Explore the Canvas:** Click and drag anywhere to move around the family map. Use your scroll wheel or pinch gestures to zoom in and out.
+2. **Add Family Members:** Click on any person card to open their details drawer, then select **Add Relative** to link parents, children, or spouses.
+3. **Quick Search (`Ctrl + K`):** Press `Ctrl + K` on your keyboard (or click the search bar) to type a relative's name and automatically glide to their position on the tree.
+4. **Change Themes & Language:** Click the **Settings** gear icon in the top toolbar to switch between _Midnight_, _Warm Light_, or _Chocolate_ themes, or flip between English and Arabic.
+5. **Dismiss Windows (`Esc`):** Press `Esc` at any time to quickly close modals, drawers, or settings panels.

@@ -14,6 +14,8 @@ import {
   validateRelationshipRules,
   validateSelfRelation,
   isValidTreeSnapshot,
+  MAX_FATHER_AGE_AT_BIRTH,
+  MAX_MOTHER_AGE_AT_BIRTH,
 } from './family-validation.ts'
 import { interpolateMessageParts } from './message-format.ts'
 
@@ -49,6 +51,35 @@ test('parent age gap warns under 15 years and accepts the threshold', () => {
   assert.equal(issue(validateParentAge(person('p', { birthDate: '1990' }), person('c', { birthDate: '2004' }))).type, 'warning')
   assert.equal(issue(validateParentAge(person('p', { birthDate: '1990' }), person('c', { birthDate: '2005' }))), null)
   assert.equal(issue(validateParentAge(person('p'), person('c'))), null)
+})
+
+test('mother age at a child birth warns only above 55 and skips unknown birth years', () => {
+  assert.equal(MAX_MOTHER_AGE_AT_BIRTH, 55)
+  const child = person('child', { birthDate: '2000' })
+  const normal = issue(validateParentAge(person('mother', { name: 'Mina', gender: 'female', birthDate: '1960' }), child))
+  assert.equal(normal, null)
+  assert.equal(issue(validateParentAge(person('mother', { gender: 'female', birthDate: '1945' }), child)), null)
+  const warning = issue(validateParentAge(person('mother', { name: 'Mina', gender: 'female', birthDate: '1944' }), child))
+  assert.deepEqual(warning, { type: 'warning', messageKey: 'Mother age at birth: many', values: { name: 'Mina', age: 56 } })
+  assert.equal(issue(validateParentAge(person('mother', { gender: 'female' }), child)), null)
+  assert.equal(issue(validateParentAge(person('mother', { gender: 'female', birthDate: '1944' }), person('child'))), null)
+})
+
+test('father age at a child birth warns only above 80 and skips unknown birth years', () => {
+  assert.equal(MAX_FATHER_AGE_AT_BIRTH, 80)
+  const child = person('child', { birthDate: '2000' })
+  assert.equal(issue(validateParentAge(person('father', { gender: 'male', birthDate: '1920' }), child)), null)
+  const warning = issue(validateParentAge(person('father', { name: 'Omar', gender: 'male', birthDate: '1919' }), child))
+  assert.deepEqual(warning, { type: 'warning', messageKey: 'Father age at birth: many', values: { name: 'Omar', age: 81 } })
+  assert.equal(issue(validateParentAge(person('father', { gender: 'male' }), child)), null)
+  assert.equal(issue(validateParentAge(person('father', { gender: 'male', birthDate: '1919' }), person('child'))), null)
+})
+
+test('older adoptive parents produce a warning but adoption remains allowed', () => {
+  const mother = person('mother', { name: 'Mina', gender: 'female', birthDate: '1944' })
+  const child = person('child', { birthDate: '2000' })
+  const issues = collectValidationIssues(validateRelationshipRules([mother, child], mother, child, 'adopted'))
+  assert.deepEqual(issues, [{ type: 'warning', messageKey: 'Mother age at birth: many', values: { name: 'Mina', age: 56 } }])
 })
 
 test('matching parent age errors and warnings merge into one two-name message', () => {

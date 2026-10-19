@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LanguageContext, type Language } from './LanguageContext'
 import { parentageArabic, parentageEnglish } from './parentage'
+import { getLayoutDirection, layoutDirection } from '../config/layout'
 
 const english: Record<string, string> = { ...parentageEnglish,
   'Age years zero': '{count} yrs',
@@ -134,6 +135,20 @@ const english: Record<string, string> = { ...parentageEnglish,
   'Both parents must be older than {child}.': '{a} and {b} must be older than {child}.',
   '{parent} is less than {years} years older than {child}.': '{parent} is less than {years} years older than {child}.',
   'Both parents are less than {years} years older than {child}.': '{a} and {b} are less than {years} years older than {child}.',
+  'Mother age at birth: zero': '{name} would be {age} years old at this birth.',
+  'Mother age at birth: one': '{name} would be {age} years old at this birth.',
+  'Mother age at birth: two': '{name} would be {age} years old at this birth.',
+  'Mother age at birth: few': '{name} would be {age} years old at this birth.',
+  'Mother age at birth: many': '{name} would be {age} years old at this birth.',
+  'Mother age at birth: other': '{name} would be {age} years old at this birth.',
+  'Father age at birth: zero': '{name} would be {age} years old at this birth.',
+  'Father age at birth: one': '{name} would be {age} years old at this birth.',
+  'Father age at birth: two': '{name} would be {age} years old at this birth.',
+  'Father age at birth: few': '{name} would be {age} years old at this birth.',
+  'Father age at birth: many': '{name} would be {age} years old at this birth.',
+  'Father age at birth: other': '{name} would be {age} years old at this birth.',
+  'Mother over 55 at birth': 'Mother over 55 at birth',
+  'Father over 80 at birth': 'Father over 80 at birth',
   '{parent} died before {child} was born.': '{parent} died before {child} was born.',
   '{parent} is not marked as {gender}.': '{parent} is not marked as {gender}.',
   '{person} is older than {years} years.': '{person} is older than {years} years.',
@@ -180,6 +195,11 @@ const english: Record<string, string> = { ...parentageEnglish,
   'Married': 'Married',
   'Divorced or separated': 'Divorced or separated',
   'Adopted child': 'Adopted child',
+  'Discard changes?': 'Discard changes?',
+  'Keep editing': 'Keep editing',
+  'Discard': 'Discard',
+  'Person actions': 'Person actions',
+  'Open details': 'Open details',
 }
 
 const arabic: Record<string, string> = { ...parentageArabic,
@@ -213,6 +233,20 @@ const arabic: Record<string, string> = { ...parentageArabic,
   'Both parents must be older than {child}.': '\u064a\u062c\u0628 \u0623\u0646 \u064a\u0643\u0648\u0646 \u0643\u0644 \u0645\u0646 {a} \u0648{b} \u0623\u0643\u0628\u0631 \u0633\u0646\u064b\u0627 \u0645\u0646 {child}.',
   '{parent} is less than {years} years older than {child}.': '{parent} \u0623\u0643\u0628\u0631 \u0645\u0646 {child} \u0628\u0623\u0642\u0644 \u0645\u0646 {years} \u0633\u0646\u0629.',
   'Both parents are less than {years} years older than {child}.': '\u064a\u0642\u0644 \u0641\u0627\u0631\u0642 \u0639\u0645\u0631 \u0643\u0644 \u0645\u0646 {a} \u0648{b} \u0639\u0646 {years} \u0633\u0646\u0629 \u0645\u0646 {child}.',
+  'Mother age at birth: zero': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 \u0635\u0641\u0631 \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother age at birth: one': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 \u0633\u0646\u0629 \u0648\u0627\u062d\u062f\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother age at birth: two': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 \u0633\u0646\u062a\u064a\u0646 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother age at birth: few': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 {age} \u0633\u0646\u0648\u0627\u062a \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother age at birth: many': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 {age} \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother age at birth: other': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647\u0627 {age} \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: zero': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 \u0635\u0641\u0631 \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: one': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 \u0633\u0646\u0629 \u0648\u0627\u062d\u062f\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: two': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 \u0633\u0646\u062a\u064a\u0646 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: few': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 {age} \u0633\u0646\u0648\u0627\u062a \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: many': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 {age} \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Father age at birth: other': '{name} \u0633\u064a\u0643\u0648\u0646 \u0639\u0645\u0631\u0647 {age} \u0633\u0646\u0629 \u0639\u0646\u062f \u0648\u0644\u0627\u062f\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0641\u0644.',
+  'Mother over 55 at birth': '\u0627\u0644\u0623\u0645 \u0623\u0643\u0628\u0631 \u0645\u0646 55 \u0639\u0627\u0645\u064b\u0627 \u0639\u0646\u062f \u0647\u0630\u0647 \u0627\u0644\u0648\u0644\u0627\u062f\u0629',
+  'Father over 80 at birth': '\u0627\u0644\u0623\u0628 \u0623\u0643\u0628\u0631 \u0645\u0646 80 \u0639\u0627\u0645\u064b\u0627 \u0639\u0646\u062f \u0647\u0630\u0647 \u0627\u0644\u0648\u0644\u0627\u062f\u0629',
   '{parent} died before {child} was born.': '\u062a\u0648\u0641\u064a {parent} \u0642\u0628\u0644 \u0648\u0644\u0627\u062f\u0629 {child}.',
   '{parent} is not marked as {gender}.': '{parent} \u0644\u0645 \u064a\u064f\u0633\u062c\u0651\u0644 \u0628\u0635\u0641\u0629 {gender}.',
   '{person} is older than {years} years.': '\u064a\u0632\u064a\u062f \u0639\u0645\u0631 {person} \u0639\u0646 {years} \u0633\u0646\u0629.',
@@ -451,6 +485,11 @@ const arabic: Record<string, string> = { ...parentageArabic,
   'Married': '\u0645\u062a\u0632\u0648\u062c\u0627\u0646',
   'Divorced or separated': '\u0645\u0637\u0644\u0642\u0627\u0646 \u0623\u0648 \u0645\u0646\u0641\u0635\u0644\u0627\u0646',
   'Adopted child': '\u0637\u0641\u0644 \u0628\u0627\u0644\u062a\u0628\u0646\u064a',
+  'Discard changes?': '\u062a\u062c\u0627\u0647\u0644 \u0627\u0644\u062a\u063a\u064a\u064a\u0631\u0627\u062a\u061f',
+  'Keep editing': '\u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u062a\u062d\u0631\u064a\u0631',
+  'Discard': '\u062a\u062c\u0627\u0647\u0644',
+  'Person actions': '\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0641\u0631\u062f',
+  'Open details': '\u0641\u062a\u062d \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644',
 }
 
 function initialLanguage(): Language {
@@ -461,7 +500,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(initialLanguage)
   useEffect(() => {
     document.documentElement.lang = language
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.dir = getLayoutDirection(language)
+    document.documentElement.dataset.layoutDirection = layoutDirection
     try { localStorage.setItem('family-tree-language', language) } catch { /* Preferences remain usable when storage is unavailable. */ }
   }, [language])
   const value = useMemo(() => ({ language, setLanguage, t: (message: string, values?: Record<string, string | number>) => {

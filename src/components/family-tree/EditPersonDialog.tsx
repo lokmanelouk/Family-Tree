@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
@@ -14,6 +14,8 @@ import { collectValidationIssues, validateEditedMemberRelations, type Validation
 import { ValidationNotice } from './ValidationFeedback'
 import { capitalizeLatinWordStarts } from '../../lib/name-capitalization'
 import { PersonName } from './PersonName'
+import { DiscardChangesDialog } from '../dialogs/DiscardChangesDialog'
+import { hasUnsavedChanges } from '../../lib/person-actions'
 
 type EditPersonDialogProps = {
   member: FamilyMember
@@ -42,6 +44,14 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const [relationshipError, setRelationshipError] = useState('')
   const [validationErrors, setValidationErrors] = useState<ValidationIssue[]>([])
   const [validationWarnings, setValidationWarnings] = useState<ValidationIssue[]>([])
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const [initialDraft] = useState(() => ({ firstName: initialName.firstName, lastName: initialName.lastName, gender: member.gender ?? 'male', birthDate: member.birthDate ?? '', deathDate: member.deathDate ?? '', lifeStatus: isMemberDeceased(member) ? 'deceased' : 'living', photo: member.photo ?? '', avatarId: avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom', avatar: member.avatar }))
+  const closeDialogNow = useCallback(() => onClose(), [onClose])
+  const requestClose = useCallback(() => {
+    const draft = { firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatarId, avatar }
+    if (hasUnsavedChanges(initialDraft, draft)) setDiscardOpen(true)
+    else closeDialogNow()
+  }, [closeDialogNow, firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatarId, avatar, initialDraft])
   const birthDateError = getBirthDateError(birthDate)
   const deathDateError = getDeathDateError(deathDate, birthDate)
   const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
@@ -52,7 +62,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const deathRelationIssues = relationshipValidationErrors.filter((issue) => issue.messageKey === '{parent} died before {child} was born.' && issue.values.parent === memberFullName)
   const formRelationIssues = relationshipValidationErrors.filter((issue) => !birthRelationIssues.includes(issue) && !deathRelationIssues.includes(issue))
   const dateWarnings = validationWarnings.filter((issue) => issue.messageKey.startsWith('Born in '))
-  const birthRelationWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('parents are less') || issue.messageKey.includes('is less than'))
+  const birthRelationWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('parents are less') || issue.messageKey.includes('is less than') || issue.messageKey.startsWith('Mother age at birth:') || issue.messageKey.startsWith('Father age at birth:'))
   const genderWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('is not marked'))
   const formWarnings = validationWarnings.filter((issue) => !dateWarnings.includes(issue) && !birthRelationWarnings.includes(issue) && !genderWarnings.includes(issue))
   const birthWarnings = [...(isMemberDeceased({ lifeStatus, deathDate }) && deathDate ? [] : dateWarnings), ...birthRelationWarnings]
@@ -66,11 +76,15 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        if (discardOpen) setDiscardOpen(false)
+        else requestClose()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [discardOpen, requestClose])
 
   function validateGenderChange() {
     const partners = member.spouseIds.map((id) => members.find((person) => person.id === id)).filter((person): person is FamilyMember => Boolean(person))
@@ -112,14 +126,14 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
 
   return <div className="modal-shade edit-person-shade">
     <section className="member-dialog edit-person-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-person-title">
-      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<PersonName name={getFullName(member)} />{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={onClose}><X size={17} /></button></div>
+      <div className="dialog-header"><div><span>{t('PERSON DETAILS')}</span><h2 id="edit-person-title">{editTitleParts[0]}<PersonName name={getFullName(member)} />{editTitleParts[1]}</h2></div><button type="button" title={t('Cancel')} aria-label={t('Cancel')} onClick={requestClose}><X size={17} /></button></div>
       <form noValidate onSubmit={submit}>
         <div className="edit-person-fields">
           <div className="member-form-header-row">
             <div className="member-avatar-field"><span className="photo-upload-heading">{t('Profile photo')}</span><ProfileAvatarPicker avatarId={avatarId} avatar={avatar} photo={photo} error={photoError} onChange={(nextAvatarId, nextPhoto) => { setAvatarId(nextAvatarId); setPhoto(nextPhoto); setAvatar(avatarPresets.find((preset) => preset.id === nextAvatarId)?.avatar ?? avatar); setPhotoError('') }} onError={setPhotoError} /></div>
             <div className="member-name-field">
               <div className="member-name-fields-row">
-                <div className="member-form-field"><label htmlFor="edit-person-first-name">{t('First name')}</label><input id="edit-person-first-name" value={firstName} onChange={(event) => { setFirstName(event.target.value); setValidationErrors([]) }} onBlur={() => { setFirstName((value) => capitalizeLatinWordStarts(value)); setFirstNameTouched(true) }} maxLength={60} required autoFocus aria-invalid={(firstNameTouched || attemptedSubmit) && !firstName.trim()} /><small className="first-name-validation" role={(firstNameTouched || attemptedSubmit) && !firstName.trim() ? 'alert' : undefined}>{(firstNameTouched || attemptedSubmit) && !firstName.trim() ? t('First name required') : ''}</small></div>
+                <div className="member-form-field"><label htmlFor="edit-person-first-name">{t('First name')}</label><input id="edit-person-first-name" dir="auto" value={firstName} onChange={(event) => { setFirstName(event.target.value); setValidationErrors([]) }} onBlur={() => { setFirstName((value) => capitalizeLatinWordStarts(value)); setFirstNameTouched(true) }} maxLength={60} required autoFocus aria-invalid={(firstNameTouched || attemptedSubmit) && !firstName.trim()} /><small className="first-name-validation" role={(firstNameTouched || attemptedSubmit) && !firstName.trim() ? 'alert' : undefined}>{(firstNameTouched || attemptedSubmit) && !firstName.trim() ? t('First name required') : ''}</small></div>
                 <div className="member-form-field"><label htmlFor="edit-person-last-name">{t('Last name optional')}</label><LastNameField id="edit-person-last-name" value={lastName} members={members} onChange={(value) => { setLastName(value); setValidationErrors([]) }} onBlur={() => setLastName((value) => capitalizeLatinWordStarts(value))} /></div>
               </div>
               <GenderSegmentedControl value={gender ?? 'male'} onChange={(value) => { setGender(value); setRelationshipError(''); setValidationWarnings([]) }} label={t('Gender')} />
@@ -135,9 +149,10 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
         </div>
         {formRelationIssues.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}
         {formWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`form-warning-${index}`} />)}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={onClose}>{t('Cancel')}</button><button type={validationWarnings.length ? 'button' : 'submit'} className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} onClick={validationWarnings.length ? () => evaluate(true) : undefined} title={validationErrors.length ? t('Fix the errors above before continuing.') : undefined} disabled={Boolean(validationErrors.length)}>{t(validationWarnings.length ? 'Save anyway' : 'Save changes')}</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={requestClose}>{t('Cancel')}</button><button type={validationWarnings.length ? 'button' : 'submit'} className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} onClick={validationWarnings.length ? () => evaluate(true) : undefined} title={validationErrors.length ? t('Fix the errors above before continuing.') : undefined} disabled={Boolean(validationErrors.length)}>{t(validationWarnings.length ? 'Save anyway' : 'Save changes')}</button></div>
       </form>
     </section>
+    {discardOpen && <DiscardChangesDialog onKeepEditing={() => setDiscardOpen(false)} onDiscard={closeDialogNow} />}
   </div>
 }
 

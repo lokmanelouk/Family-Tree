@@ -60,6 +60,15 @@ test('parent options show all matching genders before birth date and filter impo
   assert.ok(!filtered.warningIds.has('valid-father'))
 })
 
+test('parent picker marks older parents with the matching translated note', () => {
+  const mother = person('mother', { name: 'Mina', gender: 'female', birthDate: '1944' })
+  const father = person('father', { name: 'Omar', gender: 'male', birthDate: '1919' })
+  const mothers = getParentPickerOptions([mother], 'female', '2000')
+  const fathers = getParentPickerOptions([father], 'male', '2000')
+  assert.equal(mothers.warningKeys.get('mother'), 'Mother over 55 at birth')
+  assert.equal(fathers.warningKeys.get('father'), 'Father over 80 at birth')
+})
+
 test('child picker hides older people, partners, siblings, full-parent children, and children born after death', () => {
   const source = person('source', { name: 'Alex', gender: 'male', birthDate: '1950', deathDate: '2000', spouseIds: ['partner'], siblingIds: ['sibling'] })
   const sharedParent = person('shared-parent')

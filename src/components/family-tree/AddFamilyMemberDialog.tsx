@@ -19,6 +19,8 @@ import { capitalizeLatinWordStarts } from '../../lib/name-capitalization'
 import { PersonName } from './PersonName'
 import { FamilyAvatar } from './FamilyAvatar'
 import { getParentageKey, interpolateParentage } from '../../i18n/parentage'
+import { DiscardChangesDialog } from '../dialogs/DiscardChangesDialog'
+import { hasUnsavedChanges } from '../../lib/person-actions'
 import type { ReactNode } from 'react'
 
 type AddFamilyMemberDialogProps = {
@@ -63,7 +65,10 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const [genderTouched, setGenderTouched] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationIssue[]>([])
   const [validationWarnings, setValidationWarnings] = useState<ValidationIssue[]>([])
-  const closeDialog = useCallback(() => {
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const startingTargetId = initialTargetId ?? members[0]?.id ?? ''
+  const [initialDraft] = useState(() => ({ firstName: '', lastName: '', birthDate: '', deathDate: '', lifeStatus: 'living', photo: '', avatarId: 'neutral', targetId: startingTargetId, kind: initialKind, gender: null as 'male' | 'female' | null, fatherId: initialKind === 'sibling' ? getSiblingParentChoices(members, members.find((member) => member.id === startingTargetId)).fatherId : initialKind === 'child' ? getChildParentChoices(members.find((member) => member.id === startingTargetId), members).fatherId : '', motherId: initialKind === 'sibling' ? getSiblingParentChoices(members, members.find((member) => member.id === startingTargetId)).motherId : initialKind === 'child' ? getChildParentChoices(members.find((member) => member.id === startingTargetId), members).motherId : '' }))
+  const closeDialogNow = useCallback(() => {
     setHasSubmitted(false)
     onClose()
   }, [onClose])
@@ -78,14 +83,19 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
     if (initialKind === 'child') return getChildParentChoices(initialPerson, members).motherId
     return ''
   })
+  const requestClose = useCallback(() => {
+    const draft = { firstName, lastName, birthDate, deathDate, lifeStatus, photo, avatarId, targetId, kind, gender, fatherId, motherId }
+    if (hasUnsavedChanges(initialDraft, draft)) setDiscardOpen(true)
+    else closeDialogNow()
+  }, [closeDialogNow, firstName, lastName, birthDate, deathDate, lifeStatus, photo, avatarId, targetId, kind, gender, fatherId, motherId, initialDraft])
   useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); closeDialog() }
+      if (event.key === 'Escape') { event.preventDefault(); if (discardOpen) setDiscardOpen(false); else requestClose() }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, closeDialog])
+  }, [isOpen, discardOpen, requestClose])
   if (!isOpen) return null
   const fullName = getFullName({ name: [firstName, lastName].filter(Boolean).join(' '), firstName, lastName })
   const duplicateKey = `${fullName.trim().toLocaleLowerCase()}|${birthDate.trim()}`
@@ -96,11 +106,11 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const deathDateError = getDeathDateError(deathDate, birthDate)
   const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
   const deathValidationErrors = validationErrors.filter((issue) => ['Enter a valid death date.', 'Death dates cannot be in the future.', 'Death date must be after birth date.'].includes(issue.messageKey))
-  const isParentDateIssue = (issue: ValidationIssue) => ['{parent} must be older than {child}.', 'Both parents must be older than {child}.', '{parent} is less than {years} years older than {child}.', 'Both parents are less than {years} years older than {child}.', '{parent} died before {child} was born.', 'Child was born after parent died.'].includes(issue.messageKey)
+  const isParentDateIssue = (issue: ValidationIssue) => ['{parent} must be older than {child}.', 'Both parents must be older than {child}.', '{parent} is less than {years} years older than {child}.', 'Both parents are less than {years} years older than {child}.', '{parent} died before {child} was born.', 'Child was born after parent died.'].includes(issue.messageKey) || issue.messageKey.startsWith('Mother age at birth:') || issue.messageKey.startsWith('Father age at birth:')
   const relationshipValidationErrors = validationErrors.filter((issue) => !birthValidationErrors.includes(issue) && !deathValidationErrors.includes(issue) && !isParentDateIssue(issue))
   const dateWarnings = validationWarnings.filter((issue) => issue.messageKey.startsWith('Born in '))
   const relationshipWarnings = validationWarnings.filter((issue) => issue.messageKey.includes('is not marked'))
-  const formWarnings = validationWarnings.filter((issue) => !dateWarnings.includes(issue) && !relationshipWarnings.includes(issue))
+  const formWarnings = validationWarnings.filter((issue) => !dateWarnings.includes(issue) && !relationshipWarnings.includes(issue) && (!(kind === 'child' || kind === 'sibling') || !isParentDateIssue(issue)))
   const birthWarnings = lifeStatus === 'deceased' && deathDate ? [] : dateWarnings
   const deathWarnings = lifeStatus === 'deceased' && deathDate ? dateWarnings : []
   const birthTouchedIssue: ValidationIssue | undefined = birthDateTouched && !hasSubmitted && birthDateError ? { type: 'error', messageKey: birthDateError, values: {} } : undefined
@@ -212,7 +222,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   function submit(event: FormEvent<HTMLFormElement>) { evaluateAndAdd(event) }
   return <div className="modal-shade">
     <section className="member-dialog" role="dialog" aria-modal="true" aria-labelledby="add-member-title">
-      <div className="dialog-header"><div><span>{t('FAMILY TREE')}</span><h2 id="add-member-title">{t('Add a family member')}</h2></div><button title={t('Close details')} aria-label={t('Close details')} onClick={closeDialog}><X size={17} /></button></div>
+      <div className="dialog-header"><div><span>{t('FAMILY TREE')}</span><h2 id="add-member-title">{t('Add a family member')}</h2></div><button title={t('Close details')} aria-label={t('Close details')} onClick={requestClose}><X size={17} /></button></div>
       <form noValidate onSubmit={submit}>
         <div className="member-form-header-row">
           <div className="member-avatar-field">
@@ -221,7 +231,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
           </div>
           <div className="member-name-field">
             <div className="member-name-fields-row">
-              <div className="member-form-field"><label htmlFor="relative-first-name">{t('First name')}</label><input id="relative-first-name" autoFocus value={firstName} onChange={(event) => { setFirstName(event.target.value); setDismissedDuplicateKey(''); setValidationErrors([]) }} onBlur={() => setFirstName((value) => capitalizeLatinWordStarts(value))} placeholder={t('First name')} required maxLength={60} aria-invalid={hasSubmitted && !firstName.trim()} /><small className="first-name-validation" role={hasSubmitted && !firstName.trim() ? 'alert' : undefined}>{hasSubmitted && !firstName.trim() ? t('First name required') : ''}</small></div>
+              <div className="member-form-field"><label htmlFor="relative-first-name">{t('First name')}</label><input id="relative-first-name" dir="auto" autoFocus value={firstName} onChange={(event) => { setFirstName(event.target.value); setDismissedDuplicateKey(''); setValidationErrors([]) }} onBlur={() => setFirstName((value) => capitalizeLatinWordStarts(value))} placeholder={t('First name')} required maxLength={60} aria-invalid={hasSubmitted && !firstName.trim()} /><small className="first-name-validation" role={hasSubmitted && !firstName.trim() ? 'alert' : undefined}>{hasSubmitted && !firstName.trim() ? t('First name required') : ''}</small></div>
               <div className="member-form-field"><label htmlFor="relative-last-name">{t('Last name optional')}</label><LastNameField id="relative-last-name" value={lastName} members={members} onChange={(value) => { setLastName(value); setDismissedDuplicateKey(''); setValidationErrors([]) }} onBlur={() => setLastName((value) => capitalizeLatinWordStarts(value))} /></div>
             </div>
             <div onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setGenderTouched(true) }}><GenderSegmentedControl value={gender} onChange={(value) => { setGender(value); setValidationErrors([]) }} label={t('Gender')} /><small className="first-name-validation" role={(genderTouched || hasSubmitted) && !gender ? 'alert' : undefined}>{(genderTouched || hasSubmitted) && !gender ? t('Gender is required.') : ''}</small></div>
@@ -246,15 +256,16 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
           <div className={`member-form-field${relationshipValidationErrors[0] ? ` validation-field-${relationshipValidationErrors[0].type}` : relationshipWarnings.length ? ' validation-field-warning' : ''}`}>
             <label dir="auto">{relationshipLabel ? <>{relationshipLabel[0]}<PersonName name={selectedTarget ? getFullName(selectedTarget) : ''} />{relationshipLabel[1]}</> : t('Relationship to')}</label>
             {members.length > 0 ? <div className="relationship-creation-fields"><RelationshipKindPicker value={kind} onChange={changeRelationshipKind} />{needsParents ? siblingHasNoParents ? null : <div className="parent-choice-grid">
-              <ParentChoiceField label={t('Father')} candidates={fatherCandidates} value={fatherId} placeholder={t(fatherCandidates.length ? 'Select father' : 'No male in the tree')} optionNote={(member) => fatherOptions.warningIds.has(member.id) ? t('Small age gap') : undefined} fieldIssues={fatherFieldIssues} members={members} onChange={changeFather} />
-              <ParentChoiceField label={t('Mother')} candidates={motherCandidates} value={motherId} placeholder={t(motherCandidates.length ? 'Select mother' : 'No female in the tree')} optionNote={(member) => motherOptions.warningIds.has(member.id) ? t('Small age gap') : undefined} fieldIssues={motherFieldIssues} members={members} onChange={(id) => { setMotherId(id); setValidationErrors([]) }} />
+              <ParentChoiceField label={t('Father')} candidates={fatherCandidates} value={fatherId} placeholder={t(fatherCandidates.length ? 'Select father' : 'No male in the tree')} optionNote={(member) => { const key = fatherOptions.warningKeys.get(member.id); return key ? t(key) : undefined }} fieldIssues={fatherFieldIssues} members={members} onChange={changeFather} />
+              <ParentChoiceField label={t('Mother')} candidates={motherCandidates} value={motherId} placeholder={t(motherCandidates.length ? 'Select mother' : 'No female in the tree')} optionNote={(member) => { const key = motherOptions.warningKeys.get(member.id); return key ? t(key) : undefined }} fieldIssues={motherFieldIssues} members={members} onChange={(id) => { setMotherId(id); setValidationErrors([]) }} />
             </div> : <FamilyMemberPicker members={members} value={targetId} onChange={changeTarget} />}{needsParents && (siblingHasNoParents || hasSubmitted && !parentsValid) && <ValidationNotice issue={{ type: 'error', messageKey: siblingHasNoParents ? 'Add a parent first.' : 'Choose at least one existing parent to place this person in the tree.', values: {} }} members={members} />}{relationshipValidationErrors.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}{relationshipWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`relationship-warning-${index}`} />)}</div> : <p className="form-hint">{t('This person will start your family tree.')}</p>}
           </div>
         </div>
         {formWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`form-warning-${index}`} />)}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={closeDialog}>{t('Cancel')}</button><button className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} type={validationWarnings.length ? 'button' : 'submit'} onClick={validationWarnings.length ? () => evaluateAndAdd(undefined, true) : undefined} title={validationErrors.length || (hasSubmitted && !parentsValid) ? t('Fix the errors above before continuing.') : duplicates.length ? t('Review possible matches before adding this person.') : undefined} disabled={!gender || Boolean(validationErrors.length) || (hasSubmitted && !parentsValid) || (members.length > 0 && !needsParents && !targetId) || duplicates.length > 0}>{t(validationWarnings.length ? 'Add anyway' : 'Add person')}</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={requestClose}>{t('Cancel')}</button><button className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} type={validationWarnings.length ? 'button' : 'submit'} onClick={validationWarnings.length ? () => evaluateAndAdd(undefined, true) : undefined} title={validationErrors.length || (hasSubmitted && !parentsValid) ? t('Fix the errors above before continuing.') : duplicates.length ? t('Review possible matches before adding this person.') : undefined} disabled={!gender || Boolean(validationErrors.length) || (hasSubmitted && !parentsValid) || (members.length > 0 && !needsParents && !targetId) || duplicates.length > 0}>{t(validationWarnings.length ? 'Add anyway' : 'Add person')}</button></div>
       </form>
     </section>
+    {discardOpen && <DiscardChangesDialog onKeepEditing={() => setDiscardOpen(false)} onDiscard={closeDialogNow} />}
   </div>
 }
 

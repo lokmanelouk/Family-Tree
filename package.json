@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/lib/tree-logic.test.mjs src/lib/family-validation.test.mjs src/lib/family-picker.test.mjs src/lib/person-name.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/tree-logic.test.mjs src/lib/family-validation.test.mjs src/lib/family-picker.test.mjs src/lib/person-name.test.mjs src/config/layout.test.mjs src/lib/person-actions.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
