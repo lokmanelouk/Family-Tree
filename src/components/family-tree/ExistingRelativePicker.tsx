@@ -6,11 +6,10 @@ import { useLanguage } from '../../i18n/useLanguage'
 import { collectValidationIssues, validateRelationshipRules, type ValidationIssue } from '../../lib/family-validation'
 import { getPickerCandidates } from '../../lib/family-picker'
 import { getDisambiguatedFullName } from '../../lib/member-name'
-import { getMemberAge } from '../../lib/member-age'
-import { isMemberDeceased } from '../../lib/member-status'
 import { FamilyAvatar } from './FamilyAvatar'
 import { ValidationMessage } from './ValidationFeedback'
 import { PersonName } from './PersonName'
+import { PersonListMetadata } from './PersonListMetadata'
 
 type ExistingRelativePickerProps = {
   source: FamilyMember
@@ -112,19 +111,17 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
   const content = <div ref={popupRef} className="existing-relative-picker" role="dialog" aria-label={t('Choose a family member')} style={{ ...themeStyle, position: 'fixed', top: position.top, insetInlineStart: position.inlineStart, width: position.width, maxHeight: position.maxHeight, zIndex: 10050 }}>
     {!(warnings.length > 0 && pending) && <div className="existing-relative-picker-search"><Search size={16} aria-hidden="true" /><input ref={searchRef} dir="auto" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setWarnings([]); setPending(null); setShowHidden(false) }} onKeyDown={handleSearchKeyDown} placeholder={t('Search family members')} aria-label={t('Search family members')} /><button type="button" onClick={onClose} aria-label={t('Close')}><X size={15} /></button></div>}
     {warnings.length > 0 && pending ? <div className="existing-relative-confirm" role="alert">
-      <div className="existing-relative-confirm-person"><FamilyAvatar member={pending} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(pending, members)} />{renderPersonAge(pending, language, t) && <small><bdi dir="auto">{renderPersonAge(pending, language, t)}</bdi></small>}</span></div>
+      <div className="existing-relative-confirm-person"><FamilyAvatar member={pending} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(pending, members)} /><PersonListMetadata member={pending} /></span></div>
       <div className="existing-relative-confirm-warning"><TriangleAlert size={18} aria-hidden="true" /><div>{warnings.map((issue, index) => <p key={`${issue.messageKey}-${index}`}><ValidationMessage issue={issue} members={members} /></p>)}</div></div>
       <div className="existing-relative-confirm-actions"><button type="button" onClick={chooseSomeoneElse}>{t('Choose someone else')}</button><button type="button" className="warning-action-button" onClick={continueWithPending}>{t('Continue anyway')}</button></div>
     </div> : needsParentFirst ? <div className="existing-relative-picker-empty"><span>{t('Add a parent first')}</span><button type="button" onClick={() => { setKind('parent'); setQuery(''); setActiveIndex(-1) }}><UserRoundPlus size={15} />{t('Add parent')}</button></div> : alreadyHasTwoParents ? <div className="existing-relative-picker-empty"><span>{t('Already has two parents')}</span></div> : <div className="existing-relative-picker-list" role="listbox" aria-label={t('Choose a family member')}>
       {visible.map(({ person, issues, warningKey }, index) => {
-        const age = getMemberAge(person.birthDate, isMemberDeceased(person) ? person.deathDate : undefined)
-        const ageText = person.deathDate ? `${person.birthDate?.slice(0, 4) ?? '\u2014'} \u2013 ${person.deathDate.slice(0, 4)}` : age ? formatPickerAge(age.count, age.unit, language, t) : person.birthDate?.slice(0, 4)
         const noteKey = warningKey ?? entryNote(issues)
-        return <button type="button" role="option" aria-selected={activeIndex === index} className="existing-relative-picker-option" key={person.id} onPointerEnter={() => setActiveIndex(index)} onClick={() => choose(person)}><FamilyAvatar member={person} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(person, members)} />{ageText && <small><bdi dir="auto">{ageText}</bdi></small>}{noteKey && <small className="existing-relative-picker-note">{t(noteKey)}</small>}</span></button>
+        return <button type="button" role="option" aria-selected={activeIndex === index} className="existing-relative-picker-option" key={person.id} onPointerEnter={() => setActiveIndex(index)} onClick={() => choose(person)}><FamilyAvatar member={person} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(person, members)} /><PersonListMetadata member={person} />{noteKey && <small className="existing-relative-picker-note">{t(noteKey)}</small>}</span></button>
       })}
       {!visible.length && <p className="existing-relative-picker-no-results">{t(hidden.length ? 'No one fits here' : query ? 'No one found' : 'No one fits here')}</p>}
       {hidden.length > 0 && (!visible.length || Boolean(query.trim())) && <button type="button" className="existing-relative-picker-hidden-toggle" aria-expanded={showHidden} onClick={() => setShowHidden((value) => !value)}>{hiddenLabel[0]}<bdi dir="ltr">{hidden.length}</bdi>{hiddenLabel[1]}</button>}
-      {showHidden && hidden.map(({ person, reasonKey }) => <div className="existing-relative-picker-option is-invalid" aria-disabled="true" key={`hidden-${person.id}`}><FamilyAvatar member={person} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(person, members)} />{person.birthDate && <small><bdi dir="ltr">{person.birthDate.slice(0, 4)}</bdi></small>}<small className="existing-relative-picker-reason">{t(reasonKey ?? 'Already linked')}</small></span></div>)}
+      {showHidden && hidden.map(({ person, reasonKey }) => <div className="existing-relative-picker-option is-invalid" aria-disabled="true" key={`hidden-${person.id}`}><FamilyAvatar member={person} compact decorative /><span className="existing-relative-picker-copy"><PersonName name={getDisambiguatedFullName(person, members)} /><PersonListMetadata member={person} /><small className="existing-relative-picker-reason">{t(reasonKey ?? 'Already linked')}</small></span></div>)}
     </div>}
     {!needsParentFirst && !pending && <button type="button" className="existing-relative-picker-create" disabled={alreadyHasTwoParents} onClick={() => onCreateNew(source.id, kind)}><UserRoundPlus size={16} />{t('Create new person')}</button>}
   </div>
@@ -140,17 +137,4 @@ function entryNote(issues: ValidationIssue[]) {
   if (warning.messageKey.startsWith('Born in ')) return 'Unusually old'
   if (warning.messageKey.includes('is not marked')) return 'Gender does not match'
   return 'Unlikely relationship'
-}
-
-function renderPersonAge(person: FamilyMember, language: string, t: (message: string, values?: Record<string, string | number>) => string) {
-  const age = getMemberAge(person.birthDate, isMemberDeceased(person) ? person.deathDate : undefined)
-  if (person.deathDate) return `${person.birthDate?.slice(0, 4) ?? '\u2014'} \u2013 ${person.deathDate.slice(0, 4)}`
-  if (age) return formatPickerAge(age.count, age.unit, language, t)
-  return person.birthDate?.slice(0, 4)
-}
-
-function formatPickerAge(count: number, unit: 'years' | 'months' | 'days', language: string, t: (message: string, values?: Record<string, string | number>) => string) {
-  const category = new Intl.PluralRules(language).select(count)
-  const message = t(`Age ${unit} ${category}`, { count: '__COUNT__' })
-  return message.includes('__COUNT__') ? message.replace('__COUNT__', String(count)) : message
 }

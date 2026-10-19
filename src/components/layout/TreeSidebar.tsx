@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, Moon, Sun, Users } from 'lucide-react'
-import type { FamilyMember } from '../../types/family'
+import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, Moon, Sun } from 'lucide-react'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
 
@@ -12,13 +11,11 @@ const themes = [
 const arabicLanguageLabel = String.fromCodePoint(0x627, 0x644, 0x639, 0x631, 0x628, 0x64a, 0x629)
 
 type TreeSidebarProps = {
-  members: FamilyMember[]
   theme: AppTheme
   onSetTheme: (theme: AppTheme) => void
-  onOpenPeople: () => void
 }
 
-export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSidebarProps) {
+export function TreeSidebar({ theme, onSetTheme }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
   const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Midnight')
@@ -29,7 +26,6 @@ export function TreeSidebar({ members, theme, onSetTheme, onOpenPeople }: TreeSi
     <div className="sidebar-content">
       <nav className="sidebar-group" aria-label={t('Family navigation')}>
         <button className="side-link selected" title={t('Family tree')} aria-current="page"><GitBranch size={18} />{!collapsed && <span>{t('Family tree')}</span>}</button>
-        <button className="side-link" onClick={onOpenPeople} title={t('Family members')}><Users size={18} />{!collapsed && <><span>{t('Family members')}</span><small>{members.length}</small></>}</button>
       </nav>
     </div>
     <section className="sidebar-preferences" aria-label={t('Appearance and language')}>

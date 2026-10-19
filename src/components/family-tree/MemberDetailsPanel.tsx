@@ -1,4 +1,4 @@
-import { Baby, ChevronDown, ChevronRight, GitBranch, HeartHandshake, Pencil, Plus, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react'
+import { Baby, ChevronDown, ChevronRight, GitBranch, HeartHandshake, Pencil, Plus, Trash2, UsersRound, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
@@ -13,6 +13,7 @@ import { FamilyAvatar } from './FamilyAvatar'
 import { getFullName } from '../../lib/member-name'
 import { ExistingRelativePicker } from './ExistingRelativePicker'
 import { PersonName } from './PersonName'
+import { PersonListMetadata } from './PersonListMetadata'
 
 type MemberDetailsPanelProps = {
   member: FamilyMember
@@ -78,9 +79,9 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
           </div>
         </div>
         <div className="details-links">
-          <RelationshipGroup t={t} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} adoptedLabel={t('Adoption')} collapsed={collapsedSections.has('partners')} onToggle={() => toggleSection(setCollapsedSections, 'partners')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
+          <RelationshipGroup t={t} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} collapsed={collapsedSections.has('partners')} onToggle={() => toggleSection(setCollapsedSections, 'partners')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
           <RelationshipGroup t={t} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} collapsed={collapsedSections.has('children')} onToggle={() => toggleSection(setCollapsedSections, 'children')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="child" label={t('Add child')} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
-          <RelationshipGroup t={t} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} adoptedIds={member.adoptedParentIds ?? []} adoptedLabel={t('Adoption')} collapsed={collapsedSections.has('parents')} onToggle={() => toggleSection(setCollapsedSections, 'parents')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} disabled={member.parentIds.length >= 2} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
+          <RelationshipGroup t={t} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} collapsed={collapsedSections.has('parents')} onToggle={() => toggleSection(setCollapsedSections, 'parents')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} disabled={member.parentIds.length >= 2} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
           <RelationshipGroup t={t} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} collapsed={collapsedSections.has('siblings')} onToggle={() => toggleSection(setCollapsedSections, 'siblings')} onSelect={onSelectRelative} action={<RelativePickerAction source={member} members={members} kind="sibling" label={t('Add sibling')} disabled={member.parentIds.length === 0} disabledReason={t('Add a parent first')} onPick={onLinkRelative} onCreateNew={onAddRelative} />} />
         </div>
       </div>
@@ -90,20 +91,6 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
 
 function renderParentage(pattern: string, parents: FamilyMember[]): ReactNode {
   return <span dir="auto">{interpolateParentage(pattern, parents.map(getFullName)).map((part, index) => part.type === 'name' ? <PersonName key={`parent-${index}`} name={part.value} /> : part.value)}</span>
-}
-
-function renderRelativeSummary(member: FamilyMember, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
-  const age = getMemberAge(member.birthDate, isMemberDeceased(member) ? member.deathDate : undefined)
-  const birthYear = member.birthDate?.match(/^(\d{4})/)?.[1]
-  const deathYear = member.deathDate?.match(/^(\d{4})/)?.[1]
-  if (isMemberDeceased(member)) {
-    if (birthYear && deathYear) return <bdi dir="ltr">{birthYear} {'\u2013'} {deathYear}</bdi>
-    if (deathYear) return <bdi dir="ltr">{deathYear}</bdi>
-    if (birthYear) return <><span>{t('Born')} <bdi dir="ltr">{birthYear}</bdi></span><span className="relationship-summary-divider" />{t('Deceased')}</>
-    return t('Deceased')
-  }
-  if (age) return formatAge(age, language, t)
-  return birthYear ? <>{t('Born')} <bdi dir="ltr">{birthYear}</bdi></> : null
 }
 
 function formatAge(age: MemberAge, language: Language, t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
@@ -144,8 +131,7 @@ function toggleSection(setCollapsed: (update: (current: Set<string>) => Set<stri
   })
 }
 
-function RelationshipGroup({ t, icon, title, people, adoptedIds = [], adoptedLabel, collapsed, onToggle, kind, action, onSelect }: { t: (message: string, values?: Record<string, string | number>) => string; icon: ReactNode; title: string; people: FamilyMember[]; adoptedIds?: string[]; adoptedLabel?: string; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; onSelect: (member: FamilyMember) => void }) {
-  const { language } = useLanguage()
+function RelationshipGroup({ t, icon, title, people, collapsed, onToggle, kind, action, onSelect }: { t: (message: string, values?: Record<string, string | number>) => string; icon: ReactNode; title: string; people: FamilyMember[]; collapsed: boolean; onToggle: () => void; kind: string; action?: ReactNode; onSelect: (member: FamilyMember) => void }) {
   return (
     <section className={`relationship-group relationship-group-${kind}`}>
       <div className="relationship-group-heading">
@@ -157,10 +143,7 @@ function RelationshipGroup({ t, icon, title, people, adoptedIds = [], adoptedLab
         {action}
       </div>
       {!collapsed && <div className="relationship-group-body">
-        {people.length ? people.map((person) => {
-          const adopted = adoptedIds.includes(person.id)
-          return <button type="button" className={`relationship-person-button${adopted ? ' is-adopted-relative' : ''}${isMemberDeceased(person) ? ' is-deceased' : ''}`} key={person.id} title={t('Open {name}', { name: getFullName(person) })} aria-label={t('Open {name}', { name: getFullName(person) })} onClick={() => onSelect(person)}>{adopted && <span className="adopted-relative-indicator" role="img" aria-label={adoptedLabel} title={adoptedLabel}><ShieldCheck size={13} /></span>}<span className={`relationship-person-avatar${person.gender ? ` gender-${person.gender}` : ''}`}><FamilyAvatar member={person} compact decorative /></span><span className="relationship-person-copy"><PersonName name={getFullName(person)} /><small>{renderRelativeSummary(person, language, t)}</small></span><ChevronRight className="relationship-person-chevron" size={14} aria-hidden="true" /></button>
-        }) : <p className="relationship-picker-empty">{t('No linked family members yet.')}</p>}
+        {people.length ? people.map((person) => <button type="button" className={`relationship-person-button${isMemberDeceased(person) ? ' is-deceased' : ''}`} key={person.id} title={t('Open {name}', { name: getFullName(person) })} aria-label={t('Open {name}', { name: getFullName(person) })} onClick={() => onSelect(person)}><span className={`relationship-person-avatar${person.gender ? ` gender-${person.gender}` : ''}`}><FamilyAvatar member={person} compact decorative /></span><span className="relationship-person-copy"><PersonName name={getFullName(person)} /><PersonListMetadata member={person} /></span><ChevronRight className="relationship-person-chevron" size={14} aria-hidden="true" /></button>) : <p className="relationship-picker-empty">{t('No linked family members yet.')}</p>}
       </div>}
     </section>
   )

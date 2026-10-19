@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { AddFamilyMemberDialog } from "../components/family-tree/AddFamilyMemberDialog";
-import { FamilyMembersPanel } from "../components/family-tree/FamilyMembersPanel";
 import { FamilyTreeCanvas } from "../components/family-tree/FamilyTreeCanvas";
 import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel";
 import { EditPersonDialog } from "../components/family-tree/EditPersonDialog";
@@ -63,7 +62,6 @@ export function DashboardPage() {
   const [restorePending, setRestorePending] = useState<RestoreRequest | null>(
     null,
   );
-  const [peopleOpen, setPeopleOpen] = useState(false);
   const [status, setStatus] = useState("");
   const selectedMember =
     members.find((member) => member.id === selectedId) ?? null;
@@ -90,14 +88,12 @@ export function DashboardPage() {
         if (
           pendingDrop ||
           deletePending ||
-          restorePending ||
-          peopleOpen
+          restorePending
         ) {
           event.preventDefault();
           setPendingDrop(null);
           setDeletePending(null);
           setRestorePending(null);
-          setPeopleOpen(false);
           return;
         }
         if (selectedId) {
@@ -127,7 +123,6 @@ export function DashboardPage() {
     addRequest,
     deletePending,
     editPending,
-    peopleOpen,
     pendingDrop,
     redo,
     restorePending,
@@ -152,7 +147,6 @@ export function DashboardPage() {
     setCollapsedAncestorIds(new Set());
     setSelectedId(member.id);
     setFocusMode(false);
-    setPeopleOpen(false);
     setZoom((current) => Math.min(1.15, Math.max(current, 1)));
     setNavigationTarget((current) => ({
       id: member.id,
@@ -261,10 +255,8 @@ export function DashboardPage() {
       dir={getLayoutDirection(language)}
     >
       <TreeSidebar
-        members={members}
         theme={theme}
         onSetTheme={setTheme}
-        onOpenPeople={() => setPeopleOpen(true)}
       />
       <section className="tree-main">
         <TreeToolbar
@@ -387,13 +379,6 @@ export function DashboardPage() {
           )}
         </div>
       </section>
-      {peopleOpen && (
-        <FamilyMembersPanel
-          members={members}
-          onSelect={findMember}
-          onClose={() => setPeopleOpen(false)}
-        />
-      )}
       {addRequest && (
         <AddFamilyMemberDialog
           isOpen

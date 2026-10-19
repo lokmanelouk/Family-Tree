@@ -20,6 +20,9 @@ import {
 import type { FamilyMember } from '../../types/family'
 import type { TreeNodeMode } from '../../lib/tree-layout'
 import { searchFamilyMembers } from '../../lib/family-search'
+import { getFullName } from '../../lib/member-name'
+import { PersonName } from './PersonName'
+import { PersonListMetadata } from './PersonListMetadata'
 import { useLanguage } from '../../i18n/useLanguage'
 import { RelationshipGuideDialog } from '../dialogs/RelationshipGuideDialog'
 
@@ -116,8 +119,8 @@ export function TreeToolbar(props: TreeToolbarProps) {
               {results.length ? (
                 results.map((person) => (
                   <button key={person.id} role="option" onClick={() => choose(person)}>
-                    <span>{person.name}</span>
-                    <small>{person.birthDate ? <bdi dir="ltr">{person.birthDate}</bdi> : t('Birth date unknown')} - {t(person.relationship)}</small>
+                    <span><PersonName name={getFullName(person)} /></span>
+                    <PersonListMetadata member={person} />
                   </button>
                 ))
               ) : (

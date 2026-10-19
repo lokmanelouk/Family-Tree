@@ -5,6 +5,7 @@ import { useLanguage } from '../../i18n/useLanguage'
 import { FamilyAvatar } from './FamilyAvatar'
 import { PersonName } from './PersonName'
 import { getDisambiguatedFullName } from '../../lib/member-name'
+import { PersonListMetadata } from './PersonListMetadata'
 
 type FamilyMemberPickerProps = {
   members: FamilyMember[]
@@ -48,7 +49,7 @@ export function FamilyMemberPicker({ members, value, onChange, placeholder, disa
     {open && <div className="family-member-picker-list" role="listbox" id={pickerId} aria-label={t('Related family member')}>
       {members.map((member) => <button className="family-member-picker-option" type="button" key={member.id} role="option" aria-selected={member.id === selected?.id} onClick={() => { onChange(member.id); setOpen(false) }}>
         <span className="family-member-picker-avatar"><FamilyAvatar member={member} compact /></span>
-        <span className="family-member-picker-copy"><strong><PersonName name={getDisambiguatedFullName(member, members)} /></strong><small>{member.birthDate ? <bdi dir="ltr">{member.birthDate}</bdi> : t('Birth date unknown')} {'\u00b7'} {t(member.relationship)}</small>{optionNote?.(member) && <small className="family-member-picker-note">{optionNote(member)}</small>}</span>
+        <span className="family-member-picker-copy"><strong><PersonName name={getDisambiguatedFullName(member, members)} /></strong><PersonListMetadata member={member} />{optionNote?.(member) && <small className="family-member-picker-note">{optionNote(member)}</small>}</span>
         {member.id === selected?.id && <Check size={15} aria-hidden="true" />}
       </button>)}
       {allowClear && value && <button className="family-member-picker-option family-member-picker-clear" type="button" role="option" aria-selected="false" onClick={() => { onChange(''); setOpen(false) }}><span className="family-member-picker-clear-icon"><X size={15} aria-hidden="true" /></span><span className="family-member-picker-copy"><strong>{t('Clear selection')}</strong></span></button>}

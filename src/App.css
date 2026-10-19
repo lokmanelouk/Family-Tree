@@ -341,9 +341,8 @@
 }
 .search-results button {
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  gap: 3px;
   padding: 8px;
   border: 0;
   border-radius: 5px;
@@ -359,6 +358,20 @@
 .search-results small {
   color: var(--muted);
   font-size: 9px;
+}
+.person-list-metadata {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 450;
+  line-height: 1.25;
+  white-space: normal;
+}
+.person-list-metadata > bdi {
+  unicode-bidi: isolate;
 }
 .no-results {
   padding: 12px;
@@ -813,8 +826,7 @@
   font-weight: 700;
   letter-spacing: 0.8px;
 }
-.details-top button,
-.people-panel-heading > button {
+.details-top button {
   width: 27px;
   height: 27px;
   display: grid;
@@ -825,8 +837,7 @@
   color: var(--muted);
   cursor: pointer;
 }
-.details-top button:hover,
-.people-panel-heading > button:hover {
+.details-top button:hover {
   background: var(--surface-hover);
 }
 .details-top-actions {
@@ -1040,14 +1051,6 @@
 .relationship-group-siblings {
   --section-color: var(--rel-sibling);
 }
-.relationship-group-parents .is-adopted-relative {
-  color: var(--rel-adoption);
-}
-.adopted-relative-indicator {
-  display: inline-flex;
-  flex: none;
-  color: var(--rel-adoption);
-}
 .relationship-group-heading {
   display: flex;
   align-items: center;
@@ -1143,14 +1146,6 @@ html[dir="rtl"] .relationship-group-toggle > .relationship-collapse-chevron {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.relationship-person-copy > small {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 9px;
-  line-height: 1.15;
-}
 .relationship-person-button.is-deceased .relationship-person-avatar {
   border-color: var(--deceased-ring, #5b6075);
 }
@@ -1159,15 +1154,8 @@ html[dir="rtl"] .relationship-group-toggle > .relationship-collapse-chevron {
   opacity: 0.78;
 }
 .relationship-person-button.is-deceased .relationship-person-copy > bdi,
-.relationship-person-button.is-deceased .relationship-person-copy > small {
+.relationship-person-button.is-deceased .relationship-person-copy > .person-list-metadata {
   color: color-mix(in srgb, var(--deceased-text, #8b90a5) 82%, var(--text));
-}
-.relationship-summary-divider {
-  width: 3px;
-  height: 3px;
-  flex: none;
-  border-radius: 50%;
-  background: currentColor;
 }
 .relationship-person-chevron { flex:none; margin-inline-start:auto; color:var(--subtle); transition:color .14s ease,transform .14s ease }
 .relationship-person-button:hover .relationship-person-chevron,.relationship-person-button:focus-visible .relationship-person-chevron { color:var(--accent) }
@@ -1318,7 +1306,6 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
   color: var(--subtle);
   font-size: 9px;
 }
-.panel-backdrop,
 .modal-shade {
   position: fixed;
   inset: 0;
@@ -1327,76 +1314,22 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
   backdrop-filter: blur(2px);
   animation: fade-in 0.16s ease both;
 }
-.people-panel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: min(350px, 90vw);
-  padding: 20px 16px;
-  background: var(--surface);
-  border-right: 1px solid var(--line);
-  box-shadow: 12px 0 35px #0003;
-  animation: panel-from-left 0.2s ease both;
-}
-.people-panel-heading,
 .dialog-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
 }
-.people-panel-heading span,
 .dialog-header span {
   color: var(--subtle);
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.9px;
 }
-.people-panel-heading h2,
 .dialog-header h2 {
   margin: 5px 0 0;
   font-size: 15px;
   font-weight: 600;
 }
-.people-list {
-  display: grid;
-  gap: 4px;
-  margin-top: 22px;
-  max-height: calc(100vh - 100px);
-  overflow: auto;
-}
-.people-list > button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.people-list > button:hover {
-  border-color: var(--line);
-  background: var(--surface-raised);
-}
-.people-list .family-avatar-art {
-  width: 37px;
-  height: 37px;
-}
-.people-list > button > span {
-  display: grid;
-  gap: 4px;
-}
-.people-list strong {
-  font-size: 10px;
-  font-weight: 550;
-}
-.people-list small {
-  color: var(--muted);
-  font-size: 9px;
-}
-
 .modal-shade {
   z-index: 110;
   display: grid;
@@ -1758,16 +1691,6 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
     transform: translateX(0);
   }
 }
-@keyframes panel-from-left {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 @keyframes dialog-in {
   from {
     opacity: 0;
@@ -1969,9 +1892,6 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
   .canvas-footer {
     font-size: 7px;
   }
-  .people-panel {
-    width: 100%;
-  }
   .status-message {
     bottom: 10px;
     white-space: nowrap;
@@ -2161,8 +2081,6 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
 .duplicate-match-person { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); font-size: 12px; font-weight: 650; }
 .duplicate-match-person > bdi { min-width: 0; overflow-wrap: anywhere; }
 .duplicate-match-summary { min-width: 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
-.duplicate-summary-parts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; }
-.duplicate-summary-parts [dir="auto"] { unicode-bidi: isolate; }
 .duplicate-match-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .duplicate-match-actions button { min-height: 30px; padding-inline: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-raised); color: var(--text); font: inherit; font-size: 10px; font-weight: 600; cursor: pointer; }
 .duplicate-match-actions button:first-child { border-color: var(--accent); color: var(--accent); }
@@ -2343,12 +2261,6 @@ html[dir="rtl"] .speed-dial-item {
 html[dir="rtl"] .details-panel {
   align-items: stretch;
   text-align: right;
-}
-html[dir="rtl"] .people-panel {
-  left: auto;
-  right: 0;
-  border-right: 0;
-  border-left: 1px solid var(--line);
 }
 html[dir="rtl"] .relationship-dialog select,
 html[dir="rtl"] .member-dialog input,
@@ -3907,8 +3819,7 @@ html[dir="rtl"] .family-member-picker-list {
 .tree-sidebar,
 .tree-toolbar,
 .person-node,
-.details-panel,
-.people-panel {
+.details-panel {
   border-radius: 12px;
 }
 .tree-sidebar {
@@ -5388,8 +5299,6 @@ html[lang="ar"][data-layout-direction="keep"] body {
   .relationship-guide-popover,
   .relationship-guide-item strong,
   .relationship-guide-item small,
-  .people-panel,
-  .people-list > button,
   .family-member-picker-copy,
   .family-member-picker-option,
   .existing-relative-picker,
@@ -5441,7 +5350,6 @@ html[lang="ar"][data-layout-direction="keep"] body {
 }
 
 .tree-app[lang="ar"][data-layout-direction="keep"] .dialog-header > div,
-.tree-app[lang="ar"][data-layout-direction="keep"] .people-panel-heading > div,
 .tree-app[lang="ar"][data-layout-direction="keep"] .relationship-guide-item > span:last-child,
 .tree-app[lang="ar"][data-layout-direction="keep"] .search-results button > span:first-child {
   min-width: 0;

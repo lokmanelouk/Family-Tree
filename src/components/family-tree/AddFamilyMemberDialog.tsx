@@ -18,10 +18,9 @@ import { getParentPickerOptions } from '../../lib/family-picker'
 import { capitalizeLatinWordStarts } from '../../lib/name-capitalization'
 import { PersonName } from './PersonName'
 import { FamilyAvatar } from './FamilyAvatar'
-import { getParentageKey, interpolateParentage } from '../../i18n/parentage'
+import { PersonListMetadata } from './PersonListMetadata'
 import { DiscardChangesDialog } from '../dialogs/DiscardChangesDialog'
 import { hasUnsavedChanges } from '../../lib/person-actions'
-import type { ReactNode } from 'react'
 
 type AddFamilyMemberDialogProps = {
   isOpen: boolean
@@ -242,7 +241,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
             <div className={`duplicate-warning-message is-${type}-match`}>{type === 'strong' ? <TriangleAlert size={18} aria-hidden="true" /> : <CircleHelp size={18} aria-hidden="true" />}<span>{t(type === 'strong' ? 'Duplicate strong message' : 'Duplicate possible message')}</span></div>
             {matches.map(({ person }) => <div className="duplicate-match-row" key={person.id}>
               <div className="duplicate-match-person"><FamilyAvatar member={person} compact decorative /><PersonName name={getDisambiguatedFullName(person, members)} /></div>
-              <div className="duplicate-match-summary">{renderDuplicateSummary(person, members, t)}</div>
+              <div className="duplicate-match-summary"><PersonListMetadata member={person} /></div>
               <div className="duplicate-match-actions"><button type="button" onClick={() => { onSelectExisting(person); onClose() }}>{t('Use this person')}</button><button type="button" onClick={() => setDismissedDuplicateKey(duplicateKey)}>{t('Add as new person')}</button></div>
             </div>)}
           </section>)}</div>
@@ -271,14 +270,4 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
 
 function ParentChoiceField({ label, candidates, value, placeholder, optionNote, fieldIssues, members, onChange }: { label: string; candidates: FamilyMember[]; value: string; placeholder: string; optionNote: (member: FamilyMember) => string | undefined; fieldIssues: ValidationIssue[]; members: FamilyMember[]; onChange: (id: string) => void }) {
   return <div className={`parent-choice-field${fieldIssues.some((issue) => issue.type === 'error') ? ' validation-field-error' : fieldIssues.some((issue) => issue.type === 'warning') ? ' validation-field-warning' : ''}`}><span className="parent-choice-label">{label}</span><FamilyMemberPicker members={candidates} value={value} placeholder={placeholder} optionNote={optionNote} allowClear onChange={onChange} />{fieldIssues.map((issue, index) => <ValidationNotice key={`${issue.messageKey}-${index}`} issue={issue} members={members} />)}</div>
-}
-
-function renderDuplicateSummary(person: FamilyMember, members: FamilyMember[], t: (message: string, values?: Record<string, string | number>) => string): ReactNode {
-  const parents = person.parentIds.map((id) => members.find((member) => member.id === id)).filter((parent): parent is FamilyMember => Boolean(parent))
-  const parentKey = getParentageKey(person.gender, parents.length)?.replace('parentLink', 'duplicateParentLink')
-  const parentText = parentKey ? interpolateParentage(t(parentKey), parents.map((parent) => getDisambiguatedFullName(parent, members))).map((part, index) => part.type === 'name' ? <PersonName key={`parent-${index}`} name={part.value} /> : part.value) : null
-  const year = person.birthDate?.match(/^(\d{4})/)?.[1]
-  if (person.deathDate) return <bdi dir="ltr">{year ?? '\u2014'} {'\u2013'} {person.deathDate.slice(0, 4)}</bdi>
-  if (!year && !parentText) return null
-  return <span className="duplicate-summary-parts">{year && <span>{t('Duplicate born label')} <bdi dir="ltr">{year}</bdi></span>}{year && parentText && <span aria-hidden="true">·</span>}{parentText && <span dir="auto">{parentText}</span>}</span>
 }
