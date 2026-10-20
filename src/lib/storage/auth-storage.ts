@@ -16,6 +16,17 @@ export function signUpWithPassword(email: string, password: string) {
   return requireSupabase().auth.signUp({ email, password })
 }
 
+export function signInWithGoogle(redirectTo: string) {
+  return requireSupabase().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  })
+}
+
+export function sendPasswordReset(email: string, redirectTo: string) {
+  return requireSupabase().auth.resetPasswordForEmail(email, { redirectTo })
+}
+
 export function signOut() {
   return requireSupabase().auth.signOut()
 }

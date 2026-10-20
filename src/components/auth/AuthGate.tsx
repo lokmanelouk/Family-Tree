@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { BookOpen, LogIn, TreePine } from 'lucide-react'
+import { BookOpen, Eye, EyeOff, LogIn, TreePine } from 'lucide-react'
 import { DashboardPage } from '../../pages/DashboardPage'
 import { familyMembers } from '../../data/family'
 import { useLanguage } from '../../i18n/useLanguage'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
 import { createTree, loadTree, saveTreeChanges, type TreeRecord } from '../../lib/storage/supabase-tree-storage'
-import { getCurrentSession, onAuthChange, signInWithPassword, signOut, signUpWithPassword } from '../../lib/storage/auth-storage'
+import { getCurrentSession, onAuthChange, sendPasswordReset, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from '../../lib/storage/auth-storage'
 import { cloneMembersWithNewIds } from '../../lib/storage/tree-data'
 import type { FamilyMember } from '../../types/family'
 
@@ -115,9 +115,29 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    const query = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.slice(1))
+    return query.has('error') || query.has('error_description') || hash.has('error') || hash.has('error_description')
+      ? t('Could not continue with Google. Please try again.')
+      : ''
+  })
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.slice(1))
+    if (!query.has('error') && !query.has('error_description') && !hash.has('error') && !hash.has('error_description')) return
+    query.delete('error')
+    query.delete('error_description')
+    query.delete('error_code')
+    hash.delete('error')
+    hash.delete('error_description')
+    hash.delete('error_code')
+    const nextUrl = `${window.location.pathname}${query.size ? `?${query}` : ''}${hash.size ? `#${hash}` : ''}`
+    window.history.replaceState(null, '', nextUrl)
+  }, [t])
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
@@ -147,17 +167,57 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
       setBusy(false)
     }
   }
+  async function continueWithGoogle() {
+    setBusy(true)
+    setNotice('')
+    setError('')
+    try {
+      const result = await signInWithGoogle(window.location.origin)
+      if (result.error) throw result.error
+    } catch {
+      setBusy(false)
+      setError(t('Could not continue with Google. Please try again.'))
+    }
+  }
+  async function resetPassword() {
+    setNotice('')
+    setError('')
+    if (!email.trim()) {
+      setError(t('Enter your email first to reset your password.'))
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await sendPasswordReset(email.trim(), window.location.origin)
+      if (result.error) throw result.error
+      setNotice(t('Password reset email sent.'))
+    } catch {
+      setError(t('Could not send the password reset email. Please try again.'))
+    } finally {
+      setBusy(false)
+    }
+  }
   return <main className="auth-screen" lang={language} dir={language === 'ar' ? 'rtl' : 'ltr'}><AuthLanguageToggle />
     <section className="auth-card"><span className="auth-brand-mark">k</span><p className="auth-kicker">Kinfolk</p><h1>{t(mode === 'signin' ? 'Welcome back' : 'Create your account')}</h1><p className="auth-description">{t('Keep your family history together and private.')}</p>
+      <button className="auth-google-button" type="button" onClick={() => void continueWithGoogle()} disabled={busy}>
+        <GoogleMark />
+        {t('Continue with Google')}
+      </button>
+      <div className="auth-divider"><span>{t('or')}</span></div>
       <form className="auth-form" onSubmit={(event) => void submit(event)}>
         <label>{t('Email')}<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} dir="auto" /></label>
-        <label>{t('Password')}<input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        <label>{t('Password')}<span className="auth-password-field"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} dir="auto" /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={t(showPassword ? 'Hide password' : 'Show password')} aria-pressed={showPassword}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
+        {mode === 'signin' && <button className="auth-forgot-password" type="button" onClick={() => void resetPassword()} disabled={busy}>{t('Forgot password?')}</button>}
         {notice && <p className="auth-notice" role="status">{notice}</p>}{error && <p className="auth-error" role="alert">{error}</p>}
         <button className="primary-button auth-submit" type="submit" disabled={busy}>{mode === 'signin' ? <LogIn size={18} /> : <TreePine size={18} />}{t(busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up')}</button>
       </form>
       <button className="auth-mode-toggle" type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice('') }}>{t(mode === 'signin' ? 'New to Kinfolk? Create an account' : 'Already have an account? Sign in')}</button>
     </section>
   </main>
+}
+
+function GoogleMark() {
+  return <svg className="auth-google-mark" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.7c3.9-3.6 6-8.8 6-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.7-5.1c-1.8 1.2-4 2-6.8 2-5.3 0-9.8-3.6-11.4-8.4H5.7v5.3A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.3H5.7a20 20 0 0 0 0 17.8l6.9-5.3Z"/><path fill="#EA4335" d="M24 12c3 0 5.7 1 7.8 3.1l5.9-5.9C34.1 5.8 29.5 4 24 4A20 20 0 0 0 5.7 15.1l6.9 5.3C14.2 15.6 18.7 12 24 12Z"/></svg>
 }
 
 function CreateTree({ onCreate, error }: { onCreate: (name: string) => Promise<void>; error: string }) {
