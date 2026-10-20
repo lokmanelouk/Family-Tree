@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, GripVertical, Minus, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, GitBranch, Minus, Plus } from 'lucide-react'
 import { useRef, type DragEvent, type PointerEvent } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import type { CSSProperties } from 'react'
@@ -59,7 +59,7 @@ export function PersonCard({ member, mode, branchColor, isSelected, isFocused, i
         <span className="node-copy"><strong><bdi dir="auto">{member.name}</bdi></strong>{deceased && member.deathDate && lifeSpan && <small className="node-age node-lifespan"><bdi dir="ltr">{lifeSpan}</bdi></small>}{deceased && !member.deathDate && <small className="node-age node-deceased-label">{bornLabel && <><bdi dir="auto">{t('Born')}</bdi> <bdi dir="ltr">{birthYear}</bdi></>}<span>{t('Deceased')}</span></small>}{age && <small className="node-age" dir="auto"><bdi>{age.count}</bdi>{ageAfter}</small>}{member.gender && <small className={`node-gender ${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</small>}</span>
       </button>
       <div className="node-actions">
-        <button className="node-action drag-handle" draggable onDragStart={(event) => onDragStart(event, member)} onDragEnd={onDragEnd} aria-label={t('Drag {name} to propose a relationship change', { name: member.name })} title={t('Drag to propose a relationship change')}><GripVertical size={15} /></button>
+        <button className="node-action drag-handle connection-handle" draggable onDragStart={(event) => onDragStart(event, member)} onDragEnd={onDragEnd} aria-label={t('Drag {name} to propose a relationship change', { name: member.name })} title={t('Drag to connect family members')}><GitBranch size={16} /></button>
         <FamilyMemberSpeedDial member={member} onAddRelative={onAddRelative} />
         {childCount > 0 && <button className="node-action branch-toggle" onClick={() => onToggleBranch(member.id)} aria-label={t('{action} {name} branch, {count} children', { action: branchAction, name: member.name, count: childCount })} title={branchTooltip}><span dir="auto">{childLabel}</span>{isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}</button>}
         {hasParents && <button className="node-action ancestor-branch-toggle" onClick={() => onToggleAncestors(member.id)} aria-label={t(`${areAncestorsCollapsed ? 'Expand' : 'Collapse'} ancestors for {name}`, { name: member.name })} title={t(`${areAncestorsCollapsed ? 'Expand' : 'Collapse'} ancestors`)}>{areAncestorsCollapsed ? <Plus size={13} /> : <Minus size={13} />}</button>}

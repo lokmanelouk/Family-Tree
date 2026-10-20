@@ -46,7 +46,7 @@ function reducer(state: State, action: Action): State {
 
 export function useFamilyTree(initialMembers?: FamilyMember[]) {
   const [state, dispatch] = useReducer(reducer, initialMembers ?? familyMembers, createInitialState)
-  const addRelated = useCallback((targetId: string, kind: RelationshipKind, firstName: string, lastName: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: import('../types/family').FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']) => dispatch({ type: 'add-related', targetId, kind, firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatar, fatherId, motherId, id: `member-${crypto.randomUUID()}` }), [])
+  const addRelated = useCallback((targetId: string, kind: RelationshipKind, firstName: string, lastName: string, gender?: FamilyMember['gender'], birthDate?: string, photo?: string, avatar?: import('../types/family').FamilyMember['avatar'], fatherId?: string, motherId?: string, deathDate?: string, lifeStatus?: FamilyMember['lifeStatus']) => dispatch({ type: 'add-related', targetId, kind, firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatar, fatherId, motherId, id: crypto.randomUUID() }), [])
   const updateRelationship = useCallback((sourceId: string, targetId: string, kind: RelationshipKind) => dispatch({ type: 'relationship', sourceId, targetId, kind }), [])
   const deleteMember = useCallback((memberId: string) => dispatch({ type: 'delete', memberId }), [])
   const updateProfile = useCallback((memberId: string, photo: string | undefined, avatar: FamilyMember['avatar']) => dispatch({ type: 'update-profile', memberId, photo, avatar }), [])

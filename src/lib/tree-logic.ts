@@ -241,9 +241,9 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
   const isDescendant = kind === 'child' || kind === 'sibling'
   const father = fatherId ? members.find((member) => member.id === fatherId) : undefined
   const mother = motherId ? members.find((member) => member.id === motherId) : undefined
-  if (isDescendant && members.length && (!father && !mother || (father && mother && father.id === mother.id))) return members
-  if (isDescendant && kind === 'child' && target && father?.id !== target.id && mother?.id !== target.id) return members
-  if (isDescendant && kind === 'sibling' && target && !target.parentIds.some((parentId) => [father?.id, mother?.id].includes(parentId))) return members
+  if (isDescendant && father && mother && father.id === mother.id) return members
+  if (isDescendant && kind === 'child' && target && (father || mother) && father?.id !== target.id && mother?.id !== target.id) return members
+  if (isDescendant && kind === 'sibling' && target && (father || mother) && !target.parentIds.some((parentId) => [father?.id, mother?.id].includes(parentId))) return members
   if (kind === 'parent' && target && target.parentIds.some((parentId) => members.find((member) => member.id === parentId)?.gender === gender)) return members
   const names = cleanName.split(/\s+/)
   const looks = [

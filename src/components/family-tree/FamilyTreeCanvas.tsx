@@ -6,6 +6,7 @@ import { getChildCounts, getHiddenAncestorIds, getHiddenIds } from '../../lib/tr
 import { computeTreeLayout, getImmediateFamilyIds, getParentalCoupleColors, getParentChildBranchJunction, getParentChildConnectorPaths, getRootBranchMap, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS, type TreeNodeMode } from '../../lib/tree-layout'
 import { PersonCard } from './PersonCard'
 import { PersonContextMenu } from './PersonContextMenu'
+import { TreeMiniMap } from './TreeMiniMap'
 import { useLanguage } from '../../i18n/useLanguage'
 
 type FamilyTreeCanvasProps = {
@@ -46,6 +47,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const previousViewport = useRef<{ zoom: number; offsetX: number; offsetY: number; width: number; height: number } | null>(null)
   const previousLayoutRevision = useRef(layoutRevision)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 })
   const hiddenIds = useMemo(() => new Set([...getHiddenIds(members, collapsedIds), ...getHiddenAncestorIds(members, collapsedAncestorIds)]), [members, collapsedIds, collapsedAncestorIds])
   const visibleMembers = useMemo(() => members.filter((member) => !hiddenIds.has(member.id)), [members, hiddenIds])
   const childCounts = getChildCounts(members)
@@ -53,6 +55,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const focusedIds = spotlightId ? getImmediateFamilyIds(members, spotlightId) : null
   const branchColors = getRootBranchMap(members)
   const coupleColors = getParentalCoupleColors(members)
+  const miniMapColors = useMemo(() => new Map(members.map((member) => {
+    const coupleKey = member.parentIds.slice().sort().join('|')
+    return [member.id, coupleColors.get(coupleKey) ?? branchColors.get(member.id) ?? 'var(--accent)']
+  })), [members, coupleColors, branchColors])
   const activeLineMemberId = hoveredId ?? selectedId
   const activeLineIds = activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
@@ -224,7 +230,8 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     }
   }
   return (
-    <div className="tree-viewport" ref={viewportRef} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
+    <div className="tree-canvas-frame">
+    <div className="tree-viewport" ref={viewportRef} onScroll={(event) => setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
       {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p><button onClick={onEmptyAdd}><Plus size={17} /> {t('Add first person')}</button></div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
         <div className="tree-world" style={{ width, height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
           <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}`} width={width} height={height}>
@@ -326,6 +333,28 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
       </div>}
       {relationshipTooltip && <div className="relationship-badge-tooltip" role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
       {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onCenter={onCenterPerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
+    </div>
+    {members.length > 0 && viewportSize.width > 0 && <TreeMiniMap
+      members={visibleMembers}
+      positions={positions}
+      colors={miniMapColors}
+      width={width}
+      height={height}
+      nodeWidth={nodeWidth}
+      nodeHeight={nodeHeight}
+      zoom={zoom}
+      offsetX={offsetX}
+      offsetY={offsetY}
+      scrollLeft={scrollPosition.left}
+      scrollTop={scrollPosition.top}
+      viewportWidth={viewportSize.width}
+      viewportHeight={viewportSize.height}
+      onNavigate={(x, y) => {
+        const viewport = viewportRef.current
+        if (!viewport) return
+        viewport.scrollTo({ left: Math.max(0, offsetX + x * zoom - viewport.clientWidth / 2), top: Math.max(0, offsetY + y * zoom - viewport.clientHeight / 2), behavior: 'auto' })
+      }}
+    />}
     </div>
   )
 }

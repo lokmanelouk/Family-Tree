@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, Moon, Sun } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, LogOut, Moon, Sun } from 'lucide-react'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
 
@@ -13,9 +13,11 @@ const arabicLanguageLabel = String.fromCodePoint(0x627, 0x644, 0x639, 0x631, 0x6
 type TreeSidebarProps = {
   theme: AppTheme
   onSetTheme: (theme: AppTheme) => void
+  userEmail: string
+  onSignOut: () => void
 }
 
-export function TreeSidebar({ theme, onSetTheme }: TreeSidebarProps) {
+export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
   const [collapsed, setCollapsed] = useState(false)
   const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Midnight')
@@ -61,6 +63,11 @@ export function TreeSidebar({ theme, onSetTheme }: TreeSidebarProps) {
         </span>
       </button>
     </section>
+    <div className="sidebar-account" title={userEmail}>
+      <span className="sidebar-account-avatar">{userEmail.slice(0, 1).toLocaleUpperCase()}</span>
+      {!collapsed && <span className="sidebar-account-email" dir="auto">{userEmail}</span>}
+      <button type="button" className="sidebar-signout" onClick={onSignOut} title={t('Sign out')} aria-label={t('Sign out')}><LogOut size={17} /></button>
+    </div>
     <footer className="sidebar-bottom">
       {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span className="sidebar-info-copy"><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
       <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}><span className="sidebar-collapse-icon">{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</span></button>

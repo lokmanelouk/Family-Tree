@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddFamilyMemberDialog } from "../components/family-tree/AddFamilyMemberDialog";
 import { FamilyTreeCanvas } from "../components/family-tree/FamilyTreeCanvas";
 import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel";
@@ -10,27 +10,43 @@ import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChan
 import { TreeSidebar } from "../components/layout/TreeSidebar";
 import { FamilyQuickLinks } from "../components/animata/fabs/FamilyQuickLinks";
 import { useFamilyTree } from "../hooks/useFamilyTree";
+import { useTreePersistence } from "../hooks/useTreePersistence";
 import { getChildCounts } from "../lib/tree-logic";
 import { computeTreeLayout, type TreeNodeMode } from "../lib/tree-layout";
 import { exportTree, parseTreeBackup } from "../lib/tree-backup";
-import { getFullName } from "../lib/member-name";
+import { getFullName, getNameParts } from "../lib/member-name";
 import type { FamilyMember, RelationshipKind } from "../types/family";
 import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
 import { getLayoutDirection, layoutDirection } from "../config/layout";
 
-type AddRequest = { targetId: string; kind: RelationshipKind };
+type AddRequest = {
+  targetId: string;
+  kind: RelationshipKind;
+  initialLastName?: string;
+  initialFatherId?: string;
+  initialMotherId?: string;
+};
+type AddMemory = { lastName: string; fatherId: string; motherId: string; targetId: string; kind: RelationshipKind };
 type DropRequest = { source: FamilyMember; target: FamilyMember };
 type RestoreRequest = { members: FamilyMember[]; fileName: string };
 
 const DEBUG_EMPTY_STATE = false;
 const EMPTY_MEMBERS: FamilyMember[] = [];
 
-export function DashboardPage() {
+type DashboardPageProps = {
+  treeId: string
+  initialMembers: FamilyMember[]
+  userEmail: string
+  onSignOut: () => void
+}
+
+export function DashboardPage({ treeId, initialMembers, userEmail, onSignOut }: DashboardPageProps) {
   const { t, language } = useLanguage();
-  const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : undefined);
+  const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : initialMembers);
   const members = tree.members;
   const { undo, redo } = tree;
+  const persistence = useTreePersistence(treeId, members, !DEBUG_EMPTY_STATE);
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem("family-tree-theme");
@@ -56,6 +72,7 @@ export function DashboardPage() {
     sequence: number;
   } | null>(null);
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null);
+  const addMemory = useRef<AddMemory | null>(null);
   const [pendingDrop, setPendingDrop] = useState<DropRequest | null>(null);
   const [deletePending, setDeletePending] = useState<FamilyMember | null>(null);
   const [editPending, setEditPending] = useState<FamilyMember | null>(null);
@@ -66,6 +83,9 @@ export function DashboardPage() {
   const selectedMember =
     members.find((member) => member.id === selectedId) ?? null;
   const layout = useMemo(() => computeTreeLayout(members), [members]);
+  const surnameCount = useMemo(() => new Set(members
+    .map((member) => getNameParts(member).lastName.trim().normalize("NFKD").toLocaleLowerCase())
+    .filter(Boolean)).size, [members]);
   const branchIds = useMemo(
     () =>
       new Set(
@@ -139,8 +159,28 @@ export function DashboardPage() {
   function openAdd(
     targetId = selectedId ?? members[0]?.id ?? "",
     kind: RelationshipKind = "child",
+    source: "toolbar" | "relative" = "relative",
   ) {
-    setAddRequest({ targetId, kind });
+    if (source === "toolbar") {
+      const remembered = addMemory.current;
+      setAddRequest({
+        targetId: remembered?.targetId && members.some((member) => member.id === remembered.targetId)
+          ? remembered.targetId
+          : targetId,
+        kind: remembered?.kind ?? kind,
+        ...(remembered ? {
+          initialLastName: remembered.lastName,
+          initialFatherId: remembered.fatherId,
+          initialMotherId: remembered.motherId,
+        } : {}),
+      });
+      return;
+    }
+    const target = members.find((member) => member.id === targetId);
+    const contextualLastName = target && (kind === "child" || kind === "sibling")
+      ? getNameParts(target).lastName
+      : undefined;
+    setAddRequest({ targetId, kind, initialLastName: contextualLastName });
   }
   function findMember(member: FamilyMember) {
     setCollapsedIds(new Set());
@@ -257,6 +297,8 @@ export function DashboardPage() {
       <TreeSidebar
         theme={theme}
         onSetTheme={setTheme}
+        userEmail={userEmail}
+        onSignOut={onSignOut}
       />
       <section className="tree-main">
         <TreeToolbar
@@ -269,7 +311,7 @@ export function DashboardPage() {
           }
           canUndo={tree.canUndo}
           canRedo={tree.canRedo}
-          onAddPerson={() => openAdd()}
+          onAddPerson={() => openAdd(undefined, "child", "toolbar")}
           onAutoOrganize={autoOrganize}
           onSearch={findMember}
           onZoom={(amount) =>
@@ -295,17 +337,19 @@ export function DashboardPage() {
         <div className="tree-workspace">
           <div className="canvas-heading">
             <div>
-              <h2>{t("Family tree")}</h2>
-              <span className="generation-badge">
-                {members.length} {t("people")} <i>·</i>{" "}
-                {
-                  new Set(
-                    [...layout.positions.values()].map(
-                      (point) => point.generation,
-                    ),
-                  ).size
-                }{" "}
-                {t("generations")}
+              <div className="canvas-title-row">
+                <h2>{t("Family tree")}</h2>
+                <span className={`tree-save-status tree-save-status-${persistence.status}`} role="status" aria-live="polite">
+                  {t(persistence.status === "saving" ? "Saving…" : persistence.status === "error" ? "Could not save changes." : "Saved")}
+                  {persistence.status === "error" && <button type="button" onClick={persistence.retry}>{t("Try again")}</button>}
+                </span>
+              </div>
+              <span className="generation-badge quick-stats-pill" aria-label={t("Family tree statistics")}>
+                <span><bdi>{members.length}</bdi> {t("stats people")}</span>
+                <i aria-hidden="true" />
+                <span><bdi>{new Set([...layout.positions.values()].map((point) => point.generation)).size}</bdi> {t("stats generations")}</span>
+                <i aria-hidden="true" />
+                <span><bdi>{surnameCount}</bdi> {t("stats surnames")}</span>
               </span>
             </div>
           </div>
@@ -385,6 +429,9 @@ export function DashboardPage() {
           members={members}
           initialTargetId={addRequest.targetId}
           initialKind={addRequest.kind}
+          initialLastName={addRequest.initialLastName}
+          initialFatherId={addRequest.initialFatherId}
+          initialMotherId={addRequest.initialMotherId}
           onClose={() => setAddRequest(null)}
           onAdd={(
             targetId,
@@ -400,6 +447,15 @@ export function DashboardPage() {
             deathDate,
             lifeStatus,
           ) => {
+            const previousMemory = addMemory.current;
+            const hasParentContext = kind === "child" || kind === "sibling";
+            addMemory.current = {
+              lastName,
+              fatherId: hasParentContext ? fatherId ?? "" : previousMemory?.fatherId ?? "",
+              motherId: hasParentContext ? motherId ?? "" : previousMemory?.motherId ?? "",
+              targetId: hasParentContext ? targetId : previousMemory?.targetId ?? targetId,
+              kind: hasParentContext ? kind : previousMemory?.kind ?? "child",
+            };
             tree.addRelated(
               targetId,
               kind,
