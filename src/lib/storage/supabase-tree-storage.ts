@@ -2,18 +2,42 @@ import type { FamilyMember } from '../../types/family.ts'
 import { requireSupabase } from '../supabase/client.ts'
 import { familyMembersToRows, rowsToFamilyMembers, type ParentLinkRow, type PartnerLinkRow, type PersonRow } from './tree-data.ts'
 
-export type TreeRecord = { id: string; name: string }
+export type TreeRole = 'owner' | 'editor' | 'viewer'
+export type TreeRecord = { id: string; name: string; owner_id?: string; role?: TreeRole }
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message)
 }
 
-export async function loadTree(): Promise<{ tree: TreeRecord | null; members: FamilyMember[] }> {
+export async function listTrees(): Promise<TreeRecord[]> {
   const client = requireSupabase()
-  const { data: trees, error: treeError } = await client.from('trees').select('id,name').order('created_at', { ascending: true }).limit(1)
+  const [{ data: userResult, error: userError }, { data: trees, error: treeError }] = await Promise.all([
+    client.auth.getUser(),
+    client.from('trees').select('id,name,owner_id').order('created_at', { ascending: true }),
+  ])
+  throwIfError(userError)
+  throwIfError(treeError)
+  if (!userResult.user) throw new Error('An authenticated user is required.')
+  const rows = (trees ?? []) as TreeRecord[]
+  if (rows.length === 0) return []
+  const { data: memberships, error: memberError } = await client.from('tree_members').select('tree_id,role').in('tree_id', rows.map((tree) => tree.id)).eq('user_id', userResult.user.id)
+  throwIfError(memberError)
+  const roles = new Map((memberships ?? []).map((membership) => [membership.tree_id as string, membership.role as TreeRole]))
+  return rows.map((tree) => ({ ...tree, role: roles.get(tree.id) ?? 'viewer' }))
+}
+
+export async function loadTree(treeId?: string): Promise<{ tree: TreeRecord | null; members: FamilyMember[]; role: TreeRole | null }> {
+  const client = requireSupabase()
+  const treeQuery = client.from('trees').select('id,name,owner_id').order('created_at', { ascending: true })
+  const { data: trees, error: treeError } = treeId ? await treeQuery.eq('id', treeId).limit(1) : await treeQuery.limit(1)
   throwIfError(treeError)
   const tree = trees?.[0] as TreeRecord | undefined
-  if (!tree) return { tree: null, members: [] }
+  if (!tree) return { tree: null, members: [], role: null }
+  const { data: userResult, error: userError } = await client.auth.getUser()
+  throwIfError(userError)
+  if (!userResult.user) throw new Error('An authenticated user is required.')
+  const { data: membership, error: membershipError } = await client.from('tree_members').select('role').eq('tree_id', tree.id).eq('user_id', userResult.user.id).maybeSingle()
+  throwIfError(membershipError)
   const [peopleResult, parentsResult, partnersResult] = await Promise.all([
     client.from('people').select('id,tree_id,first_name,last_name,gender,birth_date,death_date,deceased,photo_path').eq('tree_id', tree.id),
     client.from('parent_links').select('tree_id,child_id,parent_id,kind').eq('tree_id', tree.id),
@@ -23,8 +47,9 @@ export async function loadTree(): Promise<{ tree: TreeRecord | null; members: Fa
   throwIfError(parentsResult.error)
   throwIfError(partnersResult.error)
   return {
-    tree,
+    tree: { ...tree, role: (membership?.role as TreeRole | undefined) ?? 'viewer' },
     members: rowsToFamilyMembers(peopleResult.data as PersonRow[], parentsResult.data as ParentLinkRow[], partnersResult.data as PartnerLinkRow[]),
+    role: (membership?.role as TreeRole | undefined) ?? 'viewer',
   }
 }
 

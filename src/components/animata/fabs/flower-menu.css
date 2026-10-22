@@ -10,16 +10,16 @@
   }
 
   .flower-menu-root {
-    --flower-orbit-radius: 108px;
-    --flower-petal-half: 23px;
-    --flower-trigger-half: 29px;
+    --flower-orbit-radius: 88px;
+    --flower-petal-half: 19px;
+    --flower-trigger-half: 26px;
     --flower-center-shift: calc(var(--flower-orbit-radius) + var(--flower-petal-half) - var(--flower-trigger-half));
     position: fixed;
     inset-inline-end: 1.5rem;
     inset-block-end: max(1.5rem, env(safe-area-inset-bottom, 0px));
     z-index: 50;
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     font-family: inherit;
   }
   .flower-menu-items { transition: transform 220ms cubic-bezier(.2, 0, 0, 1); }
@@ -30,8 +30,8 @@
 
   .flower-menu-trigger {
     display: grid;
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--accent, #8aaec1) 28%, var(--line, #3c4144));
     border-radius: 50%;
@@ -62,8 +62,8 @@
     top: 0;
     left: 0;
     display: grid;
-    width: 46px;
-    height: 46px;
+    width: 38px;
+    height: 38px;
     place-items: center;
     border: 1px solid var(--line, #3c4144);
     border-radius: 50%;
@@ -108,7 +108,7 @@
   .flower-menu-item:focus-visible, .flower-menu-trigger:focus-visible { outline: 2px solid var(--accent, #9bc4a4); outline-offset: 4px; }
 
   @media (max-width: 360px), (max-height: 420px) {
-    .flower-menu-root { --flower-orbit-radius: 84px; --flower-petal-half: 18px; }
+    .flower-menu-root { --flower-orbit-radius: 76px; --flower-petal-half: 16px; --flower-trigger-half: 24px; width: 48px; height: 48px; }
     .flower-menu-root[data-open="true"] .flower-menu-items {
       transform: translate(calc(0px - var(--flower-center-shift)), calc(0px - var(--flower-center-shift))) scale(.78);
     }

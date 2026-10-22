@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { familyMembers } from '../data/family.ts'
-import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
+import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getBranchFocusIds, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
 import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
@@ -34,6 +34,13 @@ test('parentage interpolation covers gender, parent count, and both languages', 
 test('collapsing an ancestor hides its descendant branch and descendant spouse', () => {
   const hidden = getHiddenIds(familyMembers, new Set(['james']))
   assert.deepEqual([...hidden].sort(), ['david', 'jack', 'linda', 'nora', 'sarah'])
+})
+
+test('branch focus includes direct ancestors and descendants with their partners, but excludes side branches', () => {
+  const focused = getBranchFocusIds(familyMembers, 'david')
+  assert.deepEqual([...focused].sort(), ['david', 'eleanor', 'jack', 'james', 'linda', 'nora', 'sarah'])
+  assert.equal(focused.has('zack'), false)
+  assert.equal(focused.has('sam'), false)
 })
 
 test('relationship validation rejects self-parenting and ancestry cycles', () => {

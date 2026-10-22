@@ -15,6 +15,8 @@ type Action =
   | { type: 'update-details'; memberId: string; details: Pick<FamilyMember, 'name' | 'firstName' | 'lastName' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'> }
   | { type: 'undo' }
   | { type: 'redo' }
+  | { type: 'rollback'; members: FamilyMember[] }
+  | { type: 'replace'; members: FamilyMember[] }
   | { type: 'restore'; members: import('../types/family').FamilyMember[] }
 
 function createInitialState(members: FamilyMember[] = familyMembers): State {
@@ -29,6 +31,14 @@ function reducer(state: State, action: Action): State {
   if (action.type === 'redo') {
     const next = redoTreeChange(state)
     return isValidTreeSnapshot(next.members, new Date().toISOString().slice(0, 10)) ? next : state
+  }
+  if (action.type === 'rollback') {
+    if (action.members === state.members) return { ...state, future: [] }
+    const savedIndex = state.past.lastIndexOf(action.members)
+    return { members: action.members, past: savedIndex >= 0 ? state.past.slice(0, savedIndex) : [], future: [] }
+  }
+  if (action.type === 'replace') {
+    return { members: action.members, past: [], future: [] }
   }
   if (action.type === 'restore') {
     const restored = linkRecordedParentCouples(migrateMemberNames(action.members))
@@ -53,11 +63,13 @@ export function useFamilyTree(initialMembers?: FamilyMember[]) {
   const updateDetails = useCallback((memberId: string, details: Pick<FamilyMember, 'name' | 'firstName' | 'lastName' | 'gender' | 'birthDate' | 'deathDate' | 'lifeStatus' | 'bio' | 'photo' | 'avatar'>) => dispatch({ type: 'update-details', memberId, details }), [])
   const undo = useCallback(() => dispatch({ type: 'undo' }), [])
   const redo = useCallback(() => dispatch({ type: 'redo' }), [])
+  const rollback = useCallback((members: FamilyMember[]) => dispatch({ type: 'rollback', members }), [])
+  const replaceMembers = useCallback((members: FamilyMember[]) => dispatch({ type: 'replace', members }), [])
   const restore = useCallback((members: import('../types/family').FamilyMember[]) => dispatch({ type: 'restore', members }), [])
   return {
     members: state.members,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
-    addRelated, updateRelationship, deleteMember, updateProfile, updateDetails, undo, redo, restore,
+    addRelated, updateRelationship, deleteMember, updateProfile, updateDetails, undo, redo, rollback, replaceMembers, restore,
   }
 }

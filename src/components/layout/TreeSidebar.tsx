@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, LogOut, Moon, Sun } from 'lucide-react'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -15,16 +15,34 @@ type TreeSidebarProps = {
   onSetTheme: (theme: AppTheme) => void
   userEmail: string
   onSignOut: () => void
+  treeName: string
+  treeId: string
+  trees: { id: string; name: string }[]
+  onSwitchTree: (treeId: string) => void
 }
 
-export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut }: TreeSidebarProps) {
+export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut, treeName, treeId, trees, onSwitchTree }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('family-tree-sidebar-collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('family-tree-sidebar-collapsed', String(collapsed))
+    } catch {
+      return
+    }
+  }, [collapsed])
   const themeLabel = t(themes.find((option) => option.value === theme)?.label ?? 'Midnight')
   const languageLabel = language === 'ar' ? arabicLanguageLabel : 'English'
 
   return <aside className={`tree-sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
-    <a className="sidebar-brand" href="#tree" title="Kinfolk"><span className="brand-icon">k</span>{!collapsed && <span>Kinfolk</span>}</a>
+    <a className="sidebar-brand" href="#tree" title={`Kinfolk · ${treeName}`}><span className="brand-icon">k</span>{!collapsed && <span>Kinfolk</span>}</a>
+    {!collapsed && trees.length > 1 && <label className="sidebar-tree-switcher"><span>{t('Current family tree')}</span><select value={treeId} onChange={(event) => onSwitchTree(event.target.value)} aria-label={t('Switch family tree')}>{trees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name}</option>)}</select></label>}
     <div className="sidebar-content">
       <nav className="sidebar-group" aria-label={t('Family navigation')}>
         <button className="side-link selected" title={t('Family tree')} aria-current="page"><GitBranch size={18} />{!collapsed && <span>{t('Family tree')}</span>}</button>

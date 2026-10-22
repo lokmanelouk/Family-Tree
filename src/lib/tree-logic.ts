@@ -101,6 +101,38 @@ export function getLineageFocusIds(members: FamilyMember[], memberId: string): S
   return focus
 }
 
+export function getBranchFocusIds(members: FamilyMember[], memberId: string): Set<string> {
+  const byId = new Map(members.map((member) => [member.id, member]))
+  const childrenByParent = new Map<string, string[]>()
+  for (const member of members) for (const parentId of member.parentIds) {
+    const children = childrenByParent.get(parentId) ?? []
+    children.push(member.id)
+    childrenByParent.set(parentId, children)
+  }
+  const focus = new Set<string>()
+  const ancestors = [memberId]
+  while (ancestors.length) {
+    const id = ancestors.pop()!
+    if (focus.has(id)) continue
+    focus.add(id)
+    ancestors.push(...(byId.get(id)?.parentIds ?? []))
+  }
+  const descendants = [memberId]
+  const descendantVisited = new Set<string>()
+  while (descendants.length) {
+    const id = descendants.pop()!
+    if (descendantVisited.has(id)) continue
+    descendantVisited.add(id)
+    focus.add(id)
+    descendants.push(...(childrenByParent.get(id) ?? []))
+  }
+  for (const id of [...focus]) {
+    for (const spouseId of byId.get(id)?.spouseIds ?? []) focus.add(spouseId)
+    for (const spouseId of byId.get(id)?.formerSpouseIds ?? []) focus.add(spouseId)
+  }
+  return focus
+}
+
 export function getHiddenIds(members: FamilyMember[], collapsedIds: Set<string>) {
   const hidden = new Set<string>()
   for (const id of collapsedIds) for (const childId of getDescendantIds(members, id)) hidden.add(childId)

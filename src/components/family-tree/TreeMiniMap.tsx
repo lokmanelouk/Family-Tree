@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { CSSProperties, MouseEvent, PointerEvent } from 'react'
 import type { FamilyMember } from '../../types/family'
 import type { TreePosition } from '../../lib/tree-layout'
@@ -29,8 +30,9 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
   const drag = useRef<MiniMapDrag | null>(null)
   const handledPointerClick = useRef(false)
   const pointerMoved = useRef(false)
-  const mapWidth = 184
-  const mapHeight = 120
+  const [collapsed, setCollapsed] = useState(false)
+  const mapWidth = 168
+  const mapHeight = 110
   const padding = 9
   const innerWidth = mapWidth - padding * 2
   const innerHeight = mapHeight - padding * 2
@@ -108,34 +110,44 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
   }
 
   return (
-    <div
-      className="tree-minimap"
-      role="group"
-      aria-label={t('Family tree overview')}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={stopDragging}
-      onPointerCancel={stopDragging}
-      onLostPointerCapture={stopDragging}
-      onClick={handleClick}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onNavigate(width / 2, height / 2)
-        }
-      }}
-      tabIndex={0}
-    >
-      <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} aria-hidden="true">
-        <rect className="tree-minimap-surface" x="0.5" y="0.5" width={mapWidth - 1} height={mapHeight - 1} rx="12" />
-        {members.map((member) => {
-          const point = positions.get(member.id)
-          if (!point) return null
-          return <rect key={member.id} className="tree-minimap-node" style={colors.get(member.id) ? { '--minimap-node-color': colors.get(member.id) } as CSSProperties : undefined} x={offsetMapX + point.x * scale} y={offsetMapY + point.y * scale} width={Math.max(2, nodeWidth * scale)} height={Math.max(2, nodeHeight * scale)} rx={Math.max(1, 2 * scale)} />
-        })}
-        <rect className="tree-minimap-window" x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="3" />
-      </svg>
-      <span className="sr-only">{t('Drag or click to navigate the family tree')}</span>
+    <div className={`tree-minimap${collapsed ? ' is-collapsed' : ''}`} role="group" aria-label={t('Family tree overview')}>
+      <button
+        className="tree-minimap-toggle"
+        type="button"
+        aria-label={collapsed ? t('Expand minimap') : t('Collapse minimap')}
+        aria-expanded={!collapsed}
+        title={collapsed ? t('Expand minimap') : t('Collapse minimap')}
+        onClick={() => setCollapsed((value) => !value)}
+      >{collapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
+      {!collapsed && <div
+        className="tree-minimap-map"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopDragging}
+        onPointerCancel={stopDragging}
+        onLostPointerCapture={stopDragging}
+        onClick={handleClick}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onNavigate(width / 2, height / 2)
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={t('Drag or click to navigate the family tree')}
+      >
+        <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} aria-hidden="true">
+          <rect className="tree-minimap-surface" x="0.5" y="0.5" width={mapWidth - 1} height={mapHeight - 1} rx="10" />
+          {members.map((member) => {
+            const point = positions.get(member.id)
+            if (!point) return null
+            return <rect key={member.id} className="tree-minimap-node" style={colors.get(member.id) ? { '--minimap-node-color': colors.get(member.id) } as CSSProperties : undefined} x={offsetMapX + point.x * scale} y={offsetMapY + point.y * scale} width={Math.max(2, nodeWidth * scale)} height={Math.max(2, nodeHeight * scale)} rx={Math.max(1, 2 * scale)} />
+          })}
+          <rect className="tree-minimap-window" x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="3" />
+        </svg>
+        <span className="sr-only">{t('Drag or click to navigate the family tree')}</span>
+      </div>}
     </div>
   )
 }

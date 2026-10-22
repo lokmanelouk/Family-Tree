@@ -25,10 +25,6 @@ function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}><path d="M13.4 21v-8.2h2.8l.4-3.2h-3.2v-2c0-.9.3-1.5 1.6-1.5h1.7V3.2c-.3 0-1.4-.2-2.6-.2-2.6 0-4.4 1.6-4.4 4.5v2.1H6.8v3.2h2.9V21h3.7Z" /></svg>
 }
 
-function XIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}><path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 14.9 5.8 22H2.6l7.3-8.4L1.2 2h6.5l4.5 6.7L18.9 2Zm-1.1 18h1.7L6.6 3.9H4.8L17.8 20Z" /></svg>
-}
-
 function LinkedInIcon(props: React.SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}><path d="M5.2 3a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4ZM3.3 9h3.8v12H3.3V9Zm6.2 0h3.6v1.6h.1a4 4 0 0 1 3.6-2c3.9 0 4.6 2.5 4.6 5.7V21h-3.8v-5.9c0-1.4 0-3.2-2-3.2s-2.3 1.5-2.3 3.1V21H9.5V9Z" /></svg>
 }
@@ -42,7 +38,6 @@ const menuItems: FlowerMenuItem[] = [
   { icon: YouTubeIcon, href: '#', label: 'YouTube' },
   { icon: InstagramIcon, href: '#', label: 'Instagram' },
   { icon: FacebookIcon, href: '#', label: 'Facebook' },
-  { icon: XIcon, href: '#', label: 'Twitter / X' },
   { icon: LinkedInIcon, href: '#', label: 'LinkedIn' },
   { icon: DiscordIcon, href: '#', label: 'Discord' },
   { icon: Bug, href: '#', label: 'Report Issue' },

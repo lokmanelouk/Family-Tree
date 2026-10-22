@@ -12,8 +12,8 @@ export function signInWithPassword(email: string, password: string) {
   return requireSupabase().auth.signInWithPassword({ email, password })
 }
 
-export function signUpWithPassword(email: string, password: string) {
-  return requireSupabase().auth.signUp({ email, password })
+export function signUpWithPassword(email: string, password: string, emailRedirectTo?: string) {
+  return requireSupabase().auth.signUp({ email, password, options: emailRedirectTo ? { emailRedirectTo } : undefined })
 }
 
 export function signInWithGoogle(redirectTo: string) {

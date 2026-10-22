@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FamilyMember } from '../types/family'
 import { saveTreeChanges } from '../lib/storage/supabase-tree-storage'
+import { getTreeSaveErrorKey } from '../lib/storage/save-errors'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
-export function useTreePersistence(treeId: string, members: FamilyMember[], enabled = true) {
+export function useTreePersistence(treeId: string, members: FamilyMember[], enabled = true, onRollback?: (members: FamilyMember[]) => void) {
   const savedMembers = useRef(members)
-  const latestMembers = useRef(members)
+  const onRollbackRef = useRef(onRollback)
   const firstRender = useRef(true)
+  const requestRevision = useRef(0)
+  const failed = useRef(false)
   const queue = useRef(Promise.resolve())
   const [status, setStatus] = useState<SaveStatus>('saved')
   const [error, setError] = useState('')
-  useEffect(() => {
-    latestMembers.current = members
-  }, [members])
+  useEffect(() => { onRollbackRef.current = onRollback }, [onRollback])
 
   const enqueue = useCallback((snapshot: FamilyMember[]) => {
+    if (snapshot === savedMembers.current) return
+    if (failed.current) failed.current = false
+    const revision = ++requestRevision.current
     queue.current = queue.current.catch(() => undefined).then(async () => {
+      if (revision !== requestRevision.current || failed.current) return
       setStatus('saving')
       setError('')
       try {
@@ -24,8 +29,11 @@ export function useTreePersistence(treeId: string, members: FamilyMember[], enab
         savedMembers.current = snapshot
         setStatus('saved')
       } catch (cause) {
+        failed.current = true
+        requestRevision.current += 1
         setStatus('error')
-        setError(cause instanceof Error ? cause.message : 'Could not save changes.')
+        setError(getTreeSaveErrorKey(cause))
+        onRollbackRef.current?.(savedMembers.current)
       }
     })
   }, [treeId])
@@ -36,9 +44,16 @@ export function useTreePersistence(treeId: string, members: FamilyMember[], enab
       firstRender.current = false
       return
     }
-    enqueue(members)
+    if (members !== savedMembers.current) enqueue(members)
   }, [enabled, enqueue, members])
 
-  const retry = useCallback(() => enqueue(latestMembers.current), [enqueue])
-  return { status, error, retry }
+  const adoptSnapshot = useCallback((snapshot: FamilyMember[]) => {
+    requestRevision.current += 1
+    failed.current = false
+    savedMembers.current = snapshot
+    setError('')
+    setStatus('saved')
+  }, [])
+
+  return { status, error, adoptSnapshot }
 }

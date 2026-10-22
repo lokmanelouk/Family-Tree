@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState } from 'react'
-import { Baby, Crosshair, Heart, Pencil, ShieldAlert, UserRound, UsersRound } from 'lucide-react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { Baby, Heart, Pencil, Trash2, UserRound, UsersRound } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { useLanguage } from '../../i18n/useLanguage'
-import { getPersonContextActions } from '../../lib/person-actions'
+import { getPersonContextActions, type PersonContextAction } from '../../lib/person-actions'
+import { getContextSubmenuPosition } from '../../lib/context-submenu-position'
 import { ExistingRelativePicker } from './ExistingRelativePicker'
 
 type PersonContextMenuProps = {
@@ -11,20 +12,23 @@ type PersonContextMenuProps = {
   members: FamilyMember[]
   x: number
   y: number
+  readOnly: boolean
   onClose: () => void
   onOpenDetails: (member: FamilyMember) => void
   onEdit: (member: FamilyMember) => void
   onDelete: (member: FamilyMember) => void
-  onCenter: (member: FamilyMember) => void
   onAddRelative: (sourceId: string, kind: RelationshipKind) => void
   onLinkRelative: (sourceId: string, relativeId: string, kind: RelationshipKind) => void
 }
 
 const themeProperties = ['--page', '--surface', '--surface-raised', '--surface-hover', '--line', '--text', '--muted', '--accent', '--accent-soft', '--danger', '--danger-strong']
+const personActionKinds = new Set<PersonContextAction['kind']>(['details', 'edit'])
+const relationshipActionKinds = new Set<PersonContextAction['kind']>(['child', 'partner', 'parent', 'sibling'])
 
-export function PersonContextMenu({ member, members, x, y, onClose, onOpenDetails, onEdit, onDelete, onCenter, onAddRelative, onLinkRelative }: PersonContextMenuProps) {
+export function PersonContextMenu({ member, members, x, y, readOnly, onClose, onOpenDetails, onEdit, onDelete, onAddRelative, onLinkRelative }: PersonContextMenuProps) {
   const { t } = useLanguage()
-  const [position, setPosition] = useState({ x: Math.max(8, Math.min(x, window.innerWidth - 232)), y: Math.max(8, Math.min(y, window.innerHeight - 370)) })
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [positionReady, setPositionReady] = useState(false)
   const [themeStyle] = useState<Record<string, string>>(() => {
     const root = document.querySelector('.tree-app')
     if (!root) return {}
@@ -33,21 +37,81 @@ export function PersonContextMenu({ member, members, x, y, onClose, onOpenDetail
   })
   const [pickerKind, setPickerKind] = useState<RelationshipKind | null>(null)
   const [pickerAnchor, setPickerAnchor] = useState<HTMLButtonElement | null>(null)
+  const closePicker = useCallback(() => {
+    setPickerKind(null)
+    setPickerAnchor(null)
+  }, [])
   const pickerOpenRef = useRef(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuElement, setMenuElement] = useState<HTMLDivElement | null>(null)
   const buttonRefs = useRef<HTMLButtonElement[]>([])
-  const actions = getPersonContextActions(member)
+  const actions = getPersonContextActions(member, members).filter((action) => !readOnly || action.kind === 'details')
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const menu = menuElement
+    if (!menu) return
+    let frame = 0
+    const positionMenu = (focus = false) => {
+      const rect = menu.getBoundingClientRect()
+      const padding = 8
+      const candidates = [
+        { x: x + 12, y: y + 10 },
+        { x: x + 12, y: y - rect.height - 10 },
+        { x: x - rect.width - 12, y: y + 10 },
+        { x: x - rect.width - 12, y: y - rect.height - 10 },
+      ]
+      const personNode = [...document.querySelectorAll<HTMLElement>('.person-node')].find((node) => node.dataset.memberId === member.id)
+      const nodeRect = personNode?.getBoundingClientRect()
+      const detailsRect = document.querySelector<HTMLElement>('.details-panel')?.getBoundingClientRect()
+      const avoidRects = detailsRect ? [{ left: detailsRect.left, right: detailsRect.right, top: detailsRect.top, bottom: detailsRect.bottom }] : []
+      const isInBounds = (candidate: { x: number; y: number }) => candidate.x >= padding && candidate.y >= padding && candidate.x + rect.width <= window.innerWidth - padding && candidate.y + rect.height <= window.innerHeight - padding
+      const overlapsPerson = (candidate: { x: number; y: number }) => Boolean(nodeRect && candidate.x < nodeRect.right + padding && candidate.x + rect.width > nodeRect.left - padding && candidate.y < nodeRect.bottom + padding && candidate.y + rect.height > nodeRect.top - padding)
+      const overlapsDetails = (candidate: { x: number; y: number }) => avoidRects.some((avoid) => candidate.x < avoid.right && candidate.x + rect.width > avoid.left && candidate.y < avoid.bottom && candidate.y + rect.height > avoid.top)
+      const available = candidates.filter((candidate) => isInBounds(candidate) && !overlapsPerson(candidate) && !overlapsDetails(candidate))
+      const allowsInlinePicker = (candidate: { x: number; y: number }) => {
+        const submenu = getContextSubmenuPosition({ left: candidate.x, right: candidate.x + rect.width, top: candidate.y, bottom: candidate.y + rect.height }, window.innerWidth, window.innerHeight, 312, 420, 6, avoidRects)
+        return submenu.placement === 'inline' && !avoidRects.some((avoid) => submenu.left < avoid.right && submenu.left + submenu.width > avoid.left && submenu.top < avoid.bottom && submenu.top + submenu.maxHeight > avoid.top)
+      }
+      let next = available.find(allowsInlinePicker) ?? available[0]
+      if (!next && nodeRect) {
+        const aroundPerson = [
+          { x: nodeRect.right + padding, y: nodeRect.top },
+          { x: nodeRect.left - rect.width - padding, y: nodeRect.top },
+          { x: nodeRect.left, y: nodeRect.bottom + padding },
+          { x: nodeRect.left, y: nodeRect.top - rect.height - padding },
+        ]
+        const aroundAvailable = aroundPerson.filter((candidate) => isInBounds(candidate) && !overlapsPerson(candidate) && !overlapsDetails(candidate))
+        next = aroundAvailable.find(allowsInlinePicker) ?? aroundAvailable[0]
+      }
+      if (!next) {
+        const preferred = candidates[0]
+        next = {
+          x: Math.max(padding, Math.min(preferred.x, window.innerWidth - rect.width - padding)),
+          y: Math.max(padding, Math.min(preferred.y, window.innerHeight - rect.height - padding)),
+        }
+      }
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        setPosition(next)
+        setPositionReady(true)
+        if (focus) buttonRefs.current.find((button) => button && !button.disabled)?.focus()
+      })
+    }
+    positionMenu(true)
+    const onResize = () => positionMenu()
+    window.addEventListener('resize', onResize)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [member.id, x, y, menuElement])
+
+  useLayoutEffect(() => {
     pickerOpenRef.current = Boolean(pickerKind)
   }, [pickerKind])
 
-  useEffect(() => {
-    const menu = menuRef.current
+  useLayoutEffect(() => {
+    const menu = menuElement
     if (!menu) return
-    const rect = menu.getBoundingClientRect()
-    setPosition({ x: Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) })
-    buttonRefs.current[0]?.focus()
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
       if (menu.contains(target) || (target instanceof Element && target.closest('.existing-relative-picker'))) return
@@ -82,35 +146,56 @@ export function PersonContextMenu({ member, members, x, y, onClose, onOpenDetail
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [actions.length, onClose, x, y])
+  }, [actions.length, menuElement, onClose])
 
-  function activate(kind: string, relationship?: RelationshipKind, anchor?: HTMLButtonElement) {
-    if (relationship) {
-      setPickerKind(relationship)
-      setPickerAnchor(anchor ?? null)
+  function activate(action: PersonContextAction, anchor: HTMLButtonElement) {
+    if (action.disabled) return
+    if (action.relationship) {
+      setPickerKind(action.relationship)
+      setPickerAnchor(anchor)
       return
     }
-    if (kind === 'details') onOpenDetails(member)
-    if (kind === 'edit') onEdit(member)
-    if (kind === 'center') onCenter(member)
-    if (kind === 'delete') onDelete(member)
+    if (action.kind === 'details') onOpenDetails(member)
+    if (action.kind === 'edit') onEdit(member)
+    if (action.kind === 'delete') onDelete(member)
     onClose()
   }
 
-  const iconFor = (kind: string) => {
-    if (kind === 'details') return <UserRound size={17} />
-    if (kind === 'edit') return <Pencil size={17} />
-    if (kind === 'child') return <Baby size={17} />
-    if (kind === 'partner') return <Heart size={17} />
-    if (kind === 'parent') return <UserRound size={17} />
-    if (kind === 'sibling') return <UsersRound size={17} />
-    if (kind === 'center') return <Crosshair size={17} />
-    return <ShieldAlert size={17} />
+  function iconFor(kind: PersonContextAction['kind']) {
+    if (kind === 'details') return <UserRound size={16} />
+    if (kind === 'edit') return <Pencil size={16} />
+    if (kind === 'child') return <Baby size={16} />
+    if (kind === 'partner') return <Heart size={16} />
+    if (kind === 'parent') return <UserRound size={16} />
+    if (kind === 'sibling') return <UsersRound size={16} />
+    return <Trash2 size={16} />
   }
-  const labelFor = (kind: string) => kind === 'details' ? t('Open details') : kind === 'edit' ? t('Edit') : kind === 'center' ? t('Center on tree') : kind === 'delete' ? t('Delete') : t(kind === 'child' ? 'Add child' : kind === 'partner' ? 'Add partner' : kind === 'parent' ? 'Add parent' : 'Add sibling')
-  const content = <div ref={menuRef} className="person-context-menu" role="menu" aria-label={t('Person actions')} style={{ ...themeStyle, position: 'fixed', left: position.x, top: position.y, zIndex: 10040 }}>
-    {actions.map((action, index) => <button key={action.kind} ref={(element) => { if (element) buttonRefs.current[index] = element }} type="button" role="menuitem" disabled={action.disabled} title={action.disabled && action.reason ? t(action.reason) : undefined} className={`${action.kind === 'delete' ? 'is-destructive' : ''}${action.disabled ? ' is-disabled' : ''}`} onClick={(event) => activate(action.kind, action.relationship, event.currentTarget)}>{iconFor(action.kind)}<span>{labelFor(action.kind)}</span>{action.disabled && action.reason && <small>{t(action.reason)}</small>}</button>)}
-    {pickerKind && pickerAnchor && <ExistingRelativePicker source={member} members={members} kind={pickerKind} anchor={pickerAnchor} onPick={(person, kind) => { onLinkRelative(member.id, person.id, kind); onClose() }} onCreateNew={(sourceId, kind) => { onAddRelative(sourceId, kind); onClose() }} onClose={() => { setPickerKind(null); setPickerAnchor(null); onClose() }} />}
+
+  function labelFor(kind: PersonContextAction['kind']) {
+    if (kind === 'details') return t('View profile')
+    if (kind === 'edit') return t('Edit person')
+    if (kind === 'delete') return t('Delete person')
+    return t(kind === 'child' ? 'Add child' : kind === 'partner' ? 'Add partner' : kind === 'parent' ? 'Add parent' : 'Add sibling')
+  }
+
+  const personActions = actions.filter((action) => personActionKinds.has(action.kind))
+  const relationshipActions = actions.filter((action) => relationshipActionKinds.has(action.kind))
+  const deleteAction = actions.find((action) => action.kind === 'delete')
+  const renderAction = (action: PersonContextAction, index: number) => <button key={action.kind} ref={(element) => { if (element) buttonRefs.current[index] = element }} type="button" role="menuitem" disabled={action.disabled} aria-disabled={action.disabled || undefined} className={`person-context-menu-item${action.kind === 'delete' ? ' is-destructive' : ''}${action.disabled ? ' is-disabled' : ''}`} onClick={(event) => activate(action, event.currentTarget)}>{iconFor(action.kind)}<span className="person-context-menu-copy"><span>{labelFor(action.kind)}</span>{action.disabled && action.reason && <small>{t(action.reason)}</small>}</span></button>
+  const content = <div ref={setMenuElement} className="person-context-menu" role="menu" aria-label={t('Person actions')} style={{ ...themeStyle, position: 'fixed', left: position.x, top: position.y, zIndex: 10040, visibility: positionReady ? 'visible' : 'hidden' }}>
+    {personActions.length > 0 && <section className="person-context-menu-group" aria-label={t('Person actions')}>
+      <h3>{t('Person actions')}</h3>
+      {personActions.map((action) => renderAction(action, actions.indexOf(action)))}
+    </section>}
+    {relationshipActions.length > 0 && <section className="person-context-menu-group" aria-label={t('Add relationships')}>
+      <h3>{t('Add relationships')}</h3>
+      {relationshipActions.map((action) => renderAction(action, actions.indexOf(action)))}
+    </section>}
+    {deleteAction && <section className="person-context-menu-group person-context-menu-danger" aria-label={t('Danger action')}>
+      <h3>{t('Danger action')}</h3>
+      {renderAction(deleteAction, actions.indexOf(deleteAction))}
+    </section>}
+    {pickerKind && pickerAnchor && <ExistingRelativePicker key={pickerKind} source={member} members={members} kind={pickerKind} anchor={pickerAnchor} contextMenu={menuElement} onPick={(person, kind) => { onLinkRelative(member.id, person.id, kind); onClose() }} onCreateNew={(sourceId, kind) => { onAddRelative(sourceId, kind); onClose() }} onClose={closePicker} />}
   </div>
 
   return createPortal(content, document.body)

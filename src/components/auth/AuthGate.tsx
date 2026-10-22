@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { BookOpen, Eye, EyeOff, LogIn, TreePine } from 'lucide-react'
 import { DashboardPage } from '../../pages/DashboardPage'
 import { familyMembers } from '../../data/family'
 import { useLanguage } from '../../i18n/useLanguage'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
-import { createTree, loadTree, saveTreeChanges, type TreeRecord } from '../../lib/storage/supabase-tree-storage'
+import { createTree, listTrees, loadTree, saveTreeChanges, type TreeRecord } from '../../lib/storage/supabase-tree-storage'
 import { getCurrentSession, onAuthChange, sendPasswordReset, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from '../../lib/storage/auth-storage'
+import { acceptTreeInvite } from '../../lib/storage/sharing-storage'
+import { getInviteErrorTranslation } from '../../lib/storage/invite-errors'
+import { getLayoutDirection } from '../../config/layout'
 import { cloneMembersWithNewIds } from '../../lib/storage/tree-data'
+import { clearPendingInvite, rememberInviteFromUrl } from '../../lib/storage/invite-token'
 import type { FamilyMember } from '../../types/family'
 
-type Workspace = { tree: TreeRecord; members: FamilyMember[] }
+type Workspace = { tree: TreeRecord; members: FamilyMember[]; role: 'owner' | 'editor' | 'viewer'; notice?: string }
 
 export function AuthGate() {
   const { t } = useLanguage()
@@ -21,8 +25,19 @@ export function AuthGate() {
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null)
   const [treeError, setTreeError] = useState('')
   const [treeLoadError, setTreeLoadError] = useState(false)
+  const [availableTrees, setAvailableTrees] = useState<TreeRecord[]>([])
+  const [inviteError, setInviteError] = useState('')
+  const [reloadTrees, setReloadTrees] = useState(0)
+  const inviteToken = useRef(rememberInviteFromUrl())
   const authUserId = useRef<string | null>(null)
   const loadingTree = Boolean(session?.user.id && loadedUserId !== session.user.id)
+  const refreshCurrentTree = useCallback(async () => {
+    const treeId = workspace?.tree.id
+    if (!treeId) throw new Error('No active family tree.')
+    const result = await loadTree(treeId)
+    if (!result.tree) throw new Error('The family tree is no longer available.')
+    return { members: result.members, role: result.role ?? 'viewer' as const }
+  }, [workspace?.tree.id])
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -39,6 +54,7 @@ export function AuthGate() {
       if (authUserId.current !== nextUserId) {
         authUserId.current = nextUserId
         setWorkspace(null)
+        setAvailableTrees([])
         setSetupTree(null)
         setTreeError('')
         setTreeLoadError(false)
@@ -56,33 +72,70 @@ export function AuthGate() {
   useEffect(() => {
     if (!session?.user.id) return
     let active = true
-    loadTree().then((result) => {
-      if (active) {
-        if (result.tree && result.members.length === 0) {
-          setSetupTree(result.tree)
-          setWorkspace(null)
-        } else {
-          setWorkspace(result.tree ? { tree: result.tree, members: result.members } : null)
+    ;(async () => {
+      try {
+        let invitedTreeId: string | null = null
+        let inviteNotice = ''
+        if (inviteToken.current) {
+          try {
+            const acceptedInvite = await acceptTreeInvite(inviteToken.current)
+            invitedTreeId = acceptedInvite.treeId
+            if (acceptedInvite.alreadyMember) inviteNotice = t('You are already in this family tree.')
+            inviteToken.current = null
+            clearPendingInvite()
+          } catch (cause) {
+            const translation = getInviteErrorTranslation(cause)
+            inviteToken.current = null
+            clearPendingInvite()
+            if (active) {
+              setInviteError(t(translation))
+              setLoadedUserId(session.user.id)
+            }
+            return
+          }
         }
-        setTreeError('')
-        setTreeLoadError(false)
-        setLoadedUserId(session.user.id)
-      }
-    }).catch(() => {
+        const trees = await listTrees()
+        const preferredTree = trees.find((tree) => tree.id === invitedTreeId) ?? trees[0]
+        if (active) setAvailableTrees(trees)
+        if (!preferredTree) {
+          if (active) {
+            setWorkspace(null)
+            setSetupTree(null)
+            setTreeError('')
+            setTreeLoadError(false)
+            setLoadedUserId(session.user.id)
+          }
+          return
+        }
+        const result = await loadTree(preferredTree.id)
+        if (active) {
+          if (result.tree && result.members.length === 0 && result.role === 'owner') {
+            setSetupTree(result.tree)
+            setWorkspace(null)
+          } else {
+            setWorkspace(result.tree ? { tree: result.tree, members: result.members, role: result.role ?? 'viewer', notice: inviteNotice } : null)
+          }
+          setTreeError('')
+          setTreeLoadError(false)
+          setLoadedUserId(session.user.id)
+        }
+      } catch {
       if (active) {
         setTreeLoadError(true)
         setLoadedUserId(session.user.id)
       }
-    })
+      }
+    })()
     return () => { active = false }
-  }, [session?.user.id, t])
+  }, [session?.user.id, t, reloadTrees])
 
   if (!authReady) return <LoadingScreen />
   if (!isSupabaseConfigured) return <SetupNotice />
   if (!session) return <LoginScreen onSession={setSession} />
+  if (inviteError) return <InviteErrorScreen message={inviteError} onContinue={() => { inviteToken.current = null; setInviteError(''); setLoadedUserId(null); setReloadTrees((key) => key + 1) }} onSignOut={() => void signOut()} />
   if (loadingTree) return <LoadingScreen />
   if (treeLoadError) return <main className="auth-screen"><AuthLanguageToggle /><div className="auth-card"><h1>{t('Could not load your family tree.')}</h1><button className="primary-button" onClick={() => window.location.reload()}>{t('Try again')}</button></div></main>
-  if (setupTree) return <TreeStarter tree={setupTree} onStart={(members) => { setWorkspace({ tree: setupTree, members }); setSetupTree(null) }} onCancel={() => { setSetupTree(null); void signOut() }} />
+  if (setupTree) return <TreeStarter tree={setupTree} onStart={(members) => { setWorkspace({ tree: setupTree, members, role: 'owner' }); setSetupTree(null) }} onCancel={() => { setSetupTree(null); void signOut() }} />
   if (!workspace) return <CreateTree error={treeError} onCreate={async (name) => {
     try {
       const tree = await createTree(name, session.user.id)
@@ -92,7 +145,15 @@ export function AuthGate() {
       setTreeError(t('Could not create the family tree. Try again.'))
     }
   }} />
-  return <DashboardPage key={workspace.tree.id} treeId={workspace.tree.id} initialMembers={workspace.members} userEmail={session.user.email ?? ''} onSignOut={() => void signOut()} />
+  return <DashboardPage key={workspace.tree.id} treeId={workspace.tree.id} treeName={workspace.tree.name} initialMembers={workspace.members} userEmail={session.user.email ?? ''} userId={session.user.id} role={workspace.role} trees={availableTrees} initialNotice={workspace.notice} onRefreshTree={refreshCurrentTree} onSwitchTree={async (treeId) => {
+    const result = await loadTree(treeId)
+    if (result.tree) setWorkspace({ tree: result.tree, members: result.members, role: result.role ?? 'viewer' })
+  }} onSignOut={() => void signOut()} />
+}
+
+function InviteErrorScreen({ message, onContinue, onSignOut }: { message: string; onContinue: () => void; onSignOut: () => void }) {
+  const { t, language } = useLanguage()
+  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><AuthLanguageToggle /><section className="auth-card"><span className="auth-brand-mark">k</span><h1>{t('Could not join this family tree')}</h1><p className="auth-error" role="alert">{message}</p><button type="button" className="primary-button auth-submit" onClick={onContinue}>{t('Continue to my trees')}</button><button type="button" className="auth-mode-toggle" onClick={onSignOut}>{t('Sign out')}</button></section></main>
 }
 
 function LoadingScreen() {
@@ -117,7 +178,7 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState(() => rememberInviteFromUrl() ? t('Log in first to accept this invite link.') : '')
   const [error, setError] = useState(() => {
     const query = new URLSearchParams(window.location.search)
     const hash = new URLSearchParams(window.location.hash.slice(1))
@@ -140,6 +201,7 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
   }, [t])
   async function submit(event: FormEvent) {
     event.preventDefault()
+    rememberInviteFromUrl()
     setBusy(true)
     setNotice('')
     setError('')
@@ -149,7 +211,7 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
         if (result.error) throw result.error
         onSession(result.data.session)
       } else {
-        const result = await signUpWithPassword(email.trim(), password)
+        const result = await signUpWithPassword(email.trim(), password, window.location.href)
         if (result.error) throw result.error
         if (result.data.session) onSession(result.data.session)
         else setNotice(t('Check your email'))
@@ -168,11 +230,12 @@ function LoginScreen({ onSession }: { onSession: (session: Session | null) => vo
     }
   }
   async function continueWithGoogle() {
+    rememberInviteFromUrl()
     setBusy(true)
     setNotice('')
     setError('')
     try {
-      const result = await signInWithGoogle(window.location.origin)
+      const result = await signInWithGoogle(window.location.href)
       if (result.error) throw result.error
     } catch {
       setBusy(false)

@@ -14,7 +14,7 @@ type FlowerMenuProps = {
   label?: string
 }
 
-const orbitRadius = 108
+const orbitRadius = 88
 
 export function FlowerMenu({ items, label = 'Open quick links' }: FlowerMenuProps) {
   const [open, setOpen] = useState(false)
@@ -74,7 +74,7 @@ export function FlowerMenu({ items, label = 'Open quick links' }: FlowerMenuProp
             title={item.label}
             tabIndex={open && !disabled ? 0 : -1}
             onClick={disabled ? (event) => event.preventDefault() : undefined}
-          ><Icon width={19} height={19} aria-hidden="true" /></a>
+          ><Icon width={17} height={17} aria-hidden="true" /></a>
         </li>
       })}
     </ul>
@@ -86,6 +86,6 @@ export function FlowerMenu({ items, label = 'Open quick links' }: FlowerMenuProp
       aria-expanded={open}
       aria-controls={menuId}
       onClick={() => setOpen((value) => !value)}
-    ><Share2 width={24} height={24} aria-hidden="true" /></button>
+    ><Share2 width={21} height={21} aria-hidden="true" /></button>
   </div>
 }
