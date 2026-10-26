@@ -37,11 +37,10 @@ type FamilyTreeCanvasProps = {
   relationshipPathIds: string[] | null
   layoutRevision: number
   navigationTarget: { id: string; pathIds?: string[]; sequence: number } | null
-  readOnly: boolean
   onCanvasActivity: () => void
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget, readOnly, onCanvasActivity }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget, onCanvasActivity }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -221,14 +220,12 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   }, [navigationTarget, contentPositions, nodeWidth, nodeHeight, zoom, offsetX, offsetY, viewportSize])
 
   function handleDragStart(event: DragEvent<HTMLButtonElement>, member: FamilyMember) {
-    if (readOnly) { event.preventDefault(); return }
     setDropTargetId(null)
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', member.id)
   }
   function handleDrop(event: DragEvent<HTMLElement>, target: FamilyMember) {
     event.preventDefault()
-    if (readOnly) return
     const sourceId = event.dataTransfer.getData('text/plain')
     const source = members.find((member) => member.id === sourceId)
     if (source && source.id !== target.id) onProposeRelationship(source, target)
@@ -280,7 +277,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     <div className="tree-canvas-frame">
     {branchFocusId && <button type="button" className="tree-branch-focus-reset" onClick={onResetBranchFocus}><GitBranch size={16} />{t('Reset View')}</button>}
     <div className="tree-viewport" ref={viewportRef} onScroll={(event) => setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })} onWheel={handleCanvasWheel} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
-      {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p>{!readOnly && <button onClick={onEmptyAdd}><Plus size={17} /> {t('Add your first family member')}</button>}</div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
+      {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p><button onClick={onEmptyAdd}><Plus size={17} /> {t('Add your first family member')}</button></div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
         <div className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
           <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}${branchFocusedIds ? ' is-branch-focus' : ''}`} width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`}>
             {(() => {
@@ -385,12 +382,12 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
             const coupleKey = member.parentIds.slice().sort().join('|')
             const localPoint = contentPositions.get(member.id)
             if (!localPoint) return null
-            return <div className="tree-node-position" key={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} nodeWidth={nodeWidth} nodeHeight={nodeHeight} readOnly={readOnly} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isBranchFocusDimmed={Boolean(branchFocusedIds && !branchFocusedIds.has(member.id))} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onOpenContextMenu={(person, x, y) => setContextMenu({ member: person, x, y })} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) } }} /></div>
+            return <div className="tree-node-position" key={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} nodeWidth={nodeWidth} nodeHeight={nodeHeight} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isBranchFocusDimmed={Boolean(branchFocusedIds && !branchFocusedIds.has(member.id))} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onOpenContextMenu={(person, x, y) => setContextMenu({ member: person, x, y })} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) }} /></div>
           })}
         </div>
       </div>}
       {relationshipTooltip && <div ref={relationshipTooltipRef} className={`relationship-badge-tooltip is-${relationshipTooltip.placement}`} role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
-      {!readOnly && contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} readOnly={false} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
+      {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
     </div>
     {members.length > 0 && viewportSize.width > 0 && <TreeMiniMap
       members={branchFocusedIds ? visibleMembers.filter((member) => branchFocusedIds.has(member.id)) : visibleMembers}

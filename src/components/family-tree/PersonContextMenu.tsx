@@ -13,7 +13,6 @@ type PersonContextMenuProps = {
   members: FamilyMember[]
   x: number
   y: number
-  readOnly: boolean
   onClose: () => void
   onOpenDetails: (member: FamilyMember) => void
   onEdit: (member: FamilyMember) => void
@@ -27,7 +26,7 @@ const personActionKinds = new Set<PersonContextAction['kind']>(['details', 'edit
 const relationshipActionKinds = new Set<PersonContextAction['kind']>(['child', 'partner', 'parent', 'sibling'])
 type ArrowSide = 'top' | 'right' | 'bottom' | 'left'
 
-export function PersonContextMenu({ member, members, x, y, readOnly, onClose, onOpenDetails, onEdit, onDelete, onAddRelative, onLinkRelative }: PersonContextMenuProps) {
+export function PersonContextMenu({ member, members, x, y, onClose, onOpenDetails, onEdit, onDelete, onAddRelative, onLinkRelative }: PersonContextMenuProps) {
   const { t } = useLanguage()
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [arrow, setArrow] = useState<{ side: ArrowSide; offset: number }>({ side: 'left', offset: 24 })
@@ -48,7 +47,7 @@ export function PersonContextMenu({ member, members, x, y, readOnly, onClose, on
   const pickerOpenRef = useRef(false)
   const [menuElement, setMenuElement] = useState<HTMLDivElement | null>(null)
   const buttonRefs = useRef<HTMLButtonElement[]>([])
-  const actions = getPersonContextActions(member, members).filter((action) => !readOnly || action.kind === 'details')
+  const actions = getPersonContextActions(member, members)
 
   useLayoutEffect(() => {
     const menu = menuElement

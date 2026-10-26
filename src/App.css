@@ -6601,69 +6601,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   color: var(--danger-strong, var(--danger));
 }
 
-.sidebar-account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 10px 7px;
-  border-block-start: 1px solid var(--line-soft);
-}
-
-.sidebar-account-avatar {
-  width: 29px;
-  height: 29px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.sidebar-account-email {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-signout {
-  width: 30px;
-  height: 30px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.sidebar-signout:hover,
-.sidebar-signout:focus-visible {
-  border-color: var(--line);
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-.sidebar-collapsed .sidebar-account {
-  flex-wrap: wrap;
-  justify-content: center;
-  padding-inline: 0;
-}
-
-.sidebar-collapsed .sidebar-signout {
-  margin-inline: auto;
-}
-
 .tree-save-status {
   display: inline-flex;
   align-items: center;
@@ -7029,9 +6966,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 }
 
 .auth-submit:focus-visible,
-.auth-google-button:focus-visible,
-.auth-password-toggle:focus-visible,
-.auth-forgot-password:focus-visible,
 .auth-mode-toggle:focus-visible {
   outline: 3px solid #b6a8fa;
   outline-offset: 2px;
@@ -7059,104 +6993,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   color: #e1d9ff;
 }
 
-.auth-google-button {
-  width: 100%;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-block-start: 22px;
-  padding-inline: 14px;
-  border: 1px solid #49445d;
-  border-radius: 9px;
-  background: #191724;
-  color: #f0eef8;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
-}
-
-.auth-google-button:hover:not(:disabled) {
-  border-color: #77708e;
-  background: #292638;
-  transform: translateY(-1px);
-}
-
-.auth-google-button:disabled {
-  opacity: .62;
-  cursor: wait;
-}
-
-.auth-google-mark {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-block: 18px;
-  color: #a8a2b9;
-  font-size: 11px;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  height: 1px;
-  flex: 1;
-  background: #39354a;
-  content: "";
-}
-
-.auth-password-field {
-  position: relative;
-  display: block;
-}
-
-.auth-password-field input {
-  padding-inline-end: 42px;
-}
-
-.auth-password-toggle {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 4px;
-  width: 36px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #aaa4bd;
-  cursor: pointer;
-}
-
-.auth-password-toggle:hover {
-  color: #e4ddff;
-}
-
-.auth-forgot-password {
-  justify-self: end;
-  margin-block-start: -5px;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: #c4b7ff;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.auth-forgot-password:disabled {
-  opacity: .6;
-  cursor: wait;
-}
-
 .sidebar-tree-switcher {
   display: grid;
   gap: 6px;
@@ -7178,619 +7014,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   color: var(--text);
   font: inherit;
   font-size: 12px;
-}
-
-.toolbar-share-button {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding-inline: 11px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.toolbar-share-button:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
-  background: var(--surface-hover);
-}
-
-.share-tree-shade {
-  z-index: 12000;
-  overflow-y: auto;
-  padding-block: 20px;
-}
-
-.share-tree-dialog {
-  width: min(560px, calc(100vw - 28px));
-  max-height: min(86vh, 760px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-  text-align: start;
-}
-
-.share-tree-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 20px 20px 15px;
-  border-block-end: 1px solid var(--line);
-}
-
-.share-tree-header .confirm-mark {
-  flex: none;
-}
-
-.share-tree-header h2 {
-  margin: 0 0 4px;
-  font-size: 18px;
-}
-
-.share-tree-header p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.share-tree-header .icon-button {
-  margin-inline-start: auto;
-  flex: none;
-}
-
-.share-tree-content {
-  min-height: 0;
-  overflow-y: auto;
-  padding: 15px 20px 5px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) var(--surface);
-}
-
-.share-tree-section + .share-tree-section {
-  margin-block-start: 20px;
-  padding-block-start: 16px;
-  border-block-start: 1px solid var(--line-soft);
-}
-
-.share-tree-section h3 {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0 0 11px;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.share-tree-section h3 span {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.share-tree-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.share-tree-fields label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.share-tree-fields select,
-.share-member-actions select {
-  min-width: 0;
-  min-height: 37px;
-  padding-inline: 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-}
-
-.share-create-button {
-  min-height: 39px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-block-start: 11px;
-}
-
-.share-created-link {
-  display: flex;
-  gap: 7px;
-  margin-block-start: 10px;
-}
-
-.share-created-link input {
-  min-width: 0;
-  flex: 1;
-  padding-inline: 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font: inherit;
-  font-size: 11px;
-}
-
-.share-created-link button,
-.share-created-copy,
-.share-remove-button {
-  width: 36px;
-  min-height: 36px;
-  display: grid;
-  flex: none;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.share-invite-row,
-.share-member-row {
-  min-height: 47px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-block: 6px;
-  border-block-end: 1px solid var(--line-soft);
-}
-
-.share-invite-row > span,
-.share-member-copy {
-  min-width: 0;
-  flex: 1;
-  display: grid;
-  gap: 4px;
-}
-
-.share-invite-row strong,
-.share-member-copy strong {
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 12px;
-}
-
-.share-invite-row small,
-.share-member-copy small {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.share-revoke-button {
-  min-height: 31px;
-  padding-inline: 9px;
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
-  border-radius: 7px;
-  background: transparent;
-  color: var(--danger-strong);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.share-member-icon {
-  width: 31px;
-  height: 31px;
-  display: grid;
-  flex: none;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.share-member-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.share-member-actions select {
-  min-height: 32px;
-  width: 94px;
-  font-size: 11px;
-}
-
-.share-remove-button {
-  width: 32px;
-  min-height: 32px;
-  color: var(--danger-strong);
-}
-
-.share-empty-note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.share-tree-dialog > .dialog-actions {
-  flex: none;
-  margin: 0;
-  padding: 13px 20px;
-  border-block-start: 1px solid var(--line);
-}
-
-@media (max-width: 540px) {
-  .share-tree-fields {
-    grid-template-columns: 1fr;
-  }
-
-  .share-tree-dialog {
-    max-height: 92vh;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-submit,
-  .auth-google-button {
-    transition: none;
-  }
-}
-
-.share-tree-dialog {
-  width: min(620px, calc(100vw - 28px));
-  max-height: min(88vh, 780px);
-  border-color: color-mix(in srgb, var(--line) 72%, transparent);
-  border-radius: 18px;
-  box-shadow: 0 24px 70px color-mix(in srgb, #000 30%, transparent);
-}
-
-.share-tree-header {
-  align-items: center;
-  padding: 21px 24px 13px;
-  border: 0;
-}
-
-.share-tree-header h2 {
-  font-size: 21px;
-  letter-spacing: -0.025em;
-}
-
-.share-tree-header .icon-button {
-  width: 36px;
-  min-height: 36px;
-  display: grid;
-  place-items: center;
-  margin-inline-start: auto;
-  border-radius: 10px;
-  color: var(--muted);
-  font-size: 20px;
-}
-
-.share-tree-content {
-  padding: 10px 24px 14px;
-}
-
-.share-tree-section + .share-tree-section {
-  margin-block-start: 22px;
-  padding-block-start: 17px;
-  border-block-start-color: color-mix(in srgb, var(--line) 62%, transparent);
-}
-
-.share-tree-section h3 {
-  margin-block-end: 11px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.share-role-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.share-role-card {
-  min-height: 78px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--surface-raised);
-  color: var(--text);
-  text-align: start;
-  cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
-}
-
-.share-role-card:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-}
-
-.share-role-card.is-selected {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-raised));
-}
-
-.share-role-card:focus-visible,
-.share-expiry-control button:focus-visible,
-.share-expiry-options button:focus-visible,
-.share-invite-action:focus-visible,
-.share-revoke-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.share-role-icon {
-  width: 39px;
-  height: 39px;
-  display: grid;
-  flex: none;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.share-role-card > span:nth-child(2) {
-  min-width: 0;
-  flex: 1;
-  display: grid;
-  gap: 4px;
-}
-
-.share-role-card strong {
-  font-size: 13px;
-}
-
-.share-role-card small {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.share-role-check {
-  flex: none;
-  color: var(--accent);
-}
-
-.share-expiry-control {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-block-start: 14px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.share-more-options {
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.share-expiry-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-block-start: 8px;
-}
-
-.share-expiry-options button {
-  min-height: 31px;
-  padding-inline: 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-raised);
-  color: var(--muted);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.share-expiry-options button.is-selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text);
-}
-
-.share-create-button {
-  width: 100%;
-  min-height: 46px;
-  margin-block-start: 15px;
-  border-radius: 11px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.share-link-copied {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin: 9px 0 0;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.share-invite-list {
-  display: grid;
-  gap: 8px;
-}
-
-.share-invite-row {
-  min-height: auto;
-  flex-wrap: wrap;
-  gap: 9px 12px;
-  padding: 10px 0;
-  border: 0;
-}
-
-.share-role-badge {
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.share-role-badge-editor {
-  background: color-mix(in srgb, var(--accent) 17%, var(--surface-raised));
-}
-
-.share-invite-row > .share-role-badge {
-  display: inline-flex;
-  flex: none;
-}
-
-.share-invite-expiry {
-  min-width: 130px;
-  flex: 1;
-  display: grid;
-  gap: 3px;
-  color: var(--text);
-  font-size: 11px;
-}
-
-.share-invite-expiry small {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.share-invite-action {
-  min-height: 33px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding-inline: 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font: inherit;
-  font-size: 10px;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.share-invite-action:hover {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-  color: var(--accent);
-}
-
-.share-revoke-button {
-  min-height: 32px;
-  padding-inline: 3px;
-  border: 0;
-  background: transparent;
-  color: var(--danger-strong);
-  font-size: 11px;
-}
-
-.share-member-row {
-  min-height: 52px;
-  border: 0;
-}
-
-.share-member-icon {
-  width: 34px;
-  height: 34px;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.share-member-copy strong {
-  font-size: 12px;
-}
-
-.share-member-copy small {
-  font-size: 10px;
-}
-
-.share-member-actions select {
-  width: 90px;
-}
-
-.share-tree-dialog > .dialog-actions {
-  justify-content: stretch;
-  padding: 13px 24px 19px;
-  border: 0;
-}
-
-.share-tree-dialog > .dialog-actions .secondary-button {
-  width: 100%;
-  min-height: 42px;
-  border-radius: 10px;
-}
-
-@media (max-width: 540px) {
-  .share-tree-shade {
-    align-items: flex-end;
-    padding: 10px 0 0;
-  }
-
-  .share-tree-dialog {
-    width: 100%;
-    max-height: 92vh;
-    border-radius: 18px 18px 0 0;
-  }
-
-  .share-tree-header {
-    padding-inline: 18px;
-  }
-
-  .share-tree-content {
-    padding-inline: 18px;
-  }
-
-  .share-role-options {
-    grid-template-columns: 1fr;
-  }
-
-  .share-invite-row {
-    gap: 8px;
-  }
-
-  .share-invite-expiry {
-    min-width: calc(100% - 110px);
-    order: 1;
-  }
-
-  .share-invite-action {
-    flex: 1;
-    order: 2;
-  }
-
-  .share-revoke-button {
-    order: 3;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .share-role-card {
-    transition: none;
-  }
 }
 
 .tree-save-status-saving::before {
@@ -8229,7 +7452,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 .tree-app[data-theme="midnight"] .custom-calendar,
 .tree-app[data-theme="midnight"] .member-dialog,
 .tree-app[data-theme="midnight"] .edit-person-dialog,
-.tree-app[data-theme="midnight"] .share-tree-dialog,
 .tree-app[data-theme="midnight"] .relationship-calculator-dialog,
 .tree-app[data-theme="midnight"] .keyboard-shortcuts-dialog {
   border-color: var(--line);
@@ -8261,7 +7483,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 .tree-app[data-theme="midnight"] .secondary-button,
 .tree-app[data-theme="midnight"] .toolbar-cluster button,
 .tree-app[data-theme="midnight"] .settings-toggle,
-.tree-app[data-theme="midnight"] .toolbar-share-button,
 .tree-app[data-theme="midnight"] .toolbar-guide-button,
 .tree-app[data-theme="midnight"] .sidebar-preference-button,
 .tree-app[data-theme="midnight"] .custom-date-field,
@@ -8274,7 +7495,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 .tree-app[data-theme="midnight"] .secondary-button:hover,
 .tree-app[data-theme="midnight"] .toolbar-cluster button:hover:not(:disabled),
 .tree-app[data-theme="midnight"] .settings-toggle:hover,
-.tree-app[data-theme="midnight"] .toolbar-share-button:hover,
 .tree-app[data-theme="midnight"] .toolbar-guide-button:hover,
 .tree-app[data-theme="midnight"] .sidebar-preference-button:hover,
 .tree-app[data-theme="midnight"] .relationship-kind-trigger:hover,
@@ -8297,11 +7517,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   color: var(--icon-tree);
 }
 
-.tree-app[data-theme="midnight"] .sidebar-signout > svg {
-  color: var(--icon-danger);
-}
-
-.tree-app[data-theme="midnight"] .toolbar-share-button > svg,
 .tree-app[data-theme="midnight"] .toolbar-guide-button > svg,
 .tree-app[data-theme="midnight"] .toolbar-relationship-calculator > svg,
 .tree-app[data-theme="midnight"] .person-context-menu-item.is-details > svg {
@@ -8883,7 +8098,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 
 .tree-app[data-theme="midnight"] .member-dialog,
 .tree-app[data-theme="midnight"] .edit-person-dialog,
-.tree-app[data-theme="midnight"] .share-tree-dialog,
 .tree-app[data-theme="midnight"] .relationship-calculator-dialog,
 .tree-app[data-theme="midnight"] .keyboard-shortcuts-dialog,
 .tree-app[data-theme="midnight"] .confirm-dialog,
@@ -9175,7 +8389,6 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
 
 .tree-app[data-theme="midnight"] .tree-toolbar button,
 .tree-app[data-theme="midnight"] .settings-toggle,
-.tree-app[data-theme="midnight"] .toolbar-share-button,
 .tree-app[data-theme="midnight"] .toolbar-guide-button,
 .tree-app[data-theme="midnight"] .sidebar-preference-button,
 .tree-app[data-theme="midnight"] .primary-button,
@@ -9386,4 +8599,192 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   .person-context-menu[data-theme="midnight"] .person-context-menu-item {
     transition: none;
   }
+}
+
+.sidebar-tree-manage {
+  width: calc(100% - 24px);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 12px 0;
+  padding-inline: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-align: start;
+}
+
+.sidebar-tree-manage:hover {
+  border-color: var(--line);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.sidebar-collapsed .sidebar-tree-manage {
+  width: 38px;
+  justify-content: center;
+  margin-inline: auto;
+  padding-inline: 0;
+}
+
+.save-retry-button {
+  margin-inline-start: 6px;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 10px;
+  text-decoration: underline;
+}
+
+.local-tree-manager-shade {
+  z-index: 1200;
+}
+
+.local-tree-manager-dialog {
+  position: relative;
+  width: min(560px, calc(100vw - 28px));
+  max-height: min(86vh, 700px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: start;
+}
+
+.local-tree-manager-dialog > p {
+  margin-block: 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.local-tree-create-row,
+.local-tree-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.local-tree-create-row input,
+.local-tree-rename-row input,
+.local-tree-delete-confirm input {
+  min-width: 0;
+  min-height: 38px;
+  flex: 1;
+  padding-inline: 10px;
+  border: 1px solid var(--line-control);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.local-tree-list {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  margin-block: 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) var(--surface);
+}
+
+.local-tree-row {
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.local-tree-row-heading,
+.local-tree-row-actions,
+.local-tree-delete-confirm .dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.local-tree-row-heading strong {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.local-tree-row-heading small {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.local-tree-row-actions {
+  justify-content: flex-end;
+  margin-block-start: 9px;
+}
+
+.local-tree-delete-button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-inline: 9px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  border-radius: 7px;
+  background: transparent;
+  color: var(--danger-strong);
+  font: inherit;
+  font-size: 11px;
+}
+
+.local-tree-delete-confirm {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 10px;
+}
+
+.local-tree-delete-confirm label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.local-tree-delete-confirm .dialog-actions {
+  justify-content: flex-end;
+  margin-block-start: 0;
+}
+
+@media (max-width: 560px) {
+  .local-tree-manager-dialog {
+    max-height: 90dvh;
+    padding-inline: 16px;
+  }
+
+  .local-tree-create-row,
+  .local-tree-rename-row {
+    flex-wrap: wrap;
+  }
+
+  .local-tree-create-row input,
+  .local-tree-rename-row input {
+    flex-basis: 100%;
+  }
+
+  .local-tree-row-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-submit { transition: none; }
 }

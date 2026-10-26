@@ -28,10 +28,9 @@ type MemberDetailsPanelProps = {
   onUpdateProfile: (memberId: string, photo: string | undefined, avatar: FamilyMember['avatar']) => void
   onEdit: () => void
   onDelete: () => void
-  readOnly: boolean
 }
 
-export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onLinkRelative, onSelectRelative, onUpdateProfile, onEdit, onDelete, readOnly }: MemberDetailsPanelProps) {
+export function MemberDetailsPanel({ member, members, onClose, onAddRelative, onLinkRelative, onSelectRelative, onUpdateProfile, onEdit, onDelete }: MemberDetailsPanelProps) {
   const { t, language } = useLanguage()
   const parents = findMembers(members, member.parentIds)
   const partners = findMembers(members, member.spouseIds)
@@ -93,7 +92,7 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
     setActivePicker((current) => current?.kind === kind ? null : { kind, anchor })
   }
 
-  const relationshipPicker = (kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>) => !readOnly && activePicker?.kind === kind ? <ExistingRelativePicker key={kind} source={member} members={members} kind={kind} anchor={activePicker.anchor} onPick={(person, selectedKind) => { onLinkRelative(member.id, person.id, selectedKind); setActivePicker(null) }} onCreateNew={(sourceId, selectedKind) => { onAddRelative(sourceId, selectedKind); setActivePicker(null) }} onClose={() => setActivePicker(null)} /> : null
+  const relationshipPicker = (kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>) => activePicker?.kind === kind ? <ExistingRelativePicker key={kind} source={member} members={members} kind={kind} anchor={activePicker.anchor} onPick={(person, selectedKind) => { onLinkRelative(member.id, person.id, selectedKind); setActivePicker(null) }} onCreateNew={(sourceId, selectedKind) => { onAddRelative(sourceId, selectedKind); setActivePicker(null) }} onClose={() => setActivePicker(null)} /> : null
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -107,16 +106,16 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
         {navigationHistory.length > 0 && <button type="button" className="details-back-action" title={t('Back')} aria-label={t('Back')} onClick={goBack}><ArrowLeft size={15} aria-hidden="true" /></button>}
         <span>{t('PERSON DETAILS')}</span>
         <div className="details-top-actions">
-          {!readOnly && <>
+          <>
           <button type="button" title={t('Edit person details')} aria-label={t('Edit person details')} onClick={onEdit}><Pencil size={16} /></button>
           <button type="button" className="details-delete-action" title={t('Delete family member')} aria-label={t('Delete family member')} onClick={onDelete}><Trash2 size={16} /></button>
-          </>}
+          </>
           <button type="button" title={t('Close details')} aria-label={t('Close details')} onClick={onClose}><X size={17} /></button>
         </div>
       </div>
       <div className="details-scroll-body" key={member.id}>
         <div className={`details-profile${deceased ? ' is-deceased' : ''}`} style={detailsBranchColor ? { '--details-ring': detailsBranchColor } as CSSProperties : undefined}>
-          <div className="details-portrait">{readOnly ? <FamilyAvatar member={member} /> : <ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} />}</div>
+          <div className="details-portrait"><ProfileAvatarPicker avatarId={avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom'} avatar={member.avatar} photo={member.photo ?? ''} error={photoError} onChange={(avatarId, photo) => { const avatar = avatarPresets.find((preset) => preset.id === avatarId)?.avatar ?? member.avatar; onUpdateProfile(member.id, photo || undefined, avatar); setPhotoError('') }} onError={setPhotoError} /></div>
           <div className="details-profile-copy">
             <h2><PersonName name={getFullName(member)} /></h2>
             {member.gender && <span className={`details-gender-chip gender-${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</span>}
@@ -137,10 +136,10 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
           </div>
         </div>
         <div className="details-links">
-          <RelationshipGroup key={`${member.id}-partners`} t={t} memberId={member.id} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} collapsed={isSectionCollapsed('partners', partners.length)} onToggle={() => toggleSection('partners', partners.length)} onSelect={selectRelative} picker={relationshipPicker('partner')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} active={activePicker?.kind === 'partner'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-children`} t={t} memberId={member.id} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} collapsed={isSectionCollapsed('children', children.length)} onToggle={() => toggleSection('children', children.length)} onSelect={selectRelative} picker={relationshipPicker('child')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="child" label={t('Add child')} active={activePicker?.kind === 'child'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-parents`} t={t} memberId={member.id} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} collapsed={isSectionCollapsed('parents', parents.length)} onToggle={() => toggleSection('parents', parents.length)} onSelect={selectRelative} picker={relationshipPicker('parent')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} active={activePicker?.kind === 'parent'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-siblings`} t={t} memberId={member.id} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} collapsed={isSectionCollapsed('siblings', siblings.length)} onToggle={() => toggleSection('siblings', siblings.length)} onSelect={selectRelative} picker={relationshipPicker('sibling')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="sibling" label={t('Add sibling')} active={activePicker?.kind === 'sibling'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-partners`} t={t} memberId={member.id} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} collapsed={isSectionCollapsed('partners', partners.length)} onToggle={() => toggleSection('partners', partners.length)} onSelect={selectRelative} picker={relationshipPicker('partner')} action={<RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} active={activePicker?.kind === 'partner'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-children`} t={t} memberId={member.id} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} collapsed={isSectionCollapsed('children', children.length)} onToggle={() => toggleSection('children', children.length)} onSelect={selectRelative} picker={relationshipPicker('child')} action={<RelativePickerAction source={member} members={members} kind="child" label={t('Add child')} active={activePicker?.kind === 'child'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-parents`} t={t} memberId={member.id} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} collapsed={isSectionCollapsed('parents', parents.length)} onToggle={() => toggleSection('parents', parents.length)} onSelect={selectRelative} picker={relationshipPicker('parent')} action={<RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} active={activePicker?.kind === 'parent'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-siblings`} t={t} memberId={member.id} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} collapsed={isSectionCollapsed('siblings', siblings.length)} onToggle={() => toggleSection('siblings', siblings.length)} onSelect={selectRelative} picker={relationshipPicker('sibling')} action={<RelativePickerAction source={member} members={members} kind="sibling" label={t('Add sibling')} active={activePicker?.kind === 'sibling'} onToggle={togglePicker} />} />
         </div>
       </div>
     </aside>

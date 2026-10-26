@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, LogOut, Moon, Sun } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Coffee, GitBranch, HelpCircle, Languages, Moon, Settings2, Sun } from 'lucide-react'
 import type { AppTheme } from '../../types/theme'
 import { useLanguage } from '../../i18n/useLanguage'
 
@@ -13,15 +13,14 @@ const arabicLanguageLabel = String.fromCodePoint(0x627, 0x644, 0x639, 0x631, 0x6
 type TreeSidebarProps = {
   theme: AppTheme
   onSetTheme: (theme: AppTheme) => void
-  userEmail: string
-  onSignOut: () => void
   treeName: string
   treeId: string
   trees: { id: string; name: string }[]
   onSwitchTree: (treeId: string) => void
+  onManageTrees: () => void
 }
 
-export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut, treeName, treeId, trees, onSwitchTree }: TreeSidebarProps) {
+export function TreeSidebar({ theme, onSetTheme, treeName, treeId, trees, onSwitchTree, onManageTrees }: TreeSidebarProps) {
   const { t, language, setLanguage } = useLanguage()
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -43,6 +42,7 @@ export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut, treeName,
   return <aside className={`tree-sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
     <a className="sidebar-brand" href="#tree" title={`Kinfolk · ${treeName}`}><span className="brand-icon">k</span>{!collapsed && <span>Kinfolk</span>}</a>
     {!collapsed && trees.length > 1 && <label className="sidebar-tree-switcher"><span>{t('Current family tree')}</span><select value={treeId} onChange={(event) => onSwitchTree(event.target.value)} aria-label={t('Switch family tree')}>{trees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name}</option>)}</select></label>}
+    <button className="sidebar-tree-manage" type="button" onClick={onManageTrees} title={t('Manage trees')} aria-label={t('Manage trees')}><Settings2 size={17} />{!collapsed && <span>{t('Manage trees')}</span>}</button>
     <div className="sidebar-content">
       <nav className="sidebar-group" aria-label={t('Family navigation')}>
         <button className="side-link selected" title={t('Family tree')} aria-current="page"><GitBranch size={18} />{!collapsed && <span>{t('Family tree')}</span>}</button>
@@ -81,11 +81,6 @@ export function TreeSidebar({ theme, onSetTheme, userEmail, onSignOut, treeName,
         </span>
       </button>
     </section>
-    <div className="sidebar-account" title={userEmail}>
-      <span className="sidebar-account-avatar">{userEmail.slice(0, 1).toLocaleUpperCase()}</span>
-      {!collapsed && <span className="sidebar-account-email" dir="auto">{userEmail}</span>}
-      <button type="button" className="sidebar-signout" onClick={onSignOut} title={t('Sign out')} aria-label={t('Sign out')}><LogOut size={17} /></button>
-    </div>
     <footer className="sidebar-bottom">
       {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span className="sidebar-info-copy"><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
       <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}><span className="sidebar-collapse-icon">{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</span></button>

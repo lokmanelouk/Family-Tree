@@ -6,7 +6,7 @@ import { getLayoutDirection } from '../../config/layout'
 
 type Shortcut = { label: string; alternatives: string[][]; icon: LucideIcon; category: 'Navigation' | 'Editing' | 'Menus' }
 
-export function KeyboardShortcutsDialog({ onClose, canEdit }: { onClose: () => void; canEdit: boolean }) {
+export function KeyboardShortcutsDialog({ onClose }: { onClose: () => void }) {
   const { t, language } = useLanguage()
   const closeRef = useRef<HTMLButtonElement>(null)
   const shortcuts: Shortcut[] = [
@@ -18,7 +18,7 @@ export function KeyboardShortcutsDialog({ onClose, canEdit }: { onClose: () => v
     { label: 'Open keyboard shortcuts', alternatives: [['?']], icon: Keyboard, category: 'Menus' },
   ]
   const categories: Shortcut['category'][] = ['Navigation', 'Editing', 'Menus']
-  const visibleShortcuts = shortcuts.filter(({ label }) => canEdit || (label !== 'Undo' && label !== 'Redo'))
+  const visibleShortcuts = shortcuts
 
   useEffect(() => {
     closeRef.current?.focus()

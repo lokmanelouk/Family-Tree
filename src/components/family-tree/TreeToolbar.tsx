@@ -13,7 +13,6 @@ import {
   Plus,
   Redo2,
   Search,
-  Share2,
   Settings2,
   Undo2,
   Upload,
@@ -50,9 +49,6 @@ type TreeToolbarProps = {
   onAutoOrganize: () => void
   onExport: (branchOnly: boolean) => void
   onImport: (file: File) => void
-  canEdit: boolean
-  canShare: boolean
-  onShare: () => void
   onOpenRelationshipCalculator: () => void
   onOpenShortcuts: () => void
   onCanvasInteraction: () => void
@@ -213,9 +209,9 @@ export function TreeToolbar(props: TreeToolbarProps) {
             </div>
           )}
         </div>
-        {props.canEdit && <button className="primary-button toolbar-add-person" onClick={props.onAddPerson}>
+        <button className="primary-button toolbar-add-person" onClick={props.onAddPerson}>
           <Plus size={19} /> {t('Add person')}
-        </button>}
+        </button>
       </div>
 
       <div className="toolbar-center-group">
@@ -263,17 +259,16 @@ export function TreeToolbar(props: TreeToolbarProps) {
       <div className="toolbar-system-group">
         <button type="button" className="toolbar-shortcuts-button" title={t('Keyboard shortcuts')} aria-label={t('Keyboard shortcuts')} onClick={props.onOpenShortcuts}><Keyboard size={19} /></button>
         <button type="button" className="toolbar-relationship-calculator" title={t('How are we related?')} aria-label={t('How are we related?')} onClick={props.onOpenRelationshipCalculator}><Network size={19} /></button>
-        {props.canShare && <button className="toolbar-share-button" type="button" onClick={props.onShare} title={t('Share with family')} aria-label={t('Share with family')}><Share2 size={19} /><span>{t('Share')}</span></button>}
         <div className="toolbar-divider" />
-        {props.canEdit && <div className="toolbar-cluster history-actions">
-          <button title={t('Undo (Ctrl+Z)')} aria-label={t('Undo')} disabled={!props.canEdit || !props.canUndo} onClick={props.onUndo}>
+        <div className="toolbar-cluster history-actions">
+          <button title={t('Undo (Ctrl+Z)')} aria-label={t('Undo')} disabled={!props.canUndo} onClick={props.onUndo}>
             <Undo2 size={19} />
           </button>
-          <button title={t('Redo (Ctrl+Shift+Z)')} aria-label={t('Redo')} disabled={!props.canEdit || !props.canRedo} onClick={props.onRedo}>
+          <button title={t('Redo (Ctrl+Shift+Z)')} aria-label={t('Redo')} disabled={!props.canRedo} onClick={props.onRedo}>
             <Redo2 size={19} />
           </button>
-        </div>}
-        {props.canEdit && <div className="toolbar-divider settings-divider" />}
+        </div>
+        <div className="toolbar-divider settings-divider" />
         <div className="relationship-guide-popover-wrap" ref={guideRef}>
           <button
             ref={guideButtonRef}
@@ -307,7 +302,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
               <button disabled={!props.selectedId} onClick={() => { props.onExport(true); setMenuOpen(false) }}>
                 <Download size={14} /> {t('Export selected branch')}
               </button>
-              {props.canEdit && <label>
+              <label>
                 <Upload size={14} /> {t('Restore backup')}
                 <input
                   type="file"
@@ -319,7 +314,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
                     setMenuOpen(false)
                   }}
                 />
-              </label>}
+              </label>
             </div>
           )}
         </div>

@@ -6,7 +6,6 @@ import { EditPersonDialog } from "../components/family-tree/EditPersonDialog";
 import { TreeToolbar } from "../components/family-tree/TreeToolbar";
 import { PersonName } from "../components/family-tree/PersonName";
 import { ConfirmationDialog } from "../components/dialogs/ConfirmationDialog";
-import { ShareTreeDialog } from "../components/dialogs/ShareTreeDialog";
 import { RelationshipChangeDialog } from "../components/dialogs/RelationshipChangeDialog";
 import { RelationshipCalculatorDialog } from "../components/dialogs/RelationshipCalculatorDialog";
 import { KeyboardShortcutsDialog } from "../components/dialogs/KeyboardShortcutsDialog";
@@ -23,7 +22,7 @@ import type { FamilyMember, RelationshipKind } from "../types/family";
 import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
 import { getLayoutDirection, layoutDirection } from "../config/layout";
-import { canEditTree, canManageTree } from "../lib/tree-permissions";
+import { saveTreeSettings } from "../lib/storage/local-tree-storage";
 
 type AddRequest = {
   targetId: string;
@@ -43,25 +42,23 @@ const INTERACTIVE_CHROME_TARGET = '.person-node, button, a, input, select, texta
 
 type DashboardPageProps = {
   treeId: string
-  initialMembers: FamilyMember[]
-  userEmail: string
-  userId: string
-  role: 'owner' | 'editor' | 'viewer'
   treeName: string
-  trees: { id: string; name: string; role?: 'owner' | 'editor' | 'viewer' }[]
-  initialNotice?: string
-  onRefreshTree: () => Promise<{ members: FamilyMember[]; role: 'owner' | 'editor' | 'viewer' }>
+  initialMembers: FamilyMember[]
+  initialSettings: { theme?: string; nodeMode?: TreeNodeMode }
+  openAddPersonOnStart: boolean
+  trees: { id: string; name: string }[]
   onSwitchTree: (treeId: string) => void
-  onSignOut: () => void
+  onManageTrees: () => void
 }
 
-export function DashboardPage({ treeId, treeName, initialMembers, userEmail, userId, role, trees, initialNotice = '', onRefreshTree, onSwitchTree, onSignOut }: DashboardPageProps) {
+export function DashboardPage({ treeId, treeName, initialMembers, initialSettings, openAddPersonOnStart, trees, onSwitchTree, onManageTrees }: DashboardPageProps) {
   const { t, language } = useLanguage();
   const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : initialMembers);
   const members = tree.members;
   const { undo, redo } = tree;
   const persistence = useTreePersistence(treeId, members, !DEBUG_EMPTY_STATE, tree.rollback);
   const [theme, setTheme] = useState<AppTheme>(() => {
+    if (isAppTheme(initialSettings.theme ?? null)) return initialSettings.theme as AppTheme
     try {
       const saved = localStorage.getItem("family-tree-theme");
       if (isAppTheme(saved)) return saved;
@@ -72,7 +69,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
       return "midnight";
     }
   });
-  const [nodeMode, setNodeMode] = useState<TreeNodeMode>("circle");
+  const [nodeMode, setNodeMode] = useState<TreeNodeMode>(initialSettings.nodeMode ?? "circle");
   const [focusMode, setFocusMode] = useState(false);
   const [branchFocusId, setBranchFocusId] = useState<string | null>(null);
   const [relationshipCalculatorOpen, setRelationshipCalculatorOpen] = useState(false);
@@ -92,7 +89,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
     pathIds?: string[];
     sequence: number;
   } | null>(null);
-  const [addRequest, setAddRequest] = useState<AddRequest | null>(null);
+  const [addRequest, setAddRequest] = useState<AddRequest | null>(() => openAddPersonOnStart ? { targetId: initialMembers[0]?.id ?? "", kind: "child", contextual: false } : null);
   const addMemory = useRef<AddMemory | null>(null);
   const immersiveTimer = useRef<number | null>(null);
   const blockingOverlayRef = useRef(false);
@@ -103,18 +100,8 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   const [restorePending, setRestorePending] = useState<RestoreRequest | null>(
     null,
   );
-  const [status, setStatus] = useState(initialNotice);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [currentRole, setCurrentRole] = useState(role);
-  const { adoptSnapshot } = persistence;
-  const { replaceMembers } = tree;
-  const canEdit = canEditTree(currentRole);
-  const canShare = canManageTree(currentRole);
-  const hasBlockingOverlay = Boolean(addRequest || editPending || pendingDrop || deletePending || restorePending || shareOpen || relationshipCalculatorOpen || shortcutsOpen);
-  const refreshGuards = useRef({ overlay: hasBlockingOverlay, saving: persistence.status === 'saving' });
-  const refreshPending = useRef(false);
-  const refreshInFlight = useRef(false);
-  const mounted = useRef(true);
+  const [status, setStatus] = useState("");
+  const hasBlockingOverlay = Boolean(addRequest || editPending || pendingDrop || deletePending || restorePending || relationshipCalculatorOpen || shortcutsOpen);
   const selectedMember =
     members.find((member) => member.id === selectedId) ?? null;
   const activeBranchFocusId = branchFocusId && members.some((member) => member.id === branchFocusId) ? branchFocusId : null;
@@ -133,53 +120,10 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   );
 
   useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    refreshGuards.current = { overlay: hasBlockingOverlay, saving: persistence.status === 'saving' };
-  }, [hasBlockingOverlay, persistence.status]);
-
-  const refreshTree = useCallback(async () => {
-    if (document.visibilityState === 'hidden') return;
-    if (refreshGuards.current.overlay || refreshGuards.current.saving) {
-      refreshPending.current = true;
-      return;
-    }
-    if (refreshInFlight.current) return;
-    refreshInFlight.current = true;
-    try {
-      const refreshed = await onRefreshTree();
-      if (!mounted.current) return;
-      if (refreshGuards.current.overlay || refreshGuards.current.saving) {
-        refreshPending.current = true;
-        return;
-      }
-      adoptSnapshot(refreshed.members);
-      replaceMembers(refreshed.members);
-      setCurrentRole(refreshed.role);
-      refreshPending.current = false;
-    } catch {
-      if (mounted.current) setStatus(t('Could not refresh the family tree.'));
-    } finally {
-      refreshInFlight.current = false;
-    }
-  }, [adoptSnapshot, onRefreshTree, replaceMembers, t]);
-
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') void refreshTree(); };
-    const timer = window.setInterval(() => void refreshTree(), 60_000);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [refreshTree]);
-
-  useEffect(() => {
-    if (refreshPending.current && !hasBlockingOverlay && persistence.status !== 'saving') void refreshTree();
-  }, [hasBlockingOverlay, persistence.status, refreshTree]);
+    void saveTreeSettings(treeId, { theme, nodeMode }).catch((error: unknown) => {
+      setStatus(t(error instanceof Error ? error.message : 'Could not save, try again'));
+    });
+  }, [treeId, theme, nodeMode, t]);
 
   useEffect(() => {
     if (initialFitDone.current || members.length === 0) return;
@@ -243,14 +187,14 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
         return;
       }
       if (hasBlockingOverlay) return;
-      if (canEdit && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
         else undo();
-      } else if (canEdit && (
+      } else if (
         (event.ctrlKey || event.metaKey) &&
         event.key.toLowerCase() === "y"
-      )) {
+      ) {
         event.preventDefault();
         redo();
       }
@@ -263,7 +207,6 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
     editPending,
     pendingDrop,
     redo,
-    canEdit,
     restorePending,
     selectedId,
     shortcutsOpen,
@@ -338,7 +281,6 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
     kind: RelationshipKind = "child",
     source: "toolbar" | "relative" = "relative",
   ) {
-    if (!canEdit) return;
     if (source === "toolbar") {
       const remembered = addMemory.current;
       setAddRequest({
@@ -447,20 +389,20 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
     }
   }
   function confirmRelationship(kind: RelationshipKind) {
-    if (!canEdit || !pendingDrop) return;
+    if (!pendingDrop) return;
     tree.updateRelationship(pendingDrop.source.id, pendingDrop.target.id, kind);
     setSelectedId(pendingDrop.source.id);
     setStatus("Family relationship updated.");
     setPendingDrop(null);
   }
   function confirmDelete() {
-    if (!canEdit || !deletePending) return;
+    if (!deletePending) return;
     tree.deleteMember(deletePending.id);
     setSelectedId(null);
     setDeletePending(null);
   }
   function confirmRestore() {
-    if (!canEdit || !restorePending) return;
+    if (!restorePending) return;
     tree.restore(restorePending.members);
     setCollapsedIds(new Set());
     setSelectedId(null);
@@ -479,12 +421,11 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
       <TreeSidebar
         theme={theme}
         onSetTheme={setTheme}
-        userEmail={userEmail}
-        onSignOut={onSignOut}
         treeName={treeName}
         treeId={treeId}
         trees={trees}
         onSwitchTree={onSwitchTree}
+        onManageTrees={onManageTrees}
       />
       <section className="tree-main">
         <TreeToolbar
@@ -519,9 +460,6 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
           onSetMode={(mode) => setNodeMode(mode)}
           onExport={downloadTree}
           onImport={(file) => void restoreTree(file)}
-          canEdit={canEdit}
-          canShare={canShare}
-          onShare={() => setShareOpen(true)}
           onOpenRelationshipCalculator={() => setRelationshipCalculatorOpen(true)}
           onOpenShortcuts={() => { setImmersive(false); setShortcutsOpen(true); }}
           onCanvasInteraction={showApplicationChrome}
@@ -531,10 +469,10 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
             <div>
               <div className="canvas-title-row">
                 <h2>{t("Family tree")}</h2>
-                {currentRole === 'viewer' && <span className="view-only-badge">{t('View only')}</span>}
                 <span className={`tree-save-status tree-save-status-${persistence.status}`} role="status" aria-live="polite">
                   {persistence.status === 'error' ? t(persistence.error) : t(persistence.status === 'saving' ? 'Saving…' : 'Saved')}
                 </span>
+                {persistence.status === 'error' && <button type="button" className="save-retry-button" onClick={persistence.retry}>{t('Try again')}</button>}
               </div>
               <span className="generation-badge quick-stats-pill" aria-label={t("Family tree statistics")}>
                 <span><bdi>{members.length}</bdi> {t(`stats people ${members.length === 1 ? "one" : "other"}`)}</span>
@@ -557,7 +495,6 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
               mode={nodeMode}
               compactCards={theme === 'midnight'}
               layoutRevision={layoutRevision}
-              readOnly={!canEdit}
               navigationTarget={navigationTarget}
               onSelect={(member) => {
                 recordCanvasActivity();
@@ -572,14 +509,13 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
                 setPendingDrop({ source, target })
               }
               onEmptyAdd={() => openAdd("", "child", "toolbar")}
-              onEditPerson={(member) => { if (canEdit) { setSelectedId(member.id); setEditPending(member) } }}
-              onDeletePerson={(member) => { if (canEdit) { setSelectedId(member.id); setDeletePending(member) } }}
+              onEditPerson={(member) => { setSelectedId(member.id); setEditPending(member) }}
+              onDeletePerson={(member) => { setSelectedId(member.id); setDeletePending(member) }}
               onFocusMember={findMember}
               branchFocusId={activeBranchFocusId}
               onResetBranchFocus={() => setBranchFocusId(null)}
               onCanvasActivity={recordCanvasActivity}
               onLinkRelative={(memberId, relativeId, kind) => {
-                if (!canEdit) return;
                 tree.updateRelationship(memberId, relativeId, kind);
                 setStatus("Family relationship updated.");
               }}
@@ -610,15 +546,13 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
               onClose={() => setSelectedId(null)}
               onAddRelative={openAdd}
               onLinkRelative={(memberId, relativeId, kind) => {
-                if (!canEdit) return;
                 tree.updateRelationship(memberId, relativeId, kind);
                 setStatus("Family relationship updated.");
               }}
               onSelectRelative={findMember}
               onUpdateProfile={tree.updateProfile}
-              onEdit={() => { if (canEdit) setEditPending(selectedMember) }}
-              onDelete={() => { if (canEdit) setDeletePending(selectedMember) }}
-              readOnly={!canEdit}
+              onEdit={() => setEditPending(selectedMember)}
+              onDelete={() => setDeletePending(selectedMember)}
             />
           )}
         </div>
@@ -728,9 +662,8 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
         />
       )}
       {relationshipCalculatorOpen && <RelationshipCalculatorDialog members={members} onClose={() => setRelationshipCalculatorOpen(false)} onShowInTree={showRelationshipPath} />}
-      {shortcutsOpen && <KeyboardShortcutsDialog canEdit={canEdit} onClose={() => setShortcutsOpen(false)} />}
+      {shortcutsOpen && <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       <FamilyQuickLinks />
-      {shareOpen && canShare && <ShareTreeDialog treeId={treeId} currentUserId={userId} onClose={() => setShareOpen(false)} />}
     </main>
   );
 }

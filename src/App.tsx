@@ -1,9 +1,9 @@
-import { AuthGate } from './components/auth/AuthGate'
+import { LocalTreeGate } from './components/local/LocalTreeGate'
 import { LanguageProvider } from './i18n/LanguageProvider'
 import './App.css'
 
 function App() {
-  return <LanguageProvider><AuthGate /></LanguageProvider>
+  return <LanguageProvider><LocalTreeGate /></LanguageProvider>
 }
 
 export default App
