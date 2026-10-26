@@ -10,6 +10,131 @@ import { TreeMiniMap } from './TreeMiniMap'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getTreeContentBounds } from '../../lib/canvas-fit'
 import { getRelationshipTooltipPosition } from '../../lib/relationship-tooltip-position'
+import { interpolateSvgPath } from '../../lib/tree-motion'
+
+type NodeMotionSnapshot = { x: number; y: number; width: number; height: number }
+type ShapeMotionSnapshot = { tagName: string; attributes: Record<string, string>; clone?: SVGElement }
+type LayoutMotionSnapshot = { nodes: Map<string, NodeMotionSnapshot>; shapes: Map<string, ShapeMotionSnapshot>; removedNode?: HTMLElement; mode: TreeNodeMode; origin: { left: number; top: number; viewLeft: number; viewTop: number } }
+
+const layoutMotionDuration = 320
+
+function getTransformMatrix(element: HTMLElement) {
+  const transform = window.getComputedStyle(element).transform
+  return transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(transform)
+}
+
+function readLayoutMotionSnapshot(world: HTMLDivElement, viewport: HTMLDivElement, selectedId: string | null, mode: TreeNodeMode) {
+  const nodes = new Map<string, NodeMotionSnapshot>()
+  const shapes = new Map<string, ShapeMotionSnapshot>()
+  const lineLayer = world.querySelector<SVGSVGElement>('.tree-lines:not(.tree-exit-lines)')
+  const viewBox = (lineLayer?.getAttribute('viewBox') ?? '0 0 0 0').split(/[ ,]+/).map(Number)
+  const origin = {
+    left: Number.parseFloat(world.style.left) || 0,
+    top: Number.parseFloat(world.style.top) || 0,
+    viewLeft: viewBox[0] || 0,
+    viewTop: viewBox[1] || 0,
+  }
+  let removedNode: HTMLElement | undefined
+
+  world.querySelectorAll<HTMLElement>('.tree-node-position[data-person-id]').forEach((wrapper) => {
+    const id = wrapper.dataset.personId
+    const card = wrapper.querySelector<HTMLElement>('.person-node')
+    if (!id || !card) return
+    const matrix = getTransformMatrix(wrapper)
+    const x = Number.parseFloat(wrapper.style.left) || 0
+    const y = Number.parseFloat(wrapper.style.top) || 0
+    nodes.set(id, {
+      x: x + origin.left + matrix.e,
+      y: y + origin.top + matrix.f,
+      width: card.offsetWidth * Math.abs(matrix.a),
+      height: card.offsetHeight * Math.abs(matrix.d),
+    })
+    if (selectedId === id) {
+      const clone = wrapper.cloneNode(true) as HTMLElement
+      const wrapperBounds = wrapper.getBoundingClientRect()
+      const viewportBounds = viewport.getBoundingClientRect()
+      const worldMatrix = getTransformMatrix(world)
+      clone.classList.add('tree-node-exit-clone')
+      clone.setAttribute('aria-hidden', 'true')
+      clone.style.animation = 'none'
+      clone.style.opacity = window.getComputedStyle(wrapper).opacity
+      clone.style.left = `${wrapperBounds.left - viewportBounds.left - viewport.clientLeft}px`
+      clone.style.top = `${wrapperBounds.top - viewportBounds.top - viewport.clientTop}px`
+      clone.style.transform = `scale(${Math.abs(worldMatrix.a * matrix.a)}, ${Math.abs(worldMatrix.d * matrix.d)})`
+      clone.style.transformOrigin = 'top left'
+      clone.querySelectorAll<HTMLElement>('button, [tabindex]').forEach((control) => control.setAttribute('tabindex', '-1'))
+      removedNode = clone
+    }
+  })
+
+  world.querySelectorAll<SVGElement>('.tree-lines:not(.tree-exit-lines) [data-layout-key]').forEach((element) => {
+    const key = element.dataset.layoutKey
+    if (!key) return
+    const attributes: Record<string, string> = {}
+    const names = element.tagName.toLowerCase() === 'path'
+      ? ['d', 'transform']
+      : element.tagName.toLowerCase() === 'rect'
+        ? ['x', 'y', 'width', 'height']
+        : ['transform']
+    names.forEach((name) => {
+      const value = element.getAttribute(name)
+      if (value !== null) attributes[name] = value
+    })
+    shapes.set(key, {
+      tagName: element.tagName.toLowerCase(),
+      attributes,
+      clone: element.cloneNode(true) as SVGElement,
+    })
+  })
+
+  return { nodes, shapes, removedNode, mode, origin }
+}
+
+function animateSvgOpacity(element: SVGElement, from: number, to: number, duration: number) {
+  const animation = element.animate([{ opacity: from }, { opacity: to }], {
+    duration,
+    easing: 'ease-out',
+    fill: 'forwards',
+  })
+  animation.onfinish = () => element.remove()
+}
+
+function animateExitNode(layer: HTMLDivElement, viewport: HTMLDivElement, clone: HTMLElement) {
+  clone.style.left = `${(Number.parseFloat(clone.style.left) || 0) + viewport.scrollLeft}px`
+  clone.style.top = `${(Number.parseFloat(clone.style.top) || 0) + viewport.scrollTop}px`
+  layer.replaceChildren(clone)
+  const scaleMatch = clone.style.transform.match(/^scale\(([-\d.]+),\s*([-\d.]+)\)$/)
+  const scaleX = Number(scaleMatch?.[1]) || 1
+  const scaleY = Number(scaleMatch?.[2]) || 1
+  const animation = clone.animate([
+    { opacity: Number(clone.style.opacity) || 1, transform: clone.style.transform },
+    { opacity: 0, transform: `scale(${scaleX * 0.94}, ${scaleY * 0.94})` },
+  ], { duration: 190, easing: 'ease-in', fill: 'forwards' })
+  animation.onfinish = () => clone.remove()
+  return animation
+}
+
+function appendExitShape(layer: SVGSVGElement | null, snapshot: ShapeMotionSnapshot | undefined, offsetX = 0, offsetY = 0) {
+  if (!layer || !snapshot?.clone) return
+  const clone = snapshot.clone
+  clone.setAttribute('aria-hidden', 'true')
+  clone.setAttribute('pointer-events', 'none')
+  if (clone.hasAttribute('tabindex')) clone.setAttribute('tabindex', '-1')
+  clone.querySelectorAll('[tabindex]').forEach((element) => element.setAttribute('tabindex', '-1'))
+  if (clone.tagName.toLowerCase() === 'g') {
+    const translation = parseTranslate(snapshot.attributes.transform)
+    if (translation) clone.setAttribute('transform', `translate(${translation.x + offsetX} ${translation.y + offsetY})`)
+  } else if (offsetX || offsetY) {
+    clone.setAttribute('transform', `translate(${offsetX} ${offsetY})`)
+  }
+  layer.appendChild(clone)
+  animateSvgOpacity(clone, Number(window.getComputedStyle(clone).opacity) || 1, 0, 190)
+}
+
+function parseTranslate(value: string | undefined) {
+  const match = value?.match(/^translate\(\s*(-?[\d.]+)(?:[ ,]+)(-?[\d.]+)\s*\)$/)
+  return match ? { x: Number(match[1]), y: Number(match[2]) } : null
+}
 
 function relationshipPairKey(firstId: string, secondId: string) {
   return [firstId, secondId].sort().join('|')
@@ -43,6 +168,13 @@ type FamilyTreeCanvasProps = {
 export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget, onCanvasActivity }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
+  const treeWorldRef = useRef<HTMLDivElement>(null)
+  const exitNodeLayerRef = useRef<HTMLDivElement>(null)
+  const exitLinesRef = useRef<SVGSVGElement>(null)
+  const exitCandidateIdRef = useRef<string | null>(selectedId)
+  const pendingMotionRef = useRef<LayoutMotionSnapshot | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const runningAnimationsRef = useRef<Animation[]>([])
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [pulseId, setPulseId] = useState<string | null>(null)
@@ -77,6 +209,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const activeLineIds = branchFocusedIds ?? relationshipFocusedIds ?? (activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null)
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
 
+  useLayoutEffect(() => {
+    if (selectedId) exitCandidateIdRef.current = selectedId
+  }, [selectedId])
+
   const layout = useMemo(() => computeTreeLayout(visibleMembers, mode, { compactCards }), [visibleMembers, mode, compactCards])
   const { positions, width, height, nodeWidth, nodeHeight } = layout
   const contentBounds = useMemo(() => getTreeContentBounds(layout), [layout])
@@ -99,6 +235,153 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     observer.observe(viewport)
     return () => observer.disconnect()
   }, [])
+
+  useLayoutEffect(() => {
+    const world = treeWorldRef.current
+    const viewport = viewportRef.current
+    if (!world) {
+      const pending = pendingMotionRef.current
+      pendingMotionRef.current = null
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      if (!reducedMotion && pending?.removedNode && exitNodeLayerRef.current && viewport) {
+        runningAnimationsRef.current.push(animateExitNode(exitNodeLayerRef.current, viewport, pending.removedNode))
+      }
+      return
+    }
+    const pending = pendingMotionRef.current
+    pendingMotionRef.current = null
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const wrapperById = new Map([...world.querySelectorAll<HTMLElement>('.tree-node-position[data-person-id]')].map((node) => [node.dataset.personId!, node]))
+    const shapeByKey = new Map([...world.querySelectorAll<SVGElement>('.tree-lines:not(.tree-exit-lines) [data-layout-key]')].map((shape) => [shape.dataset.layoutKey!, shape]))
+    const currentLineLayer = world.querySelector<SVGSVGElement>('.tree-lines:not(.tree-exit-lines)')
+    const currentViewBox = (currentLineLayer?.getAttribute('viewBox') ?? '0 0 0 0').split(/[ ,]+/).map(Number)
+    const frameOffsetX = pending ? pending.origin.left - (Number.parseFloat(world.style.left) || 0) + (currentViewBox[0] || 0) - pending.origin.viewLeft : 0
+    const frameOffsetY = pending ? pending.origin.top - (Number.parseFloat(world.style.top) || 0) + (currentViewBox[1] || 0) - pending.origin.viewTop : 0
+    const animations: Animation[] = []
+    const tasks: Array<(progress: number) => void> = []
+
+    const modeChanged = pending !== null && pending.mode !== mode
+
+    if (pending && !reducedMotion) {
+      pending.nodes.forEach((previous, id) => {
+        const wrapper = wrapperById.get(id)
+        if (!wrapper) return
+        const card = wrapper.querySelector<HTMLElement>('.person-node')
+        if (!card) return
+        const x = (Number.parseFloat(wrapper.style.left) || 0) + (Number.parseFloat(world.style.left) || 0)
+        const y = (Number.parseFloat(wrapper.style.top) || 0) + (Number.parseFloat(world.style.top) || 0)
+        const dx = previous.x - x
+        const dy = previous.y - y
+        const scaleX = previous.width > 0 && card.offsetWidth > 0 ? previous.width / card.offsetWidth : 1
+        const scaleY = previous.height > 0 && card.offsetHeight > 0 ? previous.height / card.offsetHeight : 1
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01) {
+          animations.push(wrapper.animate([
+            { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})` },
+            { transform: 'translate(0, 0) scale(1, 1)' },
+          ], { duration: layoutMotionDuration, easing: 'cubic-bezier(0.22, 0.72, 0.2, 1)' }))
+        }
+        if (modeChanged) {
+          const content = wrapper.querySelector<HTMLElement>('.member-main')
+          if (content) animations.push(content.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 210, easing: 'ease-out' }))
+        }
+      })
+
+      const appendFadeOut = (snapshot: ShapeMotionSnapshot | undefined) => appendExitShape(exitLinesRef.current, snapshot, frameOffsetX, frameOffsetY)
+      shapeByKey.forEach((shape, key) => {
+        const previous = pending.shapes.get(key)
+        if (!previous) {
+          animations.push(shape.animate([{ opacity: 0 }, { opacity: Number(window.getComputedStyle(shape).opacity) || 1 }], { duration: 190, easing: 'ease-out' }))
+          return
+        }
+
+        if (previous.tagName !== shape.tagName.toLowerCase()) {
+          appendFadeOut(previous)
+          animations.push(shape.animate([{ opacity: 0 }, { opacity: Number(window.getComputedStyle(shape).opacity) || 1 }], { duration: 190, easing: 'ease-out' }))
+          return
+        }
+
+        if (shape.tagName.toLowerCase() === 'path') {
+          const from = previous.attributes.d
+          const to = shape.getAttribute('d')
+          if (from === to && !frameOffsetX && !frameOffsetY) return
+          const startPath = from && to ? interpolateSvgPath(from, to, 0) : null
+          if (from && to && startPath !== null) {
+            shape.setAttribute('d', from)
+            if (frameOffsetX || frameOffsetY) shape.setAttribute('transform', `translate(${frameOffsetX} ${frameOffsetY})`)
+            tasks.push((progress) => {
+              if (from !== to) shape.setAttribute('d', interpolateSvgPath(from, to, progress) ?? to)
+              if (frameOffsetX || frameOffsetY) {
+                if (progress >= 1) shape.removeAttribute('transform')
+                else shape.setAttribute('transform', `translate(${frameOffsetX * (1 - progress)} ${frameOffsetY * (1 - progress)})`)
+              }
+            })
+          } else if (from !== to) {
+            appendFadeOut(previous)
+            animations.push(shape.animate([{ opacity: 0 }, { opacity: Number(window.getComputedStyle(shape).opacity) || 1 }], { duration: 190, easing: 'ease-out' }))
+          }
+          return
+        }
+
+        if (shape.tagName.toLowerCase() === 'rect') {
+          const names = ['x', 'y', 'width', 'height']
+          const values = names.map((name) => ({ name, from: Number(previous.attributes[name]), to: Number(shape.getAttribute(name)) }))
+          if ((values.some((value) => value.from !== value.to) || frameOffsetX || frameOffsetY) && values.every((value) => Number.isFinite(value.from) && Number.isFinite(value.to))) {
+            values.forEach(({ name, from }) => shape.setAttribute(name, String(from)))
+            if (frameOffsetX || frameOffsetY) shape.setAttribute('transform', `translate(${frameOffsetX} ${frameOffsetY})`)
+            tasks.push((progress) => {
+              values.forEach(({ name, from, to }) => shape.setAttribute(name, String(from + (to - from) * progress)))
+              if (frameOffsetX || frameOffsetY) {
+                if (progress >= 1) shape.removeAttribute('transform')
+                else shape.setAttribute('transform', `translate(${frameOffsetX * (1 - progress)} ${frameOffsetY * (1 - progress)})`)
+              }
+            })
+          }
+          return
+        }
+
+        const from = parseTranslate(previous.attributes.transform)
+        const to = parseTranslate(shape.getAttribute('transform') ?? undefined)
+        if (from && to && (from.x !== to.x || from.y !== to.y || frameOffsetX || frameOffsetY)) {
+          shape.setAttribute('transform', `translate(${from.x + frameOffsetX} ${from.y + frameOffsetY})`)
+          tasks.push((progress) => shape.setAttribute('transform', `translate(${from.x + frameOffsetX * (1 - progress) + (to.x - from.x) * progress} ${from.y + frameOffsetY * (1 - progress) + (to.y - from.y) * progress})`))
+        }
+      })
+
+      pending.shapes.forEach((snapshot, key) => {
+        if (!shapeByKey.has(key)) appendFadeOut(snapshot)
+      })
+
+      const removedNodeId = pending.removedNode?.dataset.personId
+      if (pending.removedNode && removedNodeId && !wrapperById.has(removedNodeId) && exitNodeLayerRef.current && viewport) {
+        animations.push(animateExitNode(exitNodeLayerRef.current, viewport, pending.removedNode))
+      }
+    }
+
+    if (animationFrameRef.current !== null) window.cancelAnimationFrame(animationFrameRef.current)
+    if (tasks.length && !reducedMotion) {
+      const startedAt = performance.now()
+      const animateFrame = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / layoutMotionDuration)
+        const eased = 1 - Math.pow(1 - progress, 3)
+        tasks.forEach((task) => task(eased))
+        if (progress < 1) animationFrameRef.current = window.requestAnimationFrame(animateFrame)
+        else animationFrameRef.current = null
+      }
+      animationFrameRef.current = window.requestAnimationFrame(animateFrame)
+    }
+    runningAnimationsRef.current.push(...animations)
+    return () => {
+      if (world && viewport && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        pendingMotionRef.current = readLayoutMotionSnapshot(world, viewport, exitCandidateIdRef.current, mode)
+      }
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      runningAnimationsRef.current.forEach((animation) => animation.cancel())
+      runningAnimationsRef.current = []
+    }
+  }, [positions, nodeWidth, nodeHeight, members, mode])
 
   const refreshRelationshipTooltipPosition = useCallback(() => {
     const anchor = relationshipTooltipAnchor.current
@@ -278,7 +561,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     {branchFocusId && <button type="button" className="tree-branch-focus-reset" onClick={onResetBranchFocus}><GitBranch size={16} />{t('Reset View')}</button>}
     <div className="tree-viewport" ref={viewportRef} onScroll={(event) => setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })} onWheel={handleCanvasWheel} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
       {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p><button onClick={onEmptyAdd}><Plus size={17} /> {t('Add your first family member')}</button></div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
-        <div className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+        <div ref={treeWorldRef} className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
           <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}${branchFocusedIds ? ' is-branch-focus' : ''}`} width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`}>
             {(() => {
               const links: ReactNode[] = []
@@ -321,11 +604,11 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
                 getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset).forEach((path, index) => {
                   const pathChild = index >= 2 ? children[index - 2] : undefined
                   const pathSegmentActive = groupActive && (!relationshipFocusedIds || index < 2 || Boolean(pathChild && relationshipFocusedIds.has(pathChild.id)))
-                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${pathSegmentActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} d={path} />)
+                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${pathSegmentActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} data-layout-key={`${groupKey}-parent-child-${index}`} d={path} />)
                 })
                 if (adopted) {
                   const junction = getParentChildBranchJunction(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset)
-                  if (junction) links.push(<g className={`adoption-anchor${groupActive ? ' is-active-line' : ''}`} key={`${groupKey}-adoption-anchor`} transform={`translate(${junction.x} ${junction.y})`} role="img" aria-label={t('Adopted child')} tabIndex={0} {...relationshipTooltipEvents(t('Adopted child'))}>
+                  if (junction) links.push(<g className={`adoption-anchor${groupActive ? ' is-active-line' : ''}`} key={`${groupKey}-adoption-anchor`} data-layout-key={`${groupKey}-adoption-anchor`} transform={`translate(${junction.x} ${junction.y})`} role="img" aria-label={t('Adopted child')} tabIndex={0} {...relationshipTooltipEvents(t('Adopted child'))}>
                     <circle className="adoption-badge-backdrop" r="10" />
                     <path className="adoption-shield" d="M0 -7L6 -4.5V0C6 3.5 3 6.2 0 8C-3 6.2-6 3.5-6 0V-4.5L0-7Z" />
                     <path className="adoption-heart" d="M0 3.4L-2.5 1.2C-4-.2-2.9-2.3-1.4-2.3C-.7-2.3-.2-1.9 0-1.4C.3-1.9.8-2.3 1.5-2.3C3-2.3 4.1-.2 2.5 1.2L0 3.4Z" />
@@ -360,14 +643,14 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
                   const [left, right] = first.x < second.x ? [first, second] : [second, first]
                   const leftCenter = left.x + nodeWidth / 2
                   const rightCenter = right.x + nodeWidth / 2
-                  links.push(<rect className={`spouse-circle-rail${divorced ? ' is-divorced' : ''}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-rail-${pairKey}`} x={leftCenter - CIRCULAR_AVATAR_RADIUS - 4} y={connector.anchorY - CIRCULAR_AVATAR_RADIUS - 4} width={rightCenter - leftCenter + (CIRCULAR_AVATAR_RADIUS + 4) * 2} height={(CIRCULAR_AVATAR_RADIUS + 4) * 2} rx={CIRCULAR_AVATAR_RADIUS + 4} />)
+                  links.push(<rect className={`spouse-circle-rail${divorced ? ' is-divorced' : ''}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-rail-${pairKey}`} data-layout-key={`spouse-rail-${pairKey}`} x={leftCenter - CIRCULAR_AVATAR_RADIUS - 4} y={connector.anchorY - CIRCULAR_AVATAR_RADIUS - 4} width={rightCenter - leftCenter + (CIRCULAR_AVATAR_RADIUS + 4) * 2} height={(CIRCULAR_AVATAR_RADIUS + 4) * 2} rx={CIRCULAR_AVATAR_RADIUS + 4} />)
                 }
-                links.push(<path className={`relationship-line ${divorced ? 'former-spouse-line' : 'spouse-line'}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-${pairKey}`} d={connector.path} />)
-                if (divorced) links.push(<g className={`divorce-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`divorce-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Divorced or separated')} tabIndex={0} {...relationshipTooltipEvents(t('Divorced or separated'))}>
+                links.push(<path className={`relationship-line ${divorced ? 'former-spouse-line' : 'spouse-line'}${active ? ' is-active-line' : ''}${selectedClass}`} key={`spouse-${pairKey}`} data-layout-key={`spouse-${pairKey}`} d={connector.path} />)
+                if (divorced) links.push(<g className={`divorce-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`divorce-anchor-${pairKey}`} data-layout-key={`divorce-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Divorced or separated')} tabIndex={0} {...relationshipTooltipEvents(t('Divorced or separated'))}>
                   <circle className="divorce-badge-backdrop" r={MARRIAGE_ANCHOR_RADIUS} />
                   <text x="0" y="5" textAnchor="middle" aria-hidden="true">💔</text>
                 </g>)
-                else links.push(<g className={`marriage-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`marriage-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Married')} tabIndex={0} {...relationshipTooltipEvents(t('Married'))}>
+                else links.push(<g className={`marriage-anchor${active ? ' is-active-line' : ''}${selectedClass}`} key={`marriage-anchor-${pairKey}`} data-layout-key={`marriage-anchor-${pairKey}`} transform={`translate(${connector.anchorX} ${connector.anchorY})`} role="img" aria-label={t('Married')} tabIndex={0} {...relationshipTooltipEvents(t('Married'))}>
                   <circle className="marriage-anchor-backdrop" r={MARRIAGE_ANCHOR_RADIUS} />
                   <circle className="marriage-ring" cx="-2" cy="0" r="3.3" />
                   <circle className="marriage-ring" cx="2" cy="0" r="3.3" />
@@ -376,16 +659,18 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
               return links
             })()}
           </svg>
+          <svg ref={exitLinesRef} className="tree-lines tree-exit-lines" width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`} aria-hidden="true" />
           {visibleMembers.map((member) => {
             const point = positions.get(member.id)
             if (!point) return null
             const coupleKey = member.parentIds.slice().sort().join('|')
             const localPoint = contentPositions.get(member.id)
             if (!localPoint) return null
-            return <div className="tree-node-position" key={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} nodeWidth={nodeWidth} nodeHeight={nodeHeight} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isBranchFocusDimmed={Boolean(branchFocusedIds && !branchFocusedIds.has(member.id))} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onOpenContextMenu={(person, x, y) => setContextMenu({ member: person, x, y })} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) }} /></div>
+            return <div className="tree-node-position" key={member.id} data-person-id={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} nodeWidth={nodeWidth} nodeHeight={nodeHeight} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isBranchFocusDimmed={Boolean(branchFocusedIds && !branchFocusedIds.has(member.id))} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={(person) => { exitCandidateIdRef.current = person.id; onSelect(person) }} onOpenContextMenu={(person, x, y) => { exitCandidateIdRef.current = person.id; setContextMenu({ member: person, x, y }) }} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) }} /></div>
           })}
         </div>
       </div>}
+      <div ref={exitNodeLayerRef} className="tree-node-exit-layer" aria-hidden="true" />
       {relationshipTooltip && <div ref={relationshipTooltipRef} className={`relationship-badge-tooltip is-${relationshipTooltip.placement}`} role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
       {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
     </div>

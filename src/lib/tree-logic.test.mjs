@@ -4,6 +4,7 @@ import { familyMembers } from '../data/family.ts'
 import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getBranchFocusIds, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
 import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
+import { interpolateSvgPath } from './tree-motion.ts'
 import { findPossibleDuplicates, searchFamilyMembers } from './family-search.ts'
 import { exportTree, parseTreeBackup } from './tree-backup.ts'
 import { getParentageKey, interpolateParentage, parentageArabic, parentageEnglish } from '../i18n/parentage.ts'
@@ -289,6 +290,13 @@ test('large trees and collapsed branches receive fresh non-overlapping positions
     row.sort((a, b) => a.x - b.x)
     for (let index = 1; index < row.length; index += 1) assert.ok(row[index].x >= row[index - 1].x + full.nodeWidth)
   }
+})
+
+test('tree connector paths interpolate smoothly when layout points move', () => {
+  assert.equal(interpolateSvgPath('M 0 0 H 10 V 20', 'M 10 20 H 30 V 50', 0.5), 'M 5 10 H 20 V 35')
+  assert.equal(interpolateSvgPath('M 0 0 H 10', 'M 10 20 V 30', 0.5), null)
+  assert.equal(interpolateSvgPath('M 0 0 H 10', 'M 10 20 H 30', 0), 'M 0 0 H 10')
+  assert.equal(interpolateSvgPath('M 0 0 H 10', 'M 10 20 H 30', 1), 'M 10 20 H 30')
 })
 
 test('backup export and restore round-trip selected family branches without dangling links', () => {
