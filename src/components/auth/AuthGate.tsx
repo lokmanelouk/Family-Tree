@@ -13,8 +13,27 @@ import { getLayoutDirection } from '../../config/layout'
 import { cloneMembersWithNewIds } from '../../lib/storage/tree-data'
 import { clearPendingInvite, rememberInviteFromUrl } from '../../lib/storage/invite-token'
 import type { FamilyMember } from '../../types/family'
+import { FAMILY_NETWORK_LOADER_CYCLE_MS, FamilyNetworkLoader } from './FamilyNetworkLoader'
 
 type Workspace = { tree: TreeRecord; members: FamilyMember[]; role: 'owner' | 'editor' | 'viewer'; notice?: string }
+type LoadingStage = 'account' | 'tree'
+
+const LOADING_SCREEN_SHOW_DELAY_MS = 180
+const LOADING_SCREEN_EXIT_MS = 260
+const WELCOME_PREVIEW_DURATION_MS = 5_000
+const WELCOME_INTRO_STORAGE_KEY = 'rootly-welcome-intro-shown'
+type WelcomeIntroMode = 'first-visit' | 'preview' | null
+
+function getWelcomeIntroMode(): WelcomeIntroMode {
+  if (typeof window === 'undefined') return null
+  try {
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('previewWelcome') === '1') return 'preview'
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null
+    return window.localStorage.getItem(WELCOME_INTRO_STORAGE_KEY) === 'true' ? null : 'first-visit'
+  } catch {
+    return null
+  }
+}
 
 export function AuthGate() {
   const { t } = useLanguage()
@@ -31,6 +50,66 @@ export function AuthGate() {
   const inviteToken = useRef(rememberInviteFromUrl())
   const authUserId = useRef<string | null>(null)
   const loadingTree = Boolean(session?.user.id && loadedUserId !== session.user.id)
+  const loadingStage: LoadingStage | null = !authReady ? 'account' : loadingTree ? 'tree' : null
+  const isLoading = Boolean(loadingStage)
+  const [welcomeIntroMode, setWelcomeIntroMode] = useState<WelcomeIntroMode>(getWelcomeIntroMode)
+  const [loadingScreenVisible, setLoadingScreenVisible] = useState(false)
+  const [keepLoadingScreenVisible, setKeepLoadingScreenVisible] = useState(false)
+  const [loadingScreenExiting, setLoadingScreenExiting] = useState(false)
+  const isLoadingScreenActive = welcomeIntroMode !== null || (isLoading && loadingScreenVisible)
+
+  useEffect(() => {
+    if (!welcomeIntroMode) return
+    if (welcomeIntroMode === 'first-visit') {
+      try {
+        window.localStorage.setItem(WELCOME_INTRO_STORAGE_KEY, 'true')
+      } catch {
+        const timer = window.setTimeout(() => setWelcomeIntroMode(null), 0)
+        return () => window.clearTimeout(timer)
+      }
+    }
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const duration = welcomeIntroMode === 'preview'
+      ? WELCOME_PREVIEW_DURATION_MS
+      : prefersReducedMotion ? 0 : FAMILY_NETWORK_LOADER_CYCLE_MS
+    const timer = window.setTimeout(() => setWelcomeIntroMode(null), duration)
+    return () => window.clearTimeout(timer)
+  }, [welcomeIntroMode])
+
+  useEffect(() => {
+    if (!isLoading) return
+    const timer = window.setTimeout(() => setLoadingScreenVisible(true), LOADING_SCREEN_SHOW_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [isLoading])
+
+  useEffect(() => {
+    if (isLoading || !loadingScreenVisible) return
+    const timer = window.setTimeout(() => setLoadingScreenVisible(false), 0)
+    return () => window.clearTimeout(timer)
+  }, [isLoading, loadingScreenVisible])
+
+  useEffect(() => {
+    if (isLoadingScreenActive) {
+      const frame = window.requestAnimationFrame(() => {
+        setKeepLoadingScreenVisible(true)
+        setLoadingScreenExiting(false)
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
+    if (!keepLoadingScreenVisible) return
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const frame = prefersReducedMotion ? null : window.requestAnimationFrame(() => setLoadingScreenExiting(true))
+    const timer = window.setTimeout(() => {
+      setKeepLoadingScreenVisible(false)
+      setLoadingScreenExiting(false)
+      setLoadingScreenVisible(false)
+    }, prefersReducedMotion ? 0 : LOADING_SCREEN_EXIT_MS)
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [isLoadingScreenActive, keepLoadingScreenVisible])
+
   const refreshCurrentTree = useCallback(async () => {
     const treeId = workspace?.tree.id
     if (!treeId) throw new Error('No active family tree.')
@@ -129,11 +208,14 @@ export function AuthGate() {
     return () => { active = false }
   }, [session?.user.id, t, reloadTrees])
 
-  if (!authReady) return <LoadingScreen />
+  if (isLoadingScreenActive || keepLoadingScreenVisible) return <LoadingScreen
+    isVisible={keepLoadingScreenVisible}
+    isExiting={loadingScreenExiting}
+  />
   if (!isSupabaseConfigured) return <SetupNotice />
+  if (!authReady || loadingTree) return <main className="auth-screen auth-loading-screen auth-loading-placeholder" aria-busy="true" />
   if (!session) return <LoginScreen onSession={setSession} />
   if (inviteError) return <InviteErrorScreen message={inviteError} onContinue={() => { inviteToken.current = null; setInviteError(''); setLoadedUserId(null); setReloadTrees((key) => key + 1) }} onSignOut={() => void signOut()} />
-  if (loadingTree) return <LoadingScreen />
   if (treeLoadError) return <main className="auth-screen"><AuthLanguageToggle /><div className="auth-card"><h1>{t('Could not load your family tree.')}</h1><button className="primary-button" onClick={() => window.location.reload()}>{t('Try again')}</button></div></main>
   if (setupTree) return <TreeStarter tree={setupTree} onStart={(members) => { setWorkspace({ tree: setupTree, members, role: 'owner' }); setSetupTree(null) }} onCancel={() => { setSetupTree(null); void signOut() }} />
   if (!workspace) return <CreateTree error={treeError} onCreate={async (name) => {
@@ -156,9 +238,12 @@ function InviteErrorScreen({ message, onContinue, onSignOut }: { message: string
   return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><AuthLanguageToggle /><section className="auth-card"><span className="auth-brand-mark">k</span><h1>{t('Could not join this family tree')}</h1><p className="auth-error" role="alert">{message}</p><button type="button" className="primary-button auth-submit" onClick={onContinue}>{t('Continue to my trees')}</button><button type="button" className="auth-mode-toggle" onClick={onSignOut}>{t('Sign out')}</button></section></main>
 }
 
-function LoadingScreen() {
-  const { t } = useLanguage()
-  return <main className="auth-screen"><AuthLanguageToggle /><div className="auth-card"><span className="auth-brand-mark">k</span><p>{t('Loading your account…')}</p></div></main>
+function LoadingScreen({ isVisible, isExiting }: { isVisible: boolean; isExiting: boolean }) {
+  const { t, language } = useLanguage()
+  const label = t('Loading')
+  return <main className={`auth-screen auth-loading-screen${isVisible ? ' is-visible' : ''}${isExiting ? ' is-exiting' : ''}`} lang={language} dir={getLayoutDirection(language)}>
+    <FamilyNetworkLoader label={label} />
+  </main>
 }
 
 function SetupNotice() {

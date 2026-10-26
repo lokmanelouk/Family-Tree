@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -26,6 +26,7 @@ import { searchFamilyMembers } from '../../lib/family-search'
 import { getFullName } from '../../lib/member-name'
 import { PersonName } from './PersonName'
 import { PersonListMetadata } from './PersonListMetadata'
+import { FamilyAvatar } from './FamilyAvatar'
 import { useLanguage } from '../../i18n/useLanguage'
 import { RelationshipGuideDialog } from '../dialogs/RelationshipGuideDialog'
 
@@ -60,12 +61,47 @@ type TreeToolbarProps = {
 export function TreeToolbar(props: TreeToolbarProps) {
   const { t } = useLanguage()
   const [query, setQuery] = useState('')
+  const [activeResultIndex, setActiveResultIndex] = useState(0)
+  const [resultPlacement, setResultPlacement] = useState<{ side: 'above' | 'below'; maxHeight: number } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+  const searchResultsRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
+  const guideButtonRef = useRef<HTMLButtonElement>(null)
+  const guidePopoverRef = useRef<HTMLElement>(null)
   const results = searchFamilyMembers(props.members, query).slice(0, 8)
+  const activeResult = results.length ? Math.min(activeResultIndex, results.length - 1) : -1
+
+  useLayoutEffect(() => {
+    if (!query) return
+    const container = searchContainerRef.current
+    const list = searchResultsRef.current
+    if (!container || !list) return
+
+    const updatePosition = () => {
+      const bounds = container.getBoundingClientRect()
+      const desiredHeight = Math.min(list.scrollHeight, 360)
+      const spaceBelow = Math.max(0, window.innerHeight - bounds.bottom - 10)
+      const spaceAbove = Math.max(0, bounds.top - 10)
+      const side = desiredHeight > spaceBelow && spaceAbove > spaceBelow ? 'above' : 'below'
+      const availableHeight = side === 'above' ? spaceAbove : spaceBelow
+      const maxHeight = Math.min(360, availableHeight)
+      setResultPlacement((current) => current?.side === side && current.maxHeight === maxHeight
+        ? current
+        : { side, maxHeight })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [query, results.length])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -81,7 +117,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
     }
     const onPointerDown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false)
-      if (!guideRef.current?.contains(event.target as Node)) setGuideOpen(false)
+      if (!guideRef.current?.contains(event.target as Node) && !guidePopoverRef.current?.contains(event.target as Node)) setGuideOpen(false)
     }
 
     window.addEventListener('keydown', onKey)
@@ -95,22 +131,39 @@ export function TreeToolbar(props: TreeToolbarProps) {
   function choose(member: FamilyMember) {
     props.onSearch(member)
     setQuery('')
+    setActiveResultIndex(0)
   }
 
   return (
     <div className="tree-toolbar" role="toolbar">
       <div className="toolbar-primary-group">
-        <div className="toolbar-search">
+        <div className="toolbar-search" ref={searchContainerRef}>
           <Search size={19} />
           <input
             ref={searchRef}
             dir="auto"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-expanded={Boolean(query)}
+            aria-controls="family-member-search-results"
+            aria-activedescendant={activeResult >= 0 ? `family-member-search-result-${activeResult}` : undefined}
             aria-label={t('Search family members')}
             placeholder={t('Find a person (Ctrl+K)')}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setActiveResultIndex(0) }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && results[0]) choose(results[0])
+              if (!results.length) return
+              if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                setActiveResultIndex((index) => (index + 1) % results.length)
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                setActiveResultIndex((index) => (index - 1 + results.length) % results.length)
+              } else if (event.key === 'Enter') {
+                event.preventDefault()
+                choose(results[activeResult] ?? results[0])
+              }
             }}
           />
           {query && (
@@ -124,16 +177,38 @@ export function TreeToolbar(props: TreeToolbarProps) {
             </button>
           )}
           {query && (
-            <div className="search-results" role="listbox">
+            <div
+              ref={searchResultsRef}
+              id="family-member-search-results"
+              className={`search-results${resultPlacement?.side === 'above' ? ' is-above' : ''}`}
+              role="listbox"
+              aria-label={t('Search family members')}
+              style={resultPlacement ? { maxHeight: `${resultPlacement.maxHeight}px` } : undefined}
+            >
               {results.length ? (
-                results.map((person) => (
-                  <button key={person.id} role="option" onClick={() => choose(person)}>
-                    <span><PersonName name={getFullName(person)} /></span>
-                    <PersonListMetadata member={person} />
+                results.map((person, index) => (
+                  <button
+                    key={person.id}
+                    id={`family-member-search-result-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={index === activeResult}
+                    onFocus={() => setActiveResultIndex(index)}
+                    onMouseMove={() => setActiveResultIndex(index)}
+                    onClick={() => choose(person)}
+                  >
+                    <span className="search-result-avatar"><FamilyAvatar member={person} compact decorative /></span>
+                    <span className="search-result-copy">
+                      <span className="search-result-name"><PersonName name={getFullName(person)} /></span>
+                      <PersonListMetadata member={person} />
+                    </span>
                   </button>
                 ))
               ) : (
-                <div className="no-results">{t('No family members found')}</div>
+                <div className="no-results search-no-results" role="status" aria-live="polite">
+                  <Search size={16} aria-hidden="true" />
+                  <span>{t('No family members found')}</span>
+                </div>
               )}
             </div>
           )}
@@ -201,6 +276,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
         {props.canEdit && <div className="toolbar-divider settings-divider" />}
         <div className="relationship-guide-popover-wrap" ref={guideRef}>
           <button
+            ref={guideButtonRef}
             className={`toolbar-guide-button ${guideOpen ? 'active' : ''}`}
             type="button"
             title={t('Relationship guide')}
@@ -211,7 +287,7 @@ export function TreeToolbar(props: TreeToolbarProps) {
           >
             <HelpCircle size={19} />
           </button>
-          {guideOpen && <RelationshipGuideDialog onClose={() => setGuideOpen(false)} />}
+          {guideOpen && <RelationshipGuideDialog anchorRef={guideButtonRef} popoverRef={guidePopoverRef} onClose={() => setGuideOpen(false)} />}
         </div>
         <div className="toolbar-menu-wrap settings-wrap" ref={menuRef}>
           <button

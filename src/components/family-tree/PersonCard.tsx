@@ -11,9 +11,12 @@ type PersonCardProps = {
   member: FamilyMember
   readOnly: boolean
   mode: TreeNodeMode
+  nodeWidth: number
+  nodeHeight: number
   branchColor: string | null
   isSelected: boolean
   isFocused: boolean
+  isBranchFocusDimmed: boolean
   isSpotlighted: boolean
   isPulsing: boolean
   isDropTarget: boolean
@@ -26,7 +29,7 @@ type PersonCardProps = {
   onDragOver: (event: DragEvent<HTMLElement>) => void
 }
 
-export function PersonCard({ member, mode, readOnly, branchColor, isSelected, isFocused, isSpotlighted, isPulsing, isDropTarget, onHoverChange, onSelect, onOpenContextMenu, onDragStart, onDragEnd, onDrop, onDragOver }: PersonCardProps) {
+export function PersonCard({ member, mode, nodeWidth, nodeHeight, readOnly, branchColor, isSelected, isFocused, isBranchFocusDimmed, isSpotlighted, isPulsing, isDropTarget, onHoverChange, onSelect, onOpenContextMenu, onDragStart, onDragEnd, onDrop, onDragOver }: PersonCardProps) {
   const { t, language } = useLanguage()
   const longPressTimer = useRef<number | null>(null)
   const deceased = isMemberDeceased(member)
@@ -41,8 +44,13 @@ export function PersonCard({ member, mode, readOnly, branchColor, isSelected, is
   const deceasedTooltip = deathYear ? t('Died {year}', { year: deathYear }) : ''
   const bornLabel = birthYear ? t('Born {year}', { year: birthYear }) : ''
   const cardSubtitle = deceased ? lifeSpan || bornLabel || t('Deceased') : ageValue
+  const cardStyle = {
+    '--layout-node-width': `${nodeWidth}px`,
+    '--layout-node-height': `${nodeHeight}px`,
+    ...(branchColor !== null ? { '--branch-color': branchColor } : {}),
+  } as CSSProperties
   return (
-    <article className={`person-node ${deceased ? 'is-deceased' : ''} ${mode === 'circle' ? 'circle-node' : ''} ${member.spouseIds.length || member.formerSpouseIds?.length ? 'has-spouse' : ''} ${branchColor !== null ? 'branch-colored' : ''} ${isSelected ? 'is-selected' : ''} ${isFocused ? '' : 'is-dimmed'} ${isSpotlighted ? 'is-spotlighted' : ''} ${isPulsing ? 'is-search-pulse' : ''} ${isDropTarget ? 'drop-target' : ''}`} style={branchColor !== null ? { '--branch-color': branchColor } as CSSProperties : undefined} data-member-id={member.id} onPointerEnter={() => onHoverChange(member.id)} onPointerLeave={() => { onHoverChange(null); if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current) }} onPointerDown={(event: PointerEvent<HTMLElement>) => { if (readOnly || event.pointerType !== 'touch') return; longPressTimer.current = window.setTimeout(() => onOpenContextMenu(member, event.clientX, event.clientY), 550) }} onPointerUp={() => { if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current) }} onContextMenu={(event) => { event.preventDefault(); if (!readOnly) onOpenContextMenu(member, event.clientX, event.clientY) }} onKeyDown={(event) => { if (!readOnly && event.shiftKey && event.key === 'F10') { event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); onOpenContextMenu(member, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2) } }} onDragOver={readOnly ? undefined : onDragOver} onDrop={readOnly ? undefined : (event) => onDrop(event, member)}>
+    <article className={`person-node ${deceased ? 'is-deceased' : ''} ${mode === 'circle' ? 'circle-node' : ''} ${member.spouseIds.length || member.formerSpouseIds?.length ? 'has-spouse' : ''} ${branchColor !== null ? 'branch-colored' : ''} ${isSelected ? 'is-selected' : ''} ${isFocused ? '' : 'is-dimmed'} ${isBranchFocusDimmed ? 'is-branch-focus-dimmed' : ''} ${isSpotlighted ? 'is-spotlighted' : ''} ${isPulsing ? 'is-search-pulse' : ''} ${isDropTarget ? 'drop-target' : ''}`} style={cardStyle} data-member-id={member.id} onPointerEnter={() => onHoverChange(member.id)} onPointerLeave={() => { onHoverChange(null); if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current) }} onPointerDown={(event: PointerEvent<HTMLElement>) => { if (readOnly || event.pointerType !== 'touch') return; longPressTimer.current = window.setTimeout(() => onOpenContextMenu(member, event.clientX, event.clientY), 550) }} onPointerUp={() => { if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current) }} onContextMenu={(event) => { event.preventDefault(); if (!readOnly) onOpenContextMenu(member, event.clientX, event.clientY) }} onKeyDown={(event) => { if (!readOnly && event.shiftKey && event.key === 'F10') { event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); onOpenContextMenu(member, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2) } }} onDragOver={readOnly ? undefined : onDragOver} onDrop={readOnly ? undefined : (event) => onDrop(event, member)}>
       <button className="member-main" dir="ltr" draggable={!readOnly} onDragStart={readOnly ? undefined : (event) => onDragStart(event, member)} onDragEnd={readOnly ? undefined : onDragEnd} onClick={() => onSelect(member)} onPointerEnter={() => onHoverChange(member.id)} aria-pressed={isSelected} aria-label={`${member.name}${cardSubtitle ? `, ${cardSubtitle}` : ''}${deceasedTooltip ? `, ${deceasedTooltip}` : deceased ? `, ${t('Deceased')}` : ''}`} title={deceasedTooltip || (deceased ? t('Deceased') : undefined)}>
         <span className="node-avatar"><FamilyAvatar member={member} compact /></span>
         <span className="node-copy"><strong><bdi dir="auto">{member.name}</bdi></strong>{deceased && member.deathDate && lifeSpan && <small className="node-age node-lifespan"><bdi dir="ltr">{lifeSpan}</bdi></small>}{deceased && !member.deathDate && <small className="node-age node-deceased-label">{bornLabel && <><bdi dir="auto">{t('Born')}</bdi> <bdi dir="ltr">{birthYear}</bdi></>}<span>{t('Deceased')}</span></small>}{age && <small className="node-age" dir="auto"><bdi>{age.count}</bdi>{ageAfter}</small>}{member.gender && <small className={`node-gender ${member.gender}`}>{t(member.gender === 'male' ? 'Male' : 'Female')}</small>}</span>

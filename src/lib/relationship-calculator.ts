@@ -4,6 +4,13 @@ export type RelationshipPathStep = { fromId: string; toId: string; kind: 'parent
 export type RelationshipResult = { titleKey: string; values?: Record<string, number>; pathIds: string[]; steps: RelationshipPathStep[] } | null
 type KinshipTitle = string | { titleKey: string; values?: Record<string, number> }
 
+export function getRelationshipPathStepLabelKey(kind: RelationshipPathStep['kind']) {
+  if (kind === 'parent') return 'Child of'
+  if (kind === 'child') return 'Parent of'
+  if (kind === 'spouse') return 'Spouse of'
+  return 'Sibling of'
+}
+
 function getGraph(members: FamilyMember[]) {
   const graph = new Map<string, RelationshipPathStep[]>()
   const add = (fromId: string, toId: string, kind: RelationshipPathStep['kind']) => {
@@ -82,7 +89,7 @@ function genderTitle(member: FamilyMember | undefined, maleKey: string, femaleKe
 }
 
 function getKinshipTitle(members: FamilyMember[], first: FamilyMember, second: FamilyMember): KinshipTitle {
-  if (first.spouseIds.includes(second.id) || first.formerSpouseIds?.includes(second.id)) return 'Spouse'
+  if (first.spouseIds.includes(second.id) || second.spouseIds.includes(first.id) || first.formerSpouseIds?.includes(second.id) || second.formerSpouseIds?.includes(first.id)) return 'Spouse'
   if (first.siblingIds.includes(second.id) || second.siblingIds.includes(first.id)) return 'Sibling'
   const firstAncestors = getAncestorDistances(members, first.id)
   const secondAncestors = getAncestorDistances(members, second.id)

@@ -223,7 +223,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   }
   function submit(event: FormEvent<HTMLFormElement>) { evaluateAndAdd(event) }
   const submitLabel = contextual ? ({ child: 'Add child', parent: 'Add parent', partner: 'Add partner', sibling: 'Add sibling' } as Record<string, string>)[kind] ?? 'Add person' : 'Add person'
-  return <div className="modal-shade" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
+  return <div className="modal-shade">
     <section className="member-dialog" role="dialog" aria-modal="true" aria-labelledby="add-member-title">
       <div className="dialog-header"><div><span>{t('FAMILY TREE')}</span><h2 id="add-member-title">{t('Add a family member')}</h2></div><button title={t('Close details')} aria-label={t('Close details')} onClick={requestClose}><X size={17} /></button></div>
       <form noValidate onSubmit={submit}>

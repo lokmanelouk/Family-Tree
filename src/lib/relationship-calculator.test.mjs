@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { calculateRelationship } from './relationship-calculator.ts'
+import { calculateRelationship, getRelationshipPathStepLabelKey } from './relationship-calculator.ts'
 
 function person(id, { gender, parentIds = [], spouseIds = [], siblingIds = [], formerSpouseIds = [] } = {}) {
   return { id, name: id, initials: id, relationship: '', gender, parentIds, spouseIds, siblingIds, formerSpouseIds, avatar: { skin: '', hair: '', shirt: '', hairstyle: 'side' } }
@@ -20,17 +20,33 @@ const family = [
 ]
 
 test('calculates direct parent, child, sibling and spouse relationships', () => {
-  assert.equal(calculateRelationship(family, 'parentA', 'childA')?.titleKey, 'Parent')
-  assert.equal(calculateRelationship(family, 'childA', 'parentA')?.titleKey, 'Child')
-  assert.equal(calculateRelationship(family, 'childA', 'childB')?.titleKey, 'Sibling')
-  assert.equal(calculateRelationship(family, 'parentA', 'parentB')?.titleKey, 'Spouse')
+  const parentToChild = calculateRelationship(family, 'parentA', 'childA')
+  const childToParent = calculateRelationship(family, 'childA', 'parentA')
+  const siblingForward = calculateRelationship(family, 'childA', 'childB')
+  const siblingReverse = calculateRelationship(family, 'childB', 'childA')
+  const spouseForward = calculateRelationship(family, 'parentA', 'parentB')
+  const spouseReverse = calculateRelationship(family, 'parentB', 'parentA')
+  assert.equal(parentToChild?.titleKey, 'Parent')
+  assert.equal(childToParent?.titleKey, 'Child')
+  assert.equal(getRelationshipPathStepLabelKey(parentToChild.steps[0].kind), 'Parent of')
+  assert.equal(getRelationshipPathStepLabelKey(childToParent.steps[0].kind), 'Child of')
+  assert.equal(siblingForward?.titleKey, 'Sibling')
+  assert.equal(siblingReverse?.titleKey, 'Sibling')
+  assert.equal(getRelationshipPathStepLabelKey(siblingForward.steps[0].kind), 'Sibling of')
+  assert.equal(getRelationshipPathStepLabelKey(siblingReverse.steps[0].kind), 'Sibling of')
+  assert.equal(spouseForward?.titleKey, 'Spouse')
+  assert.equal(spouseReverse?.titleKey, 'Spouse')
+  assert.equal(getRelationshipPathStepLabelKey(spouseForward.steps[0].kind), 'Spouse of')
+  assert.equal(getRelationshipPathStepLabelKey(spouseReverse.steps[0].kind), 'Spouse of')
 })
 
 test('calculates grandparent, aunt or uncle, niece or nephew and cousin relationships', () => {
   assert.equal(calculateRelationship(family, 'grandpa', 'childA')?.titleKey, 'Grandparent')
+  assert.equal(calculateRelationship(family, 'childA', 'grandpa')?.titleKey, 'Grandchild')
   assert.equal(calculateRelationship(family, 'parentA', 'cousin')?.titleKey, 'Uncle')
   assert.equal(calculateRelationship(family, 'cousin', 'parentA')?.titleKey, 'Niece')
   assert.equal(calculateRelationship(family, 'childA', 'cousin')?.titleKey, 'Cousin')
+  assert.equal(calculateRelationship(family, 'cousin', 'childA')?.titleKey, 'Cousin')
 })
 
 test('returns the shortest path and no result for identical or unconnected people', () => {
@@ -39,6 +55,12 @@ test('returns the shortest path and no result for identical or unconnected peopl
   assert.equal(result?.steps.length, 2)
   assert.equal(calculateRelationship(family, 'childA', 'childA'), null)
   assert.equal(calculateRelationship(family, 'childA', 'unrelated'), null)
+})
+
+test('labels a one-way spouse reference consistently from either person', () => {
+  const oneWayFamily = [...family, person('formerRecord', { gender: 'female', spouseIds: ['unrelated'] })]
+  assert.equal(calculateRelationship(oneWayFamily, 'formerRecord', 'unrelated')?.titleKey, 'Spouse')
+  assert.equal(calculateRelationship(oneWayFamily, 'unrelated', 'formerRecord')?.titleKey, 'Spouse')
 })
 
 test('uses neutral kinship title when gender is missing and handles cousin degree', () => {

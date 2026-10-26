@@ -4,6 +4,7 @@ import { getGenerationMap } from './tree-logic.ts'
 export type TreeNodeMode = 'rectangle' | 'circle'
 export type TreePosition = { x: number; y: number; generation: number }
 export type TreeLayout = { positions: Map<string, TreePosition>; width: number; height: number; nodeWidth: number; nodeHeight: number }
+export type TreeLayoutOptions = { compactCards?: boolean }
 export type SpouseConnector = { path: string; anchorX: number; anchorY: number }
 export const MARRIAGE_ANCHOR_RADIUS = 12
 export const CIRCULAR_AVATAR_CENTER_Y = 42.5
@@ -114,10 +115,11 @@ export function getSiblingConnectorPath(a: TreePosition, b: TreePosition, nodeWi
 }
 
 /** Derive generation rows from parent links; layout coordinates never enter family records. */
-export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 'rectangle'): TreeLayout {
-  const nodeWidth = mode === 'circle' ? 160 : 240
+export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 'rectangle', options: TreeLayoutOptions = {}): TreeLayout {
+  const compactCards = mode === 'rectangle' && options.compactCards === true
+  const nodeWidth = mode === 'circle' ? 160 : compactCards ? 212 : 240
   // Fit the avatar, compact labels, and relationship badge into the circular node box.
-  const nodeHeight = mode === 'circle' ? 144 : 106
+  const nodeHeight = mode === 'circle' ? 144 : compactCards ? 98 : 106
   const gapX = mode === 'circle' ? 34 : 34
   const familyGap = mode === 'circle' ? 260 : 340
   const generations = getGenerationMap(members)

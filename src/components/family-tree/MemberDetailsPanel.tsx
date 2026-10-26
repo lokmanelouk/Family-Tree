@@ -93,7 +93,7 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
     setActivePicker((current) => current?.kind === kind ? null : { kind, anchor })
   }
 
-  const inlinePicker = (kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>) => !readOnly && activePicker?.kind === kind ? <ExistingRelativePicker key={kind} source={member} members={members} kind={kind} anchor={activePicker.anchor} inline onPick={(person, selectedKind) => { onLinkRelative(member.id, person.id, selectedKind); setActivePicker(null) }} onCreateNew={(sourceId, selectedKind) => { onAddRelative(sourceId, selectedKind); setActivePicker(null) }} onClose={() => setActivePicker(null)} /> : null
+  const relationshipPicker = (kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>) => !readOnly && activePicker?.kind === kind ? <ExistingRelativePicker key={kind} source={member} members={members} kind={kind} anchor={activePicker.anchor} onPick={(person, selectedKind) => { onLinkRelative(member.id, person.id, selectedKind); setActivePicker(null) }} onCreateNew={(sourceId, selectedKind) => { onAddRelative(sourceId, selectedKind); setActivePicker(null) }} onClose={() => setActivePicker(null)} /> : null
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -137,10 +137,10 @@ export function MemberDetailsPanel({ member, members, onClose, onAddRelative, on
           </div>
         </div>
         <div className="details-links">
-          <RelationshipGroup key={`${member.id}-partners`} t={t} memberId={member.id} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} collapsed={isSectionCollapsed('partners', partners.length)} onToggle={() => toggleSection('partners', partners.length)} onSelect={selectRelative} picker={inlinePicker('partner')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} active={activePicker?.kind === 'partner'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-children`} t={t} memberId={member.id} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} collapsed={isSectionCollapsed('children', children.length)} onToggle={() => toggleSection('children', children.length)} onSelect={selectRelative} picker={inlinePicker('child')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="child" label={t('Add child')} active={activePicker?.kind === 'child'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-parents`} t={t} memberId={member.id} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} collapsed={isSectionCollapsed('parents', parents.length)} onToggle={() => toggleSection('parents', parents.length)} onSelect={selectRelative} picker={inlinePicker('parent')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} active={activePicker?.kind === 'parent'} onToggle={togglePicker} />} />
-          <RelationshipGroup key={`${member.id}-siblings`} t={t} memberId={member.id} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} collapsed={isSectionCollapsed('siblings', siblings.length)} onToggle={() => toggleSection('siblings', siblings.length)} onSelect={selectRelative} picker={inlinePicker('sibling')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="sibling" label={t('Add sibling')} active={activePicker?.kind === 'sibling'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-partners`} t={t} memberId={member.id} kind="partners" icon={<HeartHandshake size={15} />} title={t('Partners')} people={partners} collapsed={isSectionCollapsed('partners', partners.length)} onToggle={() => toggleSection('partners', partners.length)} onSelect={selectRelative} picker={relationshipPicker('partner')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="partner" label={t('Link')} active={activePicker?.kind === 'partner'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-children`} t={t} memberId={member.id} kind="children" icon={<Baby size={15} />} title={t('Children')} people={children} collapsed={isSectionCollapsed('children', children.length)} onToggle={() => toggleSection('children', children.length)} onSelect={selectRelative} picker={relationshipPicker('child')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="child" label={t('Add child')} active={activePicker?.kind === 'child'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-parents`} t={t} memberId={member.id} kind="parents" icon={<GitBranch size={15} />} title={t('Parents')} people={parents} collapsed={isSectionCollapsed('parents', parents.length)} onToggle={() => toggleSection('parents', parents.length)} onSelect={selectRelative} picker={relationshipPicker('parent')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="parent" label={t('Add parent')} active={activePicker?.kind === 'parent'} onToggle={togglePicker} />} />
+          <RelationshipGroup key={`${member.id}-siblings`} t={t} memberId={member.id} kind="siblings" icon={<UsersRound size={15} />} title={t('Siblings')} people={siblings} collapsed={isSectionCollapsed('siblings', siblings.length)} onToggle={() => toggleSection('siblings', siblings.length)} onSelect={selectRelative} picker={relationshipPicker('sibling')} action={!readOnly && <RelativePickerAction source={member} members={members} kind="sibling" label={t('Add sibling')} active={activePicker?.kind === 'sibling'} onToggle={togglePicker} />} />
         </div>
       </div>
     </aside>
@@ -187,10 +187,10 @@ function RelationshipGroup({ t, memberId, icon, title, people, collapsed, onTogg
   return (
     <section className={`relationship-group relationship-group-${kind}`}>
       <div className="relationship-group-heading">
-        <button type="button" className="relationship-group-toggle" aria-expanded={!collapsed} onClick={onToggle}>
+        <button type="button" className="relationship-group-toggle" aria-expanded={!collapsed} aria-controls={listId} onClick={onToggle}>
           <span className="relationship-group-icon">{icon}</span>
           <span>{title}</span>
-          {people.length > 0 && <span className="relationship-group-count" aria-hidden="true"><bdi>{people.length}</bdi></span>}
+          <span className="relationship-group-count" aria-hidden="true"><bdi>{people.length}</bdi></span>
           {collapsed ? <ChevronRight className="relationship-collapse-chevron" size={15} /> : <ChevronDown size={15} />}
         </button>
         {action}

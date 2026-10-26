@@ -13,6 +13,13 @@ function sameParents(parentIds: string[], right: FamilyMember) {
     && parentIds.every((id) => right.parentIds.includes(id))
 }
 
+function normalizeFamilySearch(value: string) {
+  return normalizeNameForMatch(value)
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ـ/g, '')
+}
+
 export function findPossibleDuplicates(members: FamilyMember[], name: string, birthDate?: string, parentIds: string[] = []): DuplicateMatch[] {
   const normalized = normalizeNameForMatch(name)
   if (!normalized) return []
@@ -30,14 +37,14 @@ export function findPossibleDuplicates(members: FamilyMember[], name: string, bi
 }
 
 export function searchFamilyMembers(members: FamilyMember[], query: string) {
-  const term = normalizeNameForMatch(query)
+  const term = normalizeFamilySearch(query)
   if (!term) return []
   return members.filter((person) => {
     const { firstName, lastName } = getNameParts(person)
-    return normalizeNameForMatch(getFullName(person)).includes(term)
-      || normalizeNameForMatch(firstName).includes(term)
-      || normalizeNameForMatch(lastName).includes(term)
-      || normalizeNameForMatch(person.relationship).includes(term)
+    return normalizeFamilySearch(getFullName(person)).includes(term)
+      || normalizeFamilySearch(firstName).includes(term)
+      || normalizeFamilySearch(lastName).includes(term)
+      || normalizeFamilySearch(person.relationship).includes(term)
   }).sort((a, b) => getFullName(a).localeCompare(getFullName(b)))
 }
 

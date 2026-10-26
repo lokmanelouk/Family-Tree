@@ -9,6 +9,11 @@ import { PersonContextMenu } from './PersonContextMenu'
 import { TreeMiniMap } from './TreeMiniMap'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getTreeContentBounds } from '../../lib/canvas-fit'
+import { getRelationshipTooltipPosition } from '../../lib/relationship-tooltip-position'
+
+function relationshipPairKey(firstId: string, secondId: string) {
+  return [firstId, secondId].sort().join('|')
+}
 
 type FamilyTreeCanvasProps = {
   members: FamilyMember[]
@@ -27,23 +32,27 @@ type FamilyTreeCanvasProps = {
   branchFocusId: string | null
   onResetBranchFocus: () => void
   mode: TreeNodeMode
+  compactCards: boolean
   focusId: string | null
+  relationshipPathIds: string[] | null
   layoutRevision: number
-  navigationTarget: { id: string; sequence: number } | null
+  navigationTarget: { id: string; pathIds?: string[]; sequence: number } | null
   readOnly: boolean
   onCanvasActivity: () => void
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, focusId, layoutRevision, navigationTarget, readOnly, onCanvasActivity }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget, readOnly, onCanvasActivity }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [pulseId, setPulseId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ member: FamilyMember; x: number; y: number } | null>(null)
-  const [relationshipTooltip, setRelationshipTooltip] = useState<{ label: string; left: number; top: number } | null>(null)
+  const [relationshipTooltip, setRelationshipTooltip] = useState<{ label: string; left: number; top: number; placement: 'above' | 'below' } | null>(null)
+  const hasRelationshipTooltip = relationshipTooltip !== null
   const relationshipTooltipAnchor = useRef<SVGGElement | null>(null)
   const relationshipTooltipLabel = useRef<string | null>(null)
+  const relationshipTooltipRef = useRef<HTMLDivElement>(null)
   const tooltipFrame = useRef<number | null>(null)
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
   const previousViewport = useRef<{ zoom: number; offsetX: number; offsetY: number; width: number; height: number } | null>(null)
@@ -54,7 +63,11 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const visibleMembers = useMemo(() => members.filter((member) => !hiddenIds.has(member.id)), [members, hiddenIds])
   const spotlightId = hoveredId ?? selectedId ?? focusId
   const branchFocusedIds = useMemo(() => branchFocusId ? getBranchFocusIds(members, branchFocusId) : null, [members, branchFocusId])
-  const focusedIds = branchFocusedIds ?? (spotlightId ? getImmediateFamilyIds(members, spotlightId) : null)
+  const relationshipFocusedIds = useMemo(() => relationshipPathIds?.length ? new Set(relationshipPathIds) : null, [relationshipPathIds])
+  const relationshipPathEdges = useMemo(() => relationshipPathIds?.length
+    ? new Set(relationshipPathIds.slice(1).map((id, index) => relationshipPairKey(relationshipPathIds[index], id)))
+    : null, [relationshipPathIds])
+  const focusedIds = branchFocusedIds ?? relationshipFocusedIds ?? (spotlightId ? getImmediateFamilyIds(members, spotlightId) : null)
   const branchColors = getRootBranchMap(members)
   const coupleColors = getParentalCoupleColors(members)
   const miniMapColors = useMemo(() => new Map(members.map((member) => {
@@ -62,10 +75,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     return [member.id, coupleColors.get(coupleKey) ?? branchColors.get(member.id) ?? 'var(--accent)']
   })), [members, coupleColors, branchColors])
   const activeLineMemberId = hoveredId ?? selectedId
-  const activeLineIds = branchFocusedIds ?? (activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null)
+  const activeLineIds = branchFocusedIds ?? relationshipFocusedIds ?? (activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null)
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
 
-  const layout = useMemo(() => computeTreeLayout(visibleMembers, mode), [visibleMembers, mode])
+  const layout = useMemo(() => computeTreeLayout(visibleMembers, mode, { compactCards }), [visibleMembers, mode, compactCards])
   const { positions, width, height, nodeWidth, nodeHeight } = layout
   const contentBounds = useMemo(() => getTreeContentBounds(layout), [layout])
   const contentPositions = useMemo(() => new Map([...positions].map(([id, point]) => [id, { ...point, x: point.x - contentBounds.left, y: point.y - contentBounds.top }])), [positions, contentBounds])
@@ -106,13 +119,17 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
       setRelationshipTooltip(null)
       return
     }
-    const localX = point.x - visibleLeft
-    const localY = point.y - visibleTop
-    const minCenter = Math.min(108, viewport.clientWidth / 2)
-    const maxCenter = Math.max(minCenter, viewport.clientWidth - minCenter)
-    const left = Math.min(Math.max(localX, minCenter), maxCenter) + viewport.scrollLeft
-    const top = Math.max(42, localY - 8) + viewport.scrollTop
-    setRelationshipTooltip((current) => current && current.label === label && current.left === left && current.top === top ? current : { label, left, top })
+    const tooltip = relationshipTooltipRef.current
+    const tooltipWidth = tooltip?.offsetWidth || Math.min(220, Math.max(0, viewport.clientWidth - 24))
+    const tooltipHeight = tooltip?.offsetHeight || 34
+    const position = getRelationshipTooltipPosition(
+      { x: point.x - visibleLeft, y: point.y - visibleTop },
+      { width: tooltipWidth, height: tooltipHeight },
+      { width: viewport.clientWidth, height: viewport.clientHeight, scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop },
+    )
+    setRelationshipTooltip((current) => current && current.label === label && current.left === position.left && current.top === position.top && current.placement === position.placement
+      ? current
+      : { label, ...position })
   }, [])
 
   const scheduleRelationshipTooltipPosition = useCallback(() => {
@@ -134,6 +151,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
       if (tooltipFrame.current !== null) window.cancelAnimationFrame(tooltipFrame.current)
     }
   }, [scheduleRelationshipTooltipPosition])
+
+  useLayoutEffect(() => {
+    if (hasRelationshipTooltip) refreshRelationshipTooltipPosition()
+  }, [hasRelationshipTooltip, refreshRelationshipTooltipPosition])
 
   useLayoutEffect(() => {
     refreshRelationshipTooltipPosition()
@@ -176,10 +197,21 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     if (!viewport) return
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const localPoint = contentPositions.get(navigationTarget.id)
-    if (!localPoint) return
-    const left = offsetX + (localPoint.x + nodeWidth / 2) * zoom - viewport.clientWidth / 2
-    const top = offsetY + (localPoint.y + nodeHeight / 2) * zoom - viewport.clientHeight / 2
-    viewport.scrollTo({ left: Math.max(0, left), top: Math.max(0, top), behavior: reducedMotion ? 'auto' : 'smooth' })
+    const pathPoints = (navigationTarget.pathIds ?? []).flatMap((id) => {
+      const point = contentPositions.get(id)
+      return point ? [point] : []
+    })
+    const targetPoints = pathPoints.length ? pathPoints : localPoint ? [localPoint] : []
+    if (!targetPoints.length) return
+    const left = Math.min(...targetPoints.map((point) => point.x))
+    const right = Math.max(...targetPoints.map((point) => point.x + nodeWidth))
+    const top = Math.min(...targetPoints.map((point) => point.y))
+    const bottom = Math.max(...targetPoints.map((point) => point.y + nodeHeight))
+    const centerX = (left + right) / 2
+    const centerY = (top + bottom) / 2
+    const scrollLeft = offsetX + centerX * zoom - viewport.clientWidth / 2
+    const scrollTop = offsetY + centerY * zoom - viewport.clientHeight / 2
+    viewport.scrollTo({ left: Math.max(0, scrollLeft), top: Math.max(0, scrollTop), behavior: reducedMotion ? 'auto' : 'smooth' })
     const revealTimer = window.setTimeout(() => setPulseId(navigationTarget.id), reducedMotion ? 0 : 420)
     const clearTimer = window.setTimeout(() => setPulseId((current) => current === navigationTarget.id ? null : current), reducedMotion ? 1150 : 1650)
     return () => {
@@ -226,7 +258,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   function showRelationshipTooltip(target: SVGGElement, label: string) {
     relationshipTooltipAnchor.current = target
     relationshipTooltipLabel.current = label
-    setRelationshipTooltip({ label, left: 0, top: 0 })
+    setRelationshipTooltip({ label, left: 0, top: 0, placement: 'above' })
     scheduleRelationshipTooltipPosition()
   }
   function hideRelationshipTooltip() {
@@ -250,7 +282,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     <div className="tree-viewport" ref={viewportRef} onScroll={(event) => setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })} onWheel={handleCanvasWheel} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
       {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p>{!readOnly && <button onClick={onEmptyAdd}><Plus size={17} /> {t('Add your first family member')}</button>}</div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
         <div className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
-          <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}`} width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`}>
+          <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}${branchFocusedIds ? ' is-branch-focus' : ''}`} width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`}>
             {(() => {
               const links: ReactNode[] = []
               const parentGroups = new Map<string, { parentIds: string[]; children: FamilyMember[]; adopted: boolean }>()
@@ -283,9 +315,16 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
                 const coupleKey = parentIds.join('|')
                 const color = coupleColors?.get(coupleKey) ?? null
                 const coupleAnchorOffset = mode === 'circle' ? CIRCULAR_AVATAR_CENTER_Y : nodeHeight / 2
-                const groupActive = Boolean(activeLineIds && (parentIds.some((id) => activeLineIds.has(id)) || children.some((child) => activeLineIds.has(child.id))))
+                const focusedChildren = relationshipFocusedIds ? children.filter((child) => relationshipFocusedIds.has(child.id)) : []
+                const pathUsesParentEdge = Boolean(relationshipPathEdges && focusedChildren.some((child) => parentIds.some((parentId) => relationshipPathEdges.has(relationshipPairKey(parentId, child.id)))))
+                const pathUsesSiblingBus = focusedChildren.length > 1
+                const groupActive = relationshipFocusedIds
+                  ? pathUsesParentEdge || pathUsesSiblingBus
+                  : Boolean(activeLineIds && (parentIds.some((id) => activeLineIds.has(id)) || children.some((child) => activeLineIds.has(child.id))))
                 getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset).forEach((path, index) => {
-                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${groupActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} d={path} />)
+                  const pathChild = index >= 2 ? children[index - 2] : undefined
+                  const pathSegmentActive = groupActive && (!relationshipFocusedIds || index < 2 || Boolean(pathChild && relationshipFocusedIds.has(pathChild.id)))
+                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${pathSegmentActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} d={path} />)
                 })
                 if (adopted) {
                   const junction = getParentChildBranchJunction(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset)
@@ -315,7 +354,9 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
                   : undefined
                 const connector = getSpouseConnector(first, second, nodeWidth, nodeHeight, circularOptions)
                 if (!connector) return
-                const active = Boolean(activeLineIds && (activeLineIds.has(member.id) || activeLineIds.has(spouseId)))
+                const active = relationshipPathEdges
+                  ? relationshipPathEdges.has(relationshipPairKey(member.id, spouseId))
+                  : Boolean(activeLineIds && (activeLineIds.has(member.id) || activeLineIds.has(spouseId)))
                 const selectedCouple = selectedId === member.id || selectedId === spouseId
                 const selectedClass = selectedCouple ? ' is-selected-couple' : ''
                 if (mode === 'circle') {
@@ -344,11 +385,11 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
             const coupleKey = member.parentIds.slice().sort().join('|')
             const localPoint = contentPositions.get(member.id)
             if (!localPoint) return null
-            return <div className="tree-node-position" key={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} readOnly={readOnly} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onOpenContextMenu={(person, x, y) => setContextMenu({ member: person, x, y })} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) } }} /></div>
+            return <div className="tree-node-position" key={member.id} style={{ left: localPoint.x, top: localPoint.y }}><PersonCard member={member} mode={mode} nodeWidth={nodeWidth} nodeHeight={nodeHeight} readOnly={readOnly} branchColor={coupleColors?.get(coupleKey) ?? branchColors?.get(member.id) ?? null} isSelected={selectedId === member.id} isFocused={!focusedIds || focusedIds.has(member.id)} isBranchFocusDimmed={Boolean(branchFocusedIds && !branchFocusedIds.has(member.id))} isSpotlighted={Boolean(focusedIds?.has(member.id))} isPulsing={pulseId === member.id} isDropTarget={dropTargetId === member.id} onHoverChange={(id) => setHoveredId(id)} onSelect={onSelect} onOpenContextMenu={(person, x, y) => setContextMenu({ member: person, x, y })} onDragStart={handleDragStart} onDragEnd={endDrag} onDrop={handleDrop} onDragOver={(event) => { if (!readOnly) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetId(member.id) } }} /></div>
           })}
         </div>
       </div>}
-      {relationshipTooltip && <div className="relationship-badge-tooltip" role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
+      {relationshipTooltip && <div ref={relationshipTooltipRef} className={`relationship-badge-tooltip is-${relationshipTooltip.placement}`} role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
       {!readOnly && contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} readOnly={false} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
     </div>
     {members.length > 0 && viewportSize.width > 0 && <TreeMiniMap

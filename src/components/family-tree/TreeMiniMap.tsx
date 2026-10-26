@@ -4,6 +4,7 @@ import type { CSSProperties, MouseEvent, PointerEvent } from 'react'
 import type { FamilyMember } from '../../types/family'
 import type { TreePosition } from '../../lib/tree-layout'
 import { useLanguage } from '../../i18n/useLanguage'
+import { getMiniMapViewportGeometry, getMiniMapWorldPoint } from '../../lib/minimap-geometry'
 
 type TreeMiniMapProps = {
   members: FamilyMember[]
@@ -34,20 +35,15 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
   const mapWidth = 168
   const mapHeight = 110
   const padding = 9
-  const innerWidth = mapWidth - padding * 2
-  const innerHeight = mapHeight - padding * 2
-  const scale = Math.min(innerWidth / Math.max(width, 1), innerHeight / Math.max(height, 1))
-  const offsetMapX = (mapWidth - width * scale) / 2
-  const offsetMapY = (mapHeight - height * scale) / 2
-  const visibleWidth = Math.min(width, viewportWidth / zoom)
-  const visibleHeight = Math.min(height, viewportHeight / zoom)
-  const visibleLeft = Math.max(0, Math.min(width - visibleWidth, (scrollLeft - offsetX) / zoom))
-  const visibleTop = Math.max(0, Math.min(height - visibleHeight, (scrollTop - offsetY) / zoom))
-  const rect = {
-    x: offsetMapX + visibleLeft * scale,
-    y: offsetMapY + visibleTop * scale,
-    width: Math.max(8, visibleWidth * scale),
-    height: Math.max(8, visibleHeight * scale),
+  const geometry = getMiniMapViewportGeometry({ mapWidth, mapHeight, padding, worldWidth: width, worldHeight: height, zoom, offsetX, offsetY, scrollLeft, scrollTop, viewportWidth, viewportHeight })
+  const { scale, offsetMapX, offsetMapY, worldMapWidth, worldMapHeight, rect } = geometry
+  const hitWidth = Math.min(worldMapWidth, Math.max(rect.width, 12))
+  const hitHeight = Math.min(worldMapHeight, Math.max(rect.height, 12))
+  const hitRect = {
+    x: Math.max(offsetMapX, Math.min(offsetMapX + worldMapWidth - hitWidth, rect.x + rect.width / 2 - hitWidth / 2)),
+    y: Math.max(offsetMapY, Math.min(offsetMapY + worldMapHeight - hitHeight, rect.y + rect.height / 2 - hitHeight / 2)),
+    width: hitWidth,
+    height: hitHeight,
   }
 
   function getLocalPoint(event: PointerEvent<HTMLDivElement>) {
@@ -56,9 +52,8 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
   }
 
   function navigateToMapPoint(x: number, y: number) {
-    const worldX = Math.max(0, Math.min(width, (x - offsetMapX) / scale))
-    const worldY = Math.max(0, Math.min(height, (y - offsetMapY) / scale))
-    onNavigate(worldX, worldY)
+    const point = getMiniMapWorldPoint(x, y, geometry, width, height)
+    onNavigate(point.x, point.y)
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -66,12 +61,13 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
     event.preventDefault()
     handledPointerClick.current = true
     const point = getLocalPoint(event)
-    const withinViewport = point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height
+    const withinViewport = point.x >= hitRect.x && point.x <= hitRect.x + hitRect.width && point.y >= hitRect.y && point.y <= hitRect.y + hitRect.height
+    const withinVisibleRect = point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height
     pointerMoved.current = !withinViewport
     drag.current = {
       pointerId: event.pointerId,
-      offsetX: withinViewport ? point.x - rect.x : rect.width / 2,
-      offsetY: withinViewport ? point.y - rect.y : rect.height / 2,
+      offsetX: withinVisibleRect ? point.x - rect.x : rect.width / 2,
+      offsetY: withinVisibleRect ? point.y - rect.y : rect.height / 2,
       startX: point.x,
       startY: point.y,
     }
@@ -85,8 +81,8 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
     if (!pointerMoved.current && Math.hypot(point.x - drag.current.startX, point.y - drag.current.startY) < 2) return
     pointerMoved.current = true
     event.preventDefault()
-    const mapX = Math.max(offsetMapX, Math.min(offsetMapX + width * scale, point.x - drag.current.offsetX + rect.width / 2))
-    const mapY = Math.max(offsetMapY, Math.min(offsetMapY + height * scale, point.y - drag.current.offsetY + rect.height / 2))
+    const mapX = Math.max(offsetMapX, Math.min(offsetMapX + worldMapWidth, point.x - drag.current.offsetX + rect.width / 2))
+    const mapY = Math.max(offsetMapY, Math.min(offsetMapY + worldMapHeight, point.y - drag.current.offsetY + rect.height / 2))
     navigateToMapPoint(mapX, mapY)
   }
 
@@ -95,6 +91,7 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
   }
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.detail === 0) return
     if (handledPointerClick.current && event.detail > 0) {
       handledPointerClick.current = false
       if (!pointerMoved.current) {
@@ -144,7 +141,7 @@ export function TreeMiniMap({ members, positions, colors, width, height, nodeWid
             if (!point) return null
             return <rect key={member.id} className="tree-minimap-node" style={colors.get(member.id) ? { '--minimap-node-color': colors.get(member.id) } as CSSProperties : undefined} x={offsetMapX + point.x * scale} y={offsetMapY + point.y * scale} width={Math.max(2, nodeWidth * scale)} height={Math.max(2, nodeHeight * scale)} rx={Math.max(1, 2 * scale)} />
           })}
-          <rect className="tree-minimap-window" x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="3" />
+          <rect className="tree-minimap-window" x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="2" />
         </svg>
         <span className="sr-only">{t('Drag or click to navigate the family tree')}</span>
       </div>}

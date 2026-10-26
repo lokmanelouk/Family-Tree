@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Baby, Heart, Pencil, Trash2, UserRound, UsersRound } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -21,13 +22,15 @@ type PersonContextMenuProps = {
   onLinkRelative: (sourceId: string, relativeId: string, kind: RelationshipKind) => void
 }
 
-const themeProperties = ['--page', '--surface', '--surface-raised', '--surface-hover', '--line', '--text', '--muted', '--accent', '--accent-soft', '--danger', '--danger-strong']
+const themeProperties = ['--page', '--surface', '--surface-raised', '--surface-hover', '--surface-popover', '--line', '--line-soft', '--line-control', '--text', '--muted', '--subtle', '--accent', '--accent-soft', '--danger', '--danger-strong', '--shadow-popover', '--radius-popover', '--icon-primary', '--icon-tree', '--icon-relationship', '--icon-history', '--icon-info', '--icon-danger']
 const personActionKinds = new Set<PersonContextAction['kind']>(['details', 'edit'])
 const relationshipActionKinds = new Set<PersonContextAction['kind']>(['child', 'partner', 'parent', 'sibling'])
+type ArrowSide = 'top' | 'right' | 'bottom' | 'left'
 
 export function PersonContextMenu({ member, members, x, y, readOnly, onClose, onOpenDetails, onEdit, onDelete, onAddRelative, onLinkRelative }: PersonContextMenuProps) {
   const { t } = useLanguage()
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [arrow, setArrow] = useState<{ side: ArrowSide; offset: number }>({ side: 'left', offset: 24 })
   const [positionReady, setPositionReady] = useState(false)
   const [themeStyle] = useState<Record<string, string>>(() => {
     const root = document.querySelector('.tree-app')
@@ -35,6 +38,7 @@ export function PersonContextMenu({ member, members, x, y, readOnly, onClose, on
     const style = getComputedStyle(root)
     return { ...Object.fromEntries(themeProperties.map((property) => [property, style.getPropertyValue(property).trim()]).filter(([, value]) => Boolean(value))), direction: style.direction }
   })
+  const [themeName] = useState(() => document.querySelector<HTMLElement>('.tree-app')?.dataset.theme ?? '')
   const [pickerKind, setPickerKind] = useState<RelationshipKind | null>(null)
   const [pickerAnchor, setPickerAnchor] = useState<HTMLButtonElement | null>(null)
   const closePicker = useCallback(() => {
@@ -89,9 +93,29 @@ export function PersonContextMenu({ member, members, x, y, readOnly, onClose, on
           y: Math.max(padding, Math.min(preferred.y, window.innerHeight - rect.height - padding)),
         }
       }
+      const anchorX = nodeRect ? Math.max(nodeRect.left, Math.min(x, nodeRect.right)) : x
+      const anchorY = nodeRect ? Math.max(nodeRect.top, Math.min(y, nodeRect.bottom)) : y
+      let arrowSide: ArrowSide
+      if (anchorX < next.x) arrowSide = 'left'
+      else if (anchorX > next.x + rect.width) arrowSide = 'right'
+      else if (anchorY < next.y) arrowSide = 'top'
+      else if (anchorY > next.y + rect.height) arrowSide = 'bottom'
+      else {
+        const edgeDistances = [
+          { side: 'left' as const, distance: Math.abs(anchorX - next.x) },
+          { side: 'right' as const, distance: Math.abs(anchorX - (next.x + rect.width)) },
+          { side: 'top' as const, distance: Math.abs(anchorY - next.y) },
+          { side: 'bottom' as const, distance: Math.abs(anchorY - (next.y + rect.height)) },
+        ]
+        arrowSide = edgeDistances.sort((a, b) => a.distance - b.distance)[0].side
+      }
+      const arrowOffset = arrowSide === 'left' || arrowSide === 'right'
+        ? Math.max(16, Math.min(anchorY - next.y, rect.height - 16))
+        : Math.max(16, Math.min(anchorX - next.x, rect.width - 16))
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         setPosition(next)
+        setArrow({ side: arrowSide, offset: arrowOffset })
         setPositionReady(true)
         if (focus) buttonRefs.current.find((button) => button && !button.disabled)?.focus()
       })
@@ -181,8 +205,10 @@ export function PersonContextMenu({ member, members, x, y, readOnly, onClose, on
   const personActions = actions.filter((action) => personActionKinds.has(action.kind))
   const relationshipActions = actions.filter((action) => relationshipActionKinds.has(action.kind))
   const deleteAction = actions.find((action) => action.kind === 'delete')
-  const renderAction = (action: PersonContextAction, index: number) => <button key={action.kind} ref={(element) => { if (element) buttonRefs.current[index] = element }} type="button" role="menuitem" disabled={action.disabled} aria-disabled={action.disabled || undefined} className={`person-context-menu-item${action.kind === 'delete' ? ' is-destructive' : ''}${action.disabled ? ' is-disabled' : ''}`} onClick={(event) => activate(action, event.currentTarget)}>{iconFor(action.kind)}<span className="person-context-menu-copy"><span>{labelFor(action.kind)}</span>{action.disabled && action.reason && <small>{t(action.reason)}</small>}</span></button>
-  const content = <div ref={setMenuElement} className="person-context-menu" role="menu" aria-label={t('Person actions')} style={{ ...themeStyle, position: 'fixed', left: position.x, top: position.y, zIndex: 10040, visibility: positionReady ? 'visible' : 'hidden' }}>
+  const renderAction = (action: PersonContextAction, index: number) => <button key={action.kind} ref={(element) => { if (element) buttonRefs.current[index] = element }} type="button" role="menuitem" disabled={action.disabled} aria-disabled={action.disabled || undefined} className={`person-context-menu-item is-${action.kind}${action.kind === 'delete' ? ' is-destructive' : ''}${action.disabled ? ' is-disabled' : ''}`} onClick={(event) => activate(action, event.currentTarget)}>{iconFor(action.kind)}<span className="person-context-menu-copy"><span>{labelFor(action.kind)}</span>{action.disabled && action.reason && <small>{t(action.reason)}</small>}</span></button>
+  const menuStyle = { ...themeStyle, position: 'fixed', left: position.x, top: position.y, zIndex: 10040, visibility: positionReady ? 'visible' : 'hidden', '--context-arrow-offset': `${arrow.offset}px` } as CSSProperties
+  const content = <div ref={setMenuElement} className="person-context-menu" data-theme={themeName} data-arrow-side={arrow.side} role="menu" aria-label={t('Person actions')} style={menuStyle}>
+    <div className="person-context-menu-actions">
     {personActions.length > 0 && <section className="person-context-menu-group" aria-label={t('Person actions')}>
       <h3>{t('Person actions')}</h3>
       {personActions.map((action) => renderAction(action, actions.indexOf(action)))}
@@ -195,6 +221,7 @@ export function PersonContextMenu({ member, members, x, y, readOnly, onClose, on
       <h3>{t('Danger action')}</h3>
       {renderAction(deleteAction, actions.indexOf(deleteAction))}
     </section>}
+    </div>
     {pickerKind && pickerAnchor && <ExistingRelativePicker key={pickerKind} source={member} members={members} kind={pickerKind} anchor={pickerAnchor} contextMenu={menuElement} onPick={(person, kind) => { onLinkRelative(member.id, person.id, kind); onClose() }} onCreateNew={(sourceId, kind) => { onAddRelative(sourceId, kind); onClose() }} onClose={closePicker} />}
   </div>
 

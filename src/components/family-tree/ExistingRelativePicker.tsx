@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Search, TriangleAlert, UserRoundPlus, X } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -25,7 +26,7 @@ type ExistingRelativePickerProps = {
   onClose: () => void
 }
 
-const themeProperties = ['--page', '--surface', '--surface-raised', '--surface-hover', '--line', '--text', '--muted', '--accent', '--accent-soft', '--accent-strong', '--focus', '--danger', '--danger-strong', '--validation-error', '--validation-error-strong', '--validation-error-tint', '--validation-warning', '--validation-warning-strong', '--validation-warning-tint']
+const themeProperties = ['--page', '--surface', '--surface-raised', '--surface-hover', '--surface-popover', '--line', '--line-soft', '--line-control', '--text', '--muted', '--subtle', '--accent', '--accent-soft', '--accent-strong', '--accent-hover', '--focus', '--danger', '--danger-strong', '--validation-error', '--validation-error-strong', '--validation-error-tint', '--validation-warning', '--validation-warning-strong', '--validation-warning-tint', '--shadow-popover', '--radius-popover', '--icon-info']
 
 export function ExistingRelativePicker({ source, members, kind: initialKind, anchor, contextMenu, inline = false, onPick, onCreateNew, onClose }: ExistingRelativePickerProps) {
   const { t, language } = useLanguage()
@@ -33,9 +34,10 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<FamilyMember | null>(null)
   const [warnings, setWarnings] = useState<ValidationIssue[]>([])
-  const [position, setPosition] = useState<{ top: number; inlineStart: number; width: number; maxHeight: number; placement: 'anchor' | 'inline' | 'stacked' } | null>(null)
+  const [position, setPosition] = useState<{ top: number; inlineStart: number; width: number; maxHeight: number; placement: 'anchor' | 'inline' | 'stacked'; arrowSide?: 'top' | 'right' | 'bottom' | 'left'; arrowOffset?: number } | null>(null)
   const [isPositioned, setIsPositioned] = useState(false)
   const [themeStyle, setThemeStyle] = useState<Record<string, string>>({})
+  const [themeName, setThemeName] = useState('')
   const popupRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -57,6 +59,7 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
       const computed = getComputedStyle(root)
       const rtl = computed.direction === 'rtl'
       setThemeStyle({ ...Object.fromEntries(themeProperties.map((property) => [property, computed.getPropertyValue(property).trim()]).filter(([, value]) => Boolean(value))), direction: computed.direction })
+      setThemeName(root instanceof HTMLElement ? root.dataset.theme ?? '' : '')
       if (inline) {
         setIsPositioned(true)
         return
@@ -67,7 +70,14 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
         const avoidRects = detailsRect ? [{ left: detailsRect.left, right: detailsRect.right, top: detailsRect.top, bottom: detailsRect.bottom }] : []
         const submenu = getContextSubmenuPosition(menuRect, window.innerWidth, window.innerHeight, 312, 420, 6, avoidRects)
         const inlineStart = rtl ? window.innerWidth - submenu.left - submenu.width : submenu.left
-        setPosition({ top: submenu.top, inlineStart, width: submenu.width, maxHeight: submenu.maxHeight, placement: submenu.placement })
+        const anchorRect = anchor.getBoundingClientRect()
+        const arrowSide = submenu.placement === 'inline'
+          ? submenu.left > menuRect.right ? 'left' : 'right'
+          : submenu.top > menuRect.bottom ? 'top' : 'bottom'
+        const arrowOffset = arrowSide === 'left' || arrowSide === 'right'
+          ? Math.max(16, Math.min(anchorRect.top + anchorRect.height / 2 - submenu.top, submenu.maxHeight - 16))
+          : Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - submenu.left, submenu.width - 16))
+        setPosition({ top: submenu.top, inlineStart, width: submenu.width, maxHeight: submenu.maxHeight, placement: submenu.placement, arrowSide, arrowOffset })
       } else {
         const width = Math.min(340, window.innerWidth - 24)
         const maxHeight = Math.min(460, Math.floor(window.innerHeight * 0.7))
@@ -134,7 +144,8 @@ export function ExistingRelativePicker({ source, members, kind: initialKind, anc
   if (!inline && !position) return null
   const title = t(kind === 'child' ? 'Add child' : kind === 'parent' ? 'Add parent' : kind === 'partner' ? 'Add partner' : 'Add sibling')
   const placementClass = position?.placement === 'stacked' ? ' is-stacked-submenu' : ''
-  const content = <div ref={popupRef} className={`existing-relative-picker${inline ? ' is-inline-picker' : ''}${contextMenu ? ' is-context-submenu' : ''}${placementClass}`} role="dialog" aria-label={title} style={{ ...themeStyle, position: inline ? 'relative' : 'fixed', top: inline ? undefined : position?.top, insetInlineStart: inline ? undefined : position?.inlineStart, width: inline ? '100%' : position?.width, maxHeight: inline ? undefined : position?.maxHeight, zIndex: inline ? 1 : 10050 }}>
+  const pickerStyle = { ...themeStyle, position: inline ? 'relative' : 'fixed', top: inline ? undefined : position?.top, insetInlineStart: inline ? undefined : position?.inlineStart, width: inline ? '100%' : position?.width, maxHeight: inline ? undefined : position?.maxHeight, zIndex: inline ? 1 : 10050, '--submenu-arrow-offset': `${position?.arrowOffset ?? 24}px` } as CSSProperties
+  const content = <div ref={popupRef} className={`existing-relative-picker${inline ? ' is-inline-picker' : ''}${contextMenu ? ' is-context-submenu' : ''}${placementClass}`} data-theme={themeName} data-arrow-side={contextMenu ? position?.arrowSide : undefined} role="dialog" aria-label={title} style={pickerStyle}>
     <div className="existing-relative-picker-header"><div><h2>{title}</h2><p>{t('Choose a person already in this tree.')}</p></div></div>
     {!(warnings.length > 0 && pending) && <div className="existing-relative-picker-search"><Search size={16} aria-hidden="true" /><input ref={searchRef} dir="auto" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setWarnings([]); setPending(null); setShowHidden(false) }} onKeyDown={handleSearchKeyDown} placeholder={t('Search family members')} aria-label={t('Search family members')} aria-activedescendant={activeIndex >= 0 ? `relative-option-${visible[activeIndex]?.person.id}` : undefined} /><button type="button" onClick={onClose} aria-label={t('Close')}><X size={15} /></button></div>}
     {warnings.length > 0 && pending ? <div className="existing-relative-confirm" role="alert">

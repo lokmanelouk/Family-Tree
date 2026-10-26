@@ -15,9 +15,18 @@
   --canvas-dot: #313737;
   display: flex;
   min-height: 100vh;
+  cursor: default;
   background: var(--bg);
   color: var(--text);
   font-size: 13px;
+}
+
+.tree-app :is(button, a[href], [role="button"], [role="menuitem"], [role="option"], select, input[type="checkbox"], input[type="radio"]):not(:disabled):not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+.tree-app :is(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="url"], input[type="number"], input[type="date"], textarea) {
+  cursor: text;
 }
 
 .tree-app[data-theme="warm-light"] {
@@ -328,36 +337,91 @@
 }
 .search-results {
   position: absolute;
-  top: 36px;
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
-  z-index: 10;
-  overflow: hidden;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  z-index: 120;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-control, var(--line)) transparent;
+  padding: 5px;
+  border: 1px solid var(--line-control, var(--line));
+  border-radius: var(--radius-popover, 10px);
   background: var(--surface);
-  box-shadow: 0 12px 28px #0005;
+  box-shadow: var(--shadow-popover, 0 12px 28px #0005);
+  color: var(--text);
+  max-height: min(360px, calc(100dvh - 80px));
+}
+.search-results.is-above {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 .search-results button {
   width: 100%;
   display: grid;
-  gap: 3px;
-  padding: 8px;
-  border: 0;
-  border-radius: 5px;
+  gap: 4px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: transparent;
   color: var(--text);
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
-.search-results button:hover {
+.search-result-avatar {
+  display: none;
+}
+.search-result-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.search-result-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.search-results button:hover,
+.search-results button[aria-selected="true"] {
+  border-color: var(--line-soft);
   background: var(--surface-hover);
+  color: var(--text);
+}
+.tree-app .search-results button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.search-no-results {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.search-no-results > svg {
+  flex: 0 0 auto;
+  color: var(--subtle);
 }
 .search-results small {
   color: var(--muted);
   font-size: 9px;
+}
+.toolbar-search:focus-within {
+  z-index: 121;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-results button {
+    transition: none;
+  }
 }
 .person-list-metadata {
   display: inline-flex;
@@ -459,6 +523,7 @@
   font-size: 9px;
 }
 .tree-workspace {
+  --details-panel-width: 340px;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -473,6 +538,9 @@
   position: relative;
   display: flex;
   overflow: hidden;
+}
+.tree-workspace.has-details-panel > .canvas-stage {
+  margin-inline-end: min(var(--details-panel-width), 100%);
 }
 .tree-viewport {
   min-height: 0;
@@ -512,8 +580,13 @@
   line-height: 1.35;
   text-align: center;
   pointer-events: none;
-  transform: translate(-50%, -100%);
   animation: relationship-tooltip-in 0.14s ease-out both;
+}
+.relationship-badge-tooltip.is-above {
+  transform: translate(-50%, -100%);
+}
+.relationship-badge-tooltip.is-below {
+  transform: translate(-50%, 0);
 }
 @keyframes relationship-tooltip-in {
   from {
@@ -523,6 +596,11 @@
   to {
     opacity: 1;
     translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .relationship-badge-tooltip {
+    animation: none;
   }
 }
 .tree-zoom-space {
@@ -658,8 +736,6 @@
 .node-copy .node-relation {
   color: var(--subtle);
 }
-.member-main[draggable="true"] { cursor: grab; }
-.member-main[draggable="true"]:active { cursor: grabbing; }
 .tree-empty {
   position: absolute;
   inset: 0;
@@ -754,7 +830,7 @@
   z-index: 100;
   inset-block: 0;
   inset-inline-end: 0;
-  width: min(340px, 100%);
+  width: min(var(--details-panel-width), 100%);
   max-height: 100%;
   box-sizing: border-box;
   display: flex;
@@ -1777,7 +1853,27 @@ html[dir="rtl"] .relationship-person-chevron { transform:scaleX(-1) }
 .existing-relative-picker-header { flex: 0 0 auto; padding-block: 12px 8px; padding-inline: 13px; }
 .existing-relative-picker-header h2 { margin: 0; color: var(--text); font-size: 13px; font-weight: 650; line-height: 1.3; }
 .existing-relative-picker-header p { margin: 3px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
-.existing-relative-picker.is-context-submenu { border-radius: 12px; box-shadow: 0 12px 28px rgb(0 0 0 / 28%); }
+.existing-relative-picker.is-context-submenu { overflow: visible; border-radius: 12px; box-shadow: 0 12px 28px rgb(0 0 0 / 28%); }
+.existing-relative-picker.is-context-submenu::before,
+.existing-relative-picker.is-context-submenu::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+.existing-relative-picker.is-context-submenu::before {
+  background: var(--line-control, var(--line));
+}
+.existing-relative-picker.is-context-submenu::after {
+  background: var(--picker-arrow-fill, var(--surface));
+}
+.existing-relative-picker.is-context-submenu[data-arrow-side="left"]::before { left: -7px; top: calc(var(--submenu-arrow-offset, 24px) - 6px); width: 8px; height: 12px; clip-path: polygon(0 50%, 100% 0, 100% 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="left"]::after { left: -5px; top: calc(var(--submenu-arrow-offset, 24px) - 5px); width: 7px; height: 10px; clip-path: polygon(0 50%, 100% 0, 100% 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="right"]::before { right: -7px; top: calc(var(--submenu-arrow-offset, 24px) - 6px); width: 8px; height: 12px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="right"]::after { right: -5px; top: calc(var(--submenu-arrow-offset, 24px) - 5px); width: 7px; height: 10px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="top"]::before { top: -7px; left: calc(var(--submenu-arrow-offset, 24px) - 6px); width: 12px; height: 8px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="top"]::after { top: -5px; left: calc(var(--submenu-arrow-offset, 24px) - 5px); width: 10px; height: 7px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="bottom"]::before { bottom: -7px; left: calc(var(--submenu-arrow-offset, 24px) - 6px); width: 12px; height: 8px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.existing-relative-picker.is-context-submenu[data-arrow-side="bottom"]::after { bottom: -5px; left: calc(var(--submenu-arrow-offset, 24px) - 5px); width: 10px; height: 7px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
 .existing-relative-picker.is-context-submenu .existing-relative-picker-header { padding-block: 8px 5px; padding-inline: 11px; }
 .existing-relative-picker.is-context-submenu .existing-relative-picker-header h2 { font-size: 12px; }
 .existing-relative-picker.is-context-submenu .existing-relative-picker-header p { margin-block-start: 1px; font-size: 9px; }
@@ -2300,17 +2396,38 @@ html[dir="rtl"] .details-top .details-back-action svg {
   border-color: var(--line);
   background: var(--surface-hover);
   color: var(--text);
-  outline: 0;
+}
+
+.keyboard-shortcuts-header > button:focus-visible {
+  border-color: var(--focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .keyboard-shortcuts-list {
   display: grid;
-  gap: 3px;
-  padding-block: 12px;
+  gap: 11px;
+  padding-block: 12px 10px;
+}
+
+.keyboard-shortcut-group {
+  display: grid;
+  gap: 2px;
+}
+
+.keyboard-shortcut-group h3 {
+  margin: 0;
+  padding-block: 0 4px;
+  padding-inline: 8px;
+  color: var(--subtle);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .keyboard-shortcut-row {
-  min-height: 42px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2337,8 +2454,21 @@ html[dir="rtl"] .details-top .details-back-action svg {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
   color: var(--subtle);
+}
+
+.keyboard-shortcut-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.keyboard-shortcut-or {
+  color: var(--subtle);
+  font-size: 9px;
 }
 
 .keyboard-shortcut-key-part {
@@ -2455,7 +2585,7 @@ html[dir="rtl"] .details-top .details-back-action svg {
   color: var(--accent) !important;
 }
 .is-dimmed {
-  opacity: 0.24;
+  opacity: 0.48;
   filter: saturate(0.65);
 }
 .person-node {
@@ -2752,6 +2882,9 @@ html[dir="rtl"] .search-results {
 }
 html[dir="rtl"] .search-results button {
   text-align: right;
+}
+html[dir="rtl"] .search-result-copy {
+  text-align: inherit;
 }
 html[dir="rtl"] .toolbar-menu-wrap {
   margin-inline-start: 0;
@@ -4774,15 +4907,13 @@ html[dir="rtl"] .family-member-picker-list {
   flex: none;
 }
 .relationship-guide-popover {
-  position: absolute;
-  z-index: 80;
-  top: calc(100% + 9px);
-  right: 0;
+  position: fixed;
+  z-index: 10000;
   width: min(320px, calc(100vw - 24px));
+  box-sizing: border-box;
   max-height: min(72vh, 560px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 17px;
+  overflow: visible;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
@@ -4790,6 +4921,48 @@ html[dir="rtl"] .family-member-picker-list {
   box-shadow: 0 16px 42px #0006;
   animation: relationship-guide-popover-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)
     both;
+}
+.relationship-guide-content {
+  max-height: inherit;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 17px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) var(--surface);
+}
+.relationship-guide-popover::before,
+.relationship-guide-popover::after {
+  position: absolute;
+  width: 12px;
+  height: 8px;
+  pointer-events: none;
+  content: "";
+  left: calc(var(--guide-arrow-offset, 50%) - 6px);
+}
+.relationship-guide-popover::before {
+  background: var(--guide-arrow-line, var(--line));
+}
+.relationship-guide-popover::after {
+  width: 10px;
+  height: 7px;
+  left: calc(var(--guide-arrow-offset, 50%) - 5px);
+  background: var(--guide-popover-fill, var(--surface));
+}
+.relationship-guide-popover[data-arrow-side="top"]::before {
+  top: -8px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.relationship-guide-popover[data-arrow-side="top"]::after {
+  top: -6px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.relationship-guide-popover[data-arrow-side="bottom"]::before {
+  bottom: -8px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.relationship-guide-popover[data-arrow-side="bottom"]::after {
+  bottom: -6px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .relationship-guide-popover .dialog-header {
   align-items: center;
@@ -4823,6 +4996,10 @@ html[dir="rtl"] .family-member-picker-list {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--surface-hover);
+}
+.relationship-guide-close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .relationship-guide-intro {
   margin: 12px 0 16px;
@@ -4920,19 +5097,13 @@ html[dir="rtl"] .family-member-picker-list {
 .tree-app[data-theme="warm-light"] .relationship-guide-popover {
   box-shadow: 0 16px 42px #2233;
 }
-html[dir="rtl"] .relationship-guide-popover {
-  right: auto;
-  left: 0;
+.relationship-guide-popover[data-theme="warm-light"] {
+  box-shadow: 0 16px 42px #2233;
 }
 @media (max-width: 600px) {
   .relationship-guide-popover {
-    right: -2px;
     width: min(320px, calc(100vw - 18px));
     max-height: 65vh;
-  }
-  html[dir="rtl"] .relationship-guide-popover {
-    right: auto;
-    left: -2px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -5166,23 +5337,54 @@ html[dir="rtl"] .relationship-guide-popover {
 }
 
 .tree-app[data-theme="midnight"] {
-  --bg: #151727;
-  --surface: #1e2134;
-  --surface-raised: #282c42;
-  --surface-hover: #343950;
-  --line: #50556e;
-  --line-soft: #393e55;
-  --text: #f3f2fa;
-  --muted: #c9c9dc;
-  --subtle: #b3b5cd;
-  --accent: #c5b8f4;
-  --accent-strong: #a091dc;
-  --accent-soft: #38344e;
-  --accent-secondary: #e4bda0;
-  --accent-secondary-soft: #4b3d3b;
-  --canvas: #191c2e;
-  --canvas-dot: #3b3f57;
-  --focus: #d7cbff;
+  --bg: #171a2b;
+  --surface: #20243a;
+  --surface-raised: #2d344d;
+  --surface-hover: #38415b;
+  --surface-toolbar: #252b42;
+  --surface-card: #272d45;
+  --surface-card-hover: #303750;
+  --surface-popover: #292f48;
+  --line: #4a526d;
+  --line-soft: #343b55;
+  --line-control: #414a66;
+  --text: #ededf6;
+  --muted: #c4c8dc;
+  --subtle: #a3aac5;
+  --text-secondary: #d0d5e7;
+  --accent: #ad9ceb;
+  --accent-strong: #9b88df;
+  --accent-hover: #c1b1f5;
+  --on-accent: #201b32;
+  --on-danger: #fff0f2;
+  --accent-soft: #37314f;
+  --accent-secondary: #43c8b1;
+  --accent-secondary-soft: #233e48;
+  --canvas: #191d31;
+  --canvas-dot: #3c4463;
+  --focus: #d3c5ff;
+  --icon-primary: #ad9ceb;
+  --icon-tree: #43c8b1;
+  --icon-relationship: #e58eb6;
+  --icon-history: #f0b76b;
+  --icon-info: #a6d7f4;
+  --icon-danger: #f09aa4;
+  --icon-neutral: #c4c8dc;
+  --shadow-card: 0 2px 9px #080b1938;
+  --shadow-card-hover: 0 4px 12px #080b1948;
+  --shadow-avatar: 0 2px 8px #080b1938;
+  --shadow-panel: 0 8px 24px #080a1670;
+  --shadow-popover: 0 12px 28px #080b1959;
+  --shadow-dialog: 0 18px 48px #080b1970;
+  --radius-control: 9px;
+  --radius-card: 12px;
+  --radius-popover: 11px;
+  --spotlight-muted-opacity: 0.48;
+  --branch-focus-muted-opacity: 0.42;
+  --spotlight-line-opacity: 0.52;
+  --branch-focus-line-opacity: 0.34;
+  --deceased-ring-theme: #8189a4;
+  --deceased-text-theme: #aeb5ca;
   --danger: #f09aa4;
   --danger-strong: #ffc0c5;
   --validation-error: #f09aa4;
@@ -5191,6 +5393,7 @@ html[dir="rtl"] .relationship-guide-popover {
   --validation-warning: #e8c276;
   --validation-warning-strong: #ffe8b0;
   --validation-warning-tint: #393127;
+  background: radial-gradient(ellipse at 12% 0%, #222842 0%, transparent 40%), var(--bg);
 }
 
 .tree-app[data-theme="chocolate"] {
@@ -5743,7 +5946,7 @@ html[lang="ar"][data-layout-direction="keep"] body {
 
 .tree-app[lang="ar"][data-layout-direction="keep"] .dialog-header > div,
 .tree-app[lang="ar"][data-layout-direction="keep"] .relationship-guide-item > span:last-child,
-.tree-app[lang="ar"][data-layout-direction="keep"] .search-results button > span:first-child {
+.tree-app[lang="ar"][data-layout-direction="keep"] .search-result-copy {
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -5760,23 +5963,60 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   unicode-bidi: plaintext;
 }
 
+html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover,
+html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p, button, strong, small) {
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
 .person-context-menu {
   box-sizing: border-box;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   width: 214px;
-  max-height: min(70vh, 420px);
-  overflow-y: auto;
+  overflow: visible;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 12px 30px color-mix(in srgb, #000 26%, transparent);
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
   animation: person-context-menu-enter 120ms cubic-bezier(.2,.8,.2,1) both;
 }
+
+.person-context-menu-actions {
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.person-context-menu::before,
+.person-context-menu::after {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  content: "";
+}
+
+.person-context-menu::before {
+  background: var(--line-control, var(--line));
+}
+
+.person-context-menu::after {
+  background: var(--context-menu-arrow-fill, var(--surface));
+}
+
+.person-context-menu[data-arrow-side="left"]::before { left: -7px; top: calc(var(--context-arrow-offset, 24px) - 6px); width: 8px; height: 12px; clip-path: polygon(0 50%, 100% 0, 100% 100%); }
+.person-context-menu[data-arrow-side="left"]::after { left: -5px; top: calc(var(--context-arrow-offset, 24px) - 5px); width: 7px; height: 10px; clip-path: polygon(0 50%, 100% 0, 100% 100%); }
+.person-context-menu[data-arrow-side="right"]::before { right: -7px; top: calc(var(--context-arrow-offset, 24px) - 6px); width: 8px; height: 12px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.person-context-menu[data-arrow-side="right"]::after { right: -5px; top: calc(var(--context-arrow-offset, 24px) - 5px); width: 7px; height: 10px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.person-context-menu[data-arrow-side="top"]::before { top: -7px; left: calc(var(--context-arrow-offset, 24px) - 6px); width: 12px; height: 8px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.person-context-menu[data-arrow-side="top"]::after { top: -5px; left: calc(var(--context-arrow-offset, 24px) - 5px); width: 10px; height: 7px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.person-context-menu[data-arrow-side="bottom"]::before { bottom: -7px; left: calc(var(--context-arrow-offset, 24px) - 6px); width: 12px; height: 8px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.person-context-menu[data-arrow-side="bottom"]::after { bottom: -5px; left: calc(var(--context-arrow-offset, 24px) - 5px); width: 10px; height: 7px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
 
 .person-context-menu-group {
   display: grid;
@@ -5964,7 +6204,7 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-block-end: 20px;
+  margin-block-end: 18px;
 }
 
 .relationship-calculator-header span,
@@ -5996,61 +6236,144 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   font-weight: 600;
 }
 
-.relationship-calculator-selects select {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 42px;
-  padding-block: 0;
-  padding-inline: 11px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+.relationship-calculator-selects .family-member-picker { min-width: 0; }
+.relationship-calculator-selects .family-member-picker-trigger {
+  min-height: 44px;
+  height: auto;
+  padding-block: 6px;
+  padding-inline: 10px;
+  border-color: var(--line);
+  border-radius: 10px;
   background: var(--surface-raised);
+  color: var(--text);
+  font-size: 12px;
+}
+.relationship-calculator-selects .family-member-picker-trigger:focus-visible {
+  outline: 2px solid var(--focus, var(--accent));
+  outline-offset: 2px;
+}
+.relationship-calculator-selects .family-member-picker-trigger > .family-avatar-art,
+.relationship-calculator-selects .family-member-picker-trigger .family-avatar-art {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+}
+.relationship-calculator-person-picker-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border-color: var(--line-control, var(--line));
+  border-radius: var(--radius-popover, 12px);
+  background: var(--surface-popover, var(--surface));
+  color: var(--text);
+  box-shadow: var(--shadow-popover, 0 16px 42px rgb(0 0 0 / 28%));
+}
+.relationship-calculator-picker-search {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding-block: 6px;
+  padding-inline: 11px;
+  border-block-end: 1px solid var(--line-soft, var(--line));
+  color: var(--muted);
+}
+.relationship-calculator-picker-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
   color: var(--text);
   font: inherit;
   font-size: 12px;
 }
-
-.relationship-calculator-selects select:focus-visible {
-  border-color: var(--accent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  outline-offset: 1px;
-}
-
-.relationship-calculator-profiles {
+.relationship-calculator-picker-search input:focus-visible { outline: 0; }
+.relationship-calculator-picker-search input::placeholder { color: var(--muted); }
+.relationship-calculator-picker-search > button {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  margin-block-start: 18px;
-  padding-block: 13px;
-  padding-inline: 14px;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  background: var(--surface-raised);
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.relationship-calculator-picker-search > button:hover,
+.relationship-calculator-picker-search > button:focus-visible {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.relationship-calculator-picker-search > button:focus-visible { outline: 2px solid var(--focus, var(--accent)); }
+.relationship-calculator-picker-results {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-control, var(--line)) transparent;
+}
+.relationship-calculator-picker-results .family-member-picker-option {
+  min-height: 48px;
+  gap: 9px;
+  padding-block: 6px;
+  padding-inline: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.relationship-calculator-picker-results .family-member-picker-option:hover,
+.relationship-calculator-picker-results .family-member-picker-option.is-keyboard-active {
+  border-color: var(--line-soft, var(--line));
+  background: var(--surface-hover);
+}
+.relationship-calculator-picker-results .family-member-picker-option.is-keyboard-active { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
+.relationship-calculator-picker-results .family-member-picker-option:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: -2px; }
+.relationship-calculator-picker-results .family-member-picker-option > .family-member-picker-avatar,
+.relationship-calculator-picker-results .family-member-picker-option > .family-avatar-art {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+}
+.relationship-calculator-picker-results .family-member-picker-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.relationship-calculator-picker-results .family-member-picker-copy strong { overflow-wrap: anywhere; color: var(--text); font-size: 11px; font-weight: 600; }
+.relationship-calculator-picker-results .person-list-metadata { color: var(--muted); font-size: 9px; }
+.relationship-calculator-picker-results .family-member-picker-option > svg { flex: 0 0 auto; color: var(--accent); }
+.relationship-calculator-picker-empty { padding-block: 18px; padding-inline: 12px; color: var(--muted); font-size: 11px; text-align: center; }
+.relationship-calculator-person-picker-list[data-theme="midnight"] {
+  border-color: var(--line-control);
+  background: var(--surface-popover);
+  box-shadow: var(--shadow-popover);
+}
+.relationship-calculator-person-picker-list[data-theme="midnight"] .relationship-calculator-picker-search > button:focus-visible,
+.relationship-calculator-person-picker-list[data-theme="midnight"] .family-member-picker-option.is-keyboard-active {
+  outline-color: var(--focus);
 }
 
-.relationship-calculator-profiles > svg {
-  color: var(--accent);
-}
-
-.relationship-calculator-profile,
 .relationship-calculator-path-person {
   display: flex;
   min-width: 0;
+  max-width: 100%;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   color: var(--text);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.relationship-calculator-profile > :last-child,
 .relationship-calculator-path-person > :last-child {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.relationship-calculator-profile .family-avatar-art,
 .relationship-calculator-path-person .family-avatar-art {
   width: 32px;
   height: 32px;
@@ -6059,9 +6382,11 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 }
 
 .relationship-calculator-result {
-  margin-block-start: 18px;
-  padding-block: 15px;
-  padding-inline: 15px;
+  display: grid;
+  gap: 6px;
+  margin-block-start: 12px;
+  padding-block: 13px;
+  padding-inline: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: 12px;
   background: color-mix(in srgb, var(--accent-soft) 44%, var(--surface));
@@ -6069,14 +6394,50 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 
 .relationship-calculator-result > strong {
   display: block;
-  margin-block-start: 4px;
   color: var(--accent-strong, var(--text));
   font-size: 20px;
   font-weight: 750;
+  line-height: 1.25;
 }
+.relationship-calculator-show-tree {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-block-start: 9px;
+  padding-block: 7px;
+  padding-inline: 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-raised));
+  color: var(--accent-strong, var(--accent));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.relationship-calculator-show-tree:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.relationship-calculator-show-tree:disabled {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+.relationship-calculator-show-tree:focus-visible {
+  outline: 2px solid var(--focus, var(--accent));
+  outline-offset: 2px;
+}
+.relationship-calculator-show-tree > svg { flex: 0 0 auto; }
 
 .relationship-calculator-path-label {
-  margin-block-start: 15px;
+  margin-block-start: 5px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 650;
@@ -6086,15 +6447,25 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 11px;
-  margin-block-start: 9px;
+  gap: 7px 9px;
+  margin-block-start: 0;
 }
 
 .relationship-calculator-path-part,
 .relationship-calculator-path-step {
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 7px;
+}
+
+.relationship-calculator-path-part {
+  flex-wrap: wrap;
+}
+
+.relationship-calculator-path-step {
+  flex-wrap: wrap;
 }
 
 .relationship-calculator-path-person {
@@ -6116,24 +6487,38 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   font-size: 10px;
 }
 
+.relationship-calculator-path-step > span {
+  padding-block: 3px;
+  padding-inline: 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .relationship-calculator-path-step svg {
   color: var(--accent);
 }
 
-.relationship-calculator-dialog[dir="rtl"] .relationship-calculator-path-step svg,
-.relationship-calculator-dialog[dir="rtl"] .relationship-calculator-profiles > svg {
+.relationship-calculator-dialog[dir="rtl"] .relationship-calculator-path-step svg {
   transform: scaleX(-1);
 }
 
 .relationship-calculator-empty {
-  margin-block: 17px 0;
-  padding-block: 15px;
+  margin-block: 13px 0;
+  padding-block: 11px;
   padding-inline: 12px;
   border-radius: 10px;
-  background: var(--surface-raised);
+  background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.45;
   text-align: center;
+}
+
+.relationship-calculator-empty:not(.relationship-calculator-prompt) {
+  background: var(--surface-raised);
 }
 
 .relationship-calculator-footer {
@@ -6151,14 +6536,13 @@ html[lang="ar"][data-layout-direction="keep"] :is(
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .relationship-calculator-profiles {
-    gap: 7px;
-    padding-inline: 9px;
-  }
+}
 
-  .relationship-calculator-profile {
-    gap: 6px;
-    font-size: 10px;
+@media (prefers-reduced-motion: reduce) {
+  .relationship-calculator-selects .family-member-picker-trigger,
+  .relationship-calculator-picker-results .family-member-picker-option,
+  .relationship-calculator-show-tree {
+    transition: none;
   }
 }
 
@@ -6176,17 +6560,45 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 
 .discard-changes-shade {
   z-index: 10080;
-  background: color-mix(in srgb, #070a0d 45%, transparent);
+  background: color-mix(in srgb, #070a0d 30%, transparent);
+  backdrop-filter: none;
 }
 
 .discard-changes-dialog {
   width: min(390px, calc(100vw - 32px));
+  padding: 18px;
+}
+
+.discard-changes-dialog .confirm-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.discard-changes-dialog h2 {
+  margin-block: 10px 4px;
+}
+
+.discard-changes-dialog .discard-changes-description {
+  margin: 0;
 }
 
 .discard-changes-dialog .dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 9px;
+  gap: 8px;
+  margin-block-start: 16px;
+}
+
+.discard-danger-button {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  color: var(--danger-strong, var(--danger));
+}
+
+.discard-danger-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--line));
+  background: color-mix(in srgb, var(--danger) 21%, var(--surface));
+  color: var(--danger-strong, var(--danger));
 }
 
 .sidebar-account {
@@ -6473,6 +6885,86 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   background: #171522;
   color: #f0eef8;
   font-family: Inter, Geist, system-ui, sans-serif;
+}
+
+.auth-loading-screen {
+  --bg: #171a2b;
+  --text: #ededf6;
+  --muted: #c4c8dc;
+  --accent: #ad9ceb;
+  --accent-secondary: #43c8b1;
+  --icon-relationship: #e58eb6;
+  --icon-history: #f0b76b;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.auth-loading-screen.is-visible {
+  animation: auth-loading-screen-in 220ms ease-out both;
+}
+
+.auth-loading-screen.is-exiting {
+  pointer-events: none;
+  animation: auth-loading-screen-out 260ms ease-in both;
+}
+
+.rootly-loader {
+  display: grid;
+  width: min(72vmin, 560px);
+  aspect-ratio: 1;
+  place-items: center;
+}
+
+.rootly-loader-art {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rootly-loader-pulse {
+  stroke-dasharray: 0.07 1.2;
+  stroke-dashoffset: 0.07;
+  animation: rootly-loader-flow 1.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes auth-loading-screen-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes auth-loading-screen-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes rootly-loader-flow {
+  from { stroke-dashoffset: 0.07; }
+  to { stroke-dashoffset: -1; }
+}
+
+@media (max-width: 480px) {
+  .rootly-loader {
+    width: min(92vw, 72svh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-loading-screen.is-visible,
+  .auth-loading-screen.is-exiting {
+    animation: none;
+  }
+
+  .rootly-loader-pulse {
+    animation: none;
+    opacity: 0;
+  }
+
+  .auth-loading-screen.is-exiting {
+    opacity: 0;
+  }
 }
 
 .auth-language-toggle {
@@ -7348,18 +7840,16 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 .tree-minimap {
   position: absolute;
   z-index: 12;
-  inset-inline-end: 14px;
+  inset-inline-end: 82px;
   inset-block-end: 14px;
-  width: 184px;
+  width: min(168px, calc(100% - 92px));
+  box-sizing: border-box;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: 0 5px 18px color-mix(in srgb, #000 18%, transparent);
-  cursor: crosshair;
+  border: 1px solid var(--line-soft, var(--line));
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px color-mix(in srgb, #000 14%, transparent);
   pointer-events: auto;
-  touch-action: none;
-  user-select: none;
 }
 
 .tree-minimap:focus-visible {
@@ -7412,13 +7902,6 @@ html[lang="ar"][data-layout-direction="keep"] :is(
   background: var(--muted);
 }
 
-.tree-minimap {
-  width: 168px;
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 4px 14px color-mix(in srgb, #000 14%, transparent);
-}
-
 .tree-minimap.is-collapsed {
   width: 34px;
   height: 34px;
@@ -7426,6 +7909,7 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 }
 
 .tree-minimap-map {
+  position: relative;
   cursor: crosshair;
   touch-action: none;
   user-select: none;
@@ -7620,58 +8104,1286 @@ html[lang="ar"][data-layout-direction="keep"] :is(
 }
 
 @media (max-width: 760px) {
-  .tree-toolbar {
-    gap: 6px;
-    padding-inline: 8px;
-  }
-
+  .tree-toolbar { gap: 6px; padding-inline: 8px; }
   .toolbar-primary-group,
   .toolbar-center-group,
-  .toolbar-system-group {
-    gap: 5px;
-  }
-
+  .toolbar-system-group { gap: 5px; }
   .toolbar-center-group > .toolbar-cluster,
   .toolbar-layout-group,
-  .toolbar-system-group > .history-actions {
-    padding: 1px;
-  }
-
-  .tree-minimap {
-    width: 148px;
-  }
-
-  .tree-minimap.is-collapsed {
-    width: 34px;
-  }
-
-  .tree-workspace > .canvas-heading > div {
-    gap: 6px;
-  }
-
-  .quick-stats-pill {
-    max-width: 100%;
-  }
+  .toolbar-system-group > .history-actions { padding: 1px; }
+  .tree-minimap { width: min(148px, calc(100% - 92px)); }
+  .tree-minimap.is-collapsed { width: 34px; }
+  .tree-workspace > .canvas-heading > div { gap: 6px; }
+  .quick-stats-pill { max-width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tree-sidebar,
   .tree-minimap-toggle,
-  .toolbar-system-group > .history-actions {
+  .toolbar-system-group > .history-actions { transition: none; }
+}
+
+@media (max-width: 600px) {
+  .tree-minimap { inset-inline-end: 82px; inset-block-end: 14px; width: min(150px, calc(100% - 92px)); }
+  .quick-stats-pill { gap: 5px; padding-inline: 6px; font-size: 9px !important; }
+}
+
+.tree-app[data-theme="midnight"] .tree-sidebar {
+  border-inline-end-color: var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .tree-toolbar {
+  border-color: var(--line-control);
+  background: var(--surface-toolbar);
+  box-shadow: var(--shadow-card);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) {
+  box-sizing: border-box;
+  width: var(--layout-node-width, 212px);
+  height: var(--layout-node-height, 106px);
+  border-radius: var(--radius-card);
+  border-color: var(--line-soft);
+  border-block-start-color: var(--branch-color, var(--line-soft));
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) .member-main {
+  box-sizing: border-box;
+  min-width: 0;
+  gap: 9px;
+  padding: 8px 8px 9px;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).branch-colored {
+  border-block-start-width: 3px;
+  background: color-mix(in srgb, var(--branch-color) 5%, var(--surface-card));
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).branch-colored:hover,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).branch-colored:focus-within {
+  border-block-start-color: var(--branch-color);
+  background: color-mix(in srgb, var(--branch-color) 4%, var(--surface-card-hover));
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased {
+  border-color: color-mix(in srgb, var(--deceased-ring-theme) 42%, var(--line-soft));
+  background: color-mix(in srgb, var(--deceased-ring-theme) 8%, var(--surface-card));
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased.branch-colored,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased.branch-colored:hover,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased.branch-colored:focus-within {
+  border-block-start-color: var(--branch-color);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) .member-main:focus-visible {
+  outline: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node):has(.member-main:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) .node-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) .family-avatar-art.compact {
+  width: 46px;
+  height: 46px;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node) .node-copy {
+  min-width: 0;
+  gap: 3px;
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node):hover,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node):focus-within {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  background: var(--surface-card-hover);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased:hover,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased:focus-within {
+  border-color: color-mix(in srgb, var(--deceased-ring-theme) 42%, var(--line-soft));
+  background: color-mix(in srgb, var(--deceased-ring-theme) 8%, var(--surface-card-hover));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased.branch-colored:hover,
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-deceased.branch-colored:focus-within {
+  border-block-start-color: var(--branch-color);
+}
+
+.tree-app[data-theme="midnight"] .tree-toolbar,
+.tree-app[data-theme="midnight"] .toolbar-menu,
+.tree-app[data-theme="midnight"] .person-context-menu,
+.tree-app[data-theme="midnight"] .existing-relative-picker,
+.tree-app[data-theme="midnight"] .custom-calendar,
+.tree-app[data-theme="midnight"] .member-dialog,
+.tree-app[data-theme="midnight"] .edit-person-dialog,
+.tree-app[data-theme="midnight"] .share-tree-dialog,
+.tree-app[data-theme="midnight"] .relationship-calculator-dialog,
+.tree-app[data-theme="midnight"] .keyboard-shortcuts-dialog {
+  border-color: var(--line);
+}
+
+.tree-app[data-theme="midnight"] .toolbar-add-person {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-card);
+}
+
+.tree-app[data-theme="midnight"] .toolbar-add-person:hover:not(:disabled),
+.tree-app[data-theme="midnight"] .primary-button:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.tree-app[data-theme="midnight"] .primary-button {
+  color: var(--on-accent);
+}
+
+.tree-app[data-theme="midnight"] .primary-button.danger-button,
+.tree-app[data-theme="midnight"] .primary-button.danger-button:hover:not(:disabled) {
+  color: var(--on-danger);
+}
+
+.tree-app[data-theme="midnight"] .secondary-button,
+.tree-app[data-theme="midnight"] .toolbar-cluster button,
+.tree-app[data-theme="midnight"] .settings-toggle,
+.tree-app[data-theme="midnight"] .toolbar-share-button,
+.tree-app[data-theme="midnight"] .toolbar-guide-button,
+.tree-app[data-theme="midnight"] .sidebar-preference-button,
+.tree-app[data-theme="midnight"] .custom-date-field,
+.tree-app[data-theme="midnight"] .relationship-kind-trigger,
+.tree-app[data-theme="midnight"] .family-member-picker-trigger {
+  border-color: var(--line-soft);
+  background-color: color-mix(in srgb, var(--surface-raised) 76%, var(--surface));
+}
+
+.tree-app[data-theme="midnight"] .secondary-button:hover,
+.tree-app[data-theme="midnight"] .toolbar-cluster button:hover:not(:disabled),
+.tree-app[data-theme="midnight"] .settings-toggle:hover,
+.tree-app[data-theme="midnight"] .toolbar-share-button:hover,
+.tree-app[data-theme="midnight"] .toolbar-guide-button:hover,
+.tree-app[data-theme="midnight"] .sidebar-preference-button:hover,
+.tree-app[data-theme="midnight"] .relationship-kind-trigger:hover,
+.tree-app[data-theme="midnight"] .family-member-picker-trigger:hover {
+  border-color: var(--line);
+  background-color: var(--surface-hover);
+}
+
+.tree-app[data-theme="midnight"] .toolbar-add-person > svg,
+.tree-app[data-theme="midnight"] .primary-button > svg {
+  color: currentColor;
+}
+
+.tree-app[data-theme="midnight"] .side-link.selected > svg {
+  color: var(--icon-tree);
+}
+
+.tree-app[data-theme="midnight"] .sidebar-brand .brand-icon {
+  background: color-mix(in srgb, var(--icon-tree) 17%, var(--surface));
+  color: var(--icon-tree);
+}
+
+.tree-app[data-theme="midnight"] .sidebar-signout > svg {
+  color: var(--icon-danger);
+}
+
+.tree-app[data-theme="midnight"] .toolbar-share-button > svg,
+.tree-app[data-theme="midnight"] .toolbar-guide-button > svg,
+.tree-app[data-theme="midnight"] .toolbar-relationship-calculator > svg,
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-details > svg {
+  color: var(--icon-info);
+}
+
+.tree-app[data-theme="midnight"] .custom-date-trigger > svg,
+.tree-app[data-theme="midnight"] .relationship-kind-option:nth-child(2) > svg {
+  color: var(--icon-history);
+}
+
+.tree-app[data-theme="midnight"] .relationship-kind-trigger > svg:first-child,
+.tree-app[data-theme="midnight"] .relationship-kind-option:nth-child(1) > svg {
+  color: var(--icon-tree);
+}
+
+.tree-app[data-theme="midnight"] .relationship-kind-option:nth-child(3) > svg,
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-partner > svg,
+.tree-app[data-theme="midnight"] .relationship-group-partners .relationship-group-icon {
+  color: var(--icon-relationship);
+}
+
+.tree-app[data-theme="midnight"] .relationship-kind-option:nth-child(4) > svg,
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-sibling > svg,
+.tree-app[data-theme="midnight"] .relationship-group-siblings .relationship-group-icon {
+  color: var(--icon-info);
+}
+
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-child > svg,
+.tree-app[data-theme="midnight"] .relationship-group-children .relationship-group-icon {
+  color: var(--icon-history);
+}
+
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-parent > svg,
+.tree-app[data-theme="midnight"] .relationship-group-parents .relationship-group-icon {
+  color: var(--icon-tree);
+}
+
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-edit > svg,
+.tree-app[data-theme="midnight"] .details-top-actions button:first-child > svg,
+.tree-app[data-theme="midnight"] .profile-avatar-trigger > svg {
+  color: var(--icon-primary);
+}
+
+.tree-app[data-theme="midnight"] .details-delete-action > svg,
+.tree-app[data-theme="midnight"] .person-context-menu-item.is-destructive > svg,
+.tree-app[data-theme="midnight"] .danger-button > svg {
+  color: var(--icon-danger);
+}
+
+.tree-app[data-theme="midnight"] .relationship-group .relationship-link-action > svg {
+  color: var(--section-color);
+}
+
+.tree-app[data-theme="midnight"] :is(button, input, select, textarea):focus-visible {
+  outline-color: var(--focus);
+}
+
+.tree-app[data-theme="midnight"] .person-context-menu-item,
+.tree-app[data-theme="midnight"] .existing-relative-picker-option,
+.tree-app[data-theme="midnight"] .toolbar-menu button,
+.tree-app[data-theme="midnight"] .relationship-kind-option {
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-app[data-theme="midnight"] .person-context-menu-item,
+  .tree-app[data-theme="midnight"] .existing-relative-picker-option,
+  .tree-app[data-theme="midnight"] .toolbar-menu button,
+  .tree-app[data-theme="midnight"] .relationship-kind-option {
     transition: none;
   }
 }
 
-@media (max-width: 600px) {
-  .tree-minimap {
-    inset-inline-end: 8px;
-    inset-block-end: 8px;
-    width: 150px;
+.tree-app[data-theme="midnight"] .person-node.is-deceased {
+  --deceased-ring: var(--deceased-ring-theme);
+  --deceased-text: var(--deceased-text-theme);
+}
+
+.tree-app[data-theme="midnight"] .person-node .node-copy strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tree-app[data-theme="midnight"] .person-node .node-copy small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tree-app[data-theme="midnight"] .person-node .node-copy .node-age {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tree-app[data-theme="midnight"] .person-node .node-copy .node-gender {
+  border-color: color-mix(in srgb, currentColor 30%, var(--line));
+  background: color-mix(in srgb, currentColor 13%, var(--surface));
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-deceased .node-copy strong,
+.tree-app[data-theme="midnight"] .person-node.is-deceased .node-copy .node-age {
+  color: var(--deceased-text);
+}
+
+.tree-app[data-theme="midnight"] .person-node:not(.circle-node).is-selected {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--line-control);
+  border-block-start-color: var(--branch-color, var(--line-control));
+  box-shadow: 0 0 0 2px var(--canvas), var(--shadow-card);
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node:hover,
+.tree-app[data-theme="midnight"] .person-node.circle-node:focus-within {
+  outline: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node.is-selected {
+  outline: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node .node-avatar {
+  background: var(--surface-raised);
+  border-color: var(--surface);
+  box-shadow: var(--shadow-avatar), 0 0 0 2px var(--branch-color, var(--line));
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node:hover .node-avatar {
+  border-color: color-mix(in srgb, var(--focus) 55%, var(--surface));
+  box-shadow:
+    var(--shadow-avatar),
+    0 0 0 2px var(--branch-color, var(--line)),
+    0 0 0 4px color-mix(in srgb, var(--focus) 38%, transparent);
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node.is-selected .node-avatar {
+  border-color: var(--surface);
+  box-shadow:
+    var(--shadow-avatar),
+    0 0 0 2px var(--branch-color, var(--line)),
+    0 0 0 5px var(--focus);
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-deceased.circle-node .node-avatar {
+  border-color: var(--surface);
+  box-shadow: var(--shadow-avatar), 0 0 0 2px var(--deceased-ring);
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-deceased.circle-node:hover .node-avatar {
+  box-shadow:
+    var(--shadow-avatar),
+    0 0 0 2px var(--deceased-ring),
+    0 0 0 4px color-mix(in srgb, var(--focus) 38%, transparent);
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-deceased.circle-node.is-selected .node-avatar {
+  outline: none;
+  box-shadow:
+    var(--shadow-avatar),
+    0 0 0 2px var(--deceased-ring),
+    0 0 0 5px var(--focus);
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node .member-main:focus-visible {
+  outline: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node .member-main:focus-visible .node-avatar {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.tree-app[data-theme="midnight"] .person-node.circle-node.is-selected .member-main:focus-visible .node-avatar {
+  outline: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-dimmed {
+  opacity: var(--spotlight-muted-opacity);
+  filter: none;
+}
+
+.tree-app[data-theme="midnight"] .person-node.is-branch-focus-dimmed {
+  opacity: var(--branch-focus-muted-opacity);
+  filter: none;
+}
+
+.tree-app[data-theme="midnight"] .tree-lines.has-active-line-focus {
+  --inactive-relationship-opacity: var(--spotlight-line-opacity);
+}
+
+.tree-app[data-theme="midnight"] .tree-lines.is-branch-focus.has-active-line-focus {
+  --inactive-relationship-opacity: var(--branch-focus-line-opacity);
+}
+
+.tree-app[data-theme="midnight"] .tree-lines.has-active-line-focus :is(
+  path.relationship-line:not(.is-active-line):not(.is-selected-couple),
+  rect.spouse-circle-rail:not(.is-active-line):not(.is-selected-couple),
+  g.marriage-anchor:not(.is-active-line):not(.is-selected-couple),
+  g.divorce-anchor:not(.is-active-line):not(.is-selected-couple),
+  g.adoption-anchor:not(.is-active-line):not(.is-selected-couple)
+) {
+  opacity: var(--inactive-relationship-opacity);
+}
+
+.tree-app[data-theme="midnight"] .tree-workspace > .canvas-heading {
+  color: var(--text);
+}
+
+.tree-app[data-theme="midnight"] .tree-workspace > .canvas-heading h2 {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.tree-app[data-theme="midnight"] .search-results button {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 7px;
+  padding-inline: 9px;
+}
+
+.tree-app[data-theme="midnight"] .search-result-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--surface-raised);
+}
+
+.tree-app[data-theme="midnight"] .search-result-avatar .family-avatar-art.compact {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.tree-app[data-theme="midnight"] .search-result-copy {
+  flex: 1;
+  gap: 3px;
+  text-align: start;
+}
+
+.tree-app[data-theme="midnight"] .search-result-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-app[data-theme="midnight"] .search-result-copy .person-list-metadata {
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tree-app[data-theme="midnight"] .search-results button:hover,
+.tree-app[data-theme="midnight"] .search-results button[aria-selected="true"] {
+  border-color: var(--line-control);
+  background: var(--surface-hover);
+}
+
+.tree-app[data-theme="midnight"] .tree-minimap {
+  inset-inline-end: 70px;
+}
+
+.tree-app[data-theme="midnight"] .tree-save-status {
+  gap: 5px;
+  margin-inline-start: 5px;
+  color: var(--subtle);
+  font-size: 10px;
+}
+
+.tree-app[data-theme="midnight"] .tree-save-status::before {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-secondary);
+  content: "";
+}
+
+.tree-app[data-theme="midnight"] .tree-save-status-saving::before {
+  background: var(--icon-history);
+}
+
+.tree-app[data-theme="midnight"] .tree-save-status-error::before {
+  background: var(--icon-danger);
+}
+
+.tree-app[data-theme="midnight"] .quick-stats-pill {
+  gap: 7px;
+  padding: 4px 9px;
+  border-color: var(--line-soft);
+  background: color-mix(in srgb, var(--surface-raised) 82%, var(--surface));
+  color: var(--muted);
+  box-shadow: none;
+  font-size: 10px !important;
+}
+
+.tree-app[data-theme="midnight"] .quick-stats-pill > span {
+  color: var(--muted) !important;
+}
+
+.tree-app[data-theme="midnight"] .quick-stats-pill > span bdi {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.tree-app[data-theme="midnight"] .quick-stats-pill > i {
+  background: var(--line-control);
+}
+
+.tree-app[data-theme="midnight"] .relationship-badge-tooltip {
+  border-color: var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-popover);
+  box-shadow: var(--shadow-popover);
+}
+
+@media (max-width: 640px) {
+  .tree-app[data-theme="midnight"] .tree-workspace > .canvas-heading {
+    height: auto;
+    min-height: 42px;
+    padding-block: 5px;
   }
 
-  .quick-stats-pill {
-    gap: 5px;
-    padding-inline: 6px;
-    font-size: 9px !important;
+  .tree-app[data-theme="midnight"] .tree-workspace > .canvas-heading > div {
+    flex-wrap: wrap;
+    row-gap: 5px;
+  }
+
+  .tree-app[data-theme="midnight"] .canvas-title-row {
+    flex-wrap: wrap;
+  }
+
+  .tree-app[data-theme="midnight"] .quick-stats-pill {
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    white-space: normal;
+  }
+}
+
+.tree-app[data-theme="midnight"] .details-panel {
+  border-inline-start-color: var(--line-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.tree-app[data-theme="midnight"] .details-top {
+  min-height: 38px;
+  padding-block-end: 7px;
+  border-block-end-color: var(--line-soft);
+  color: var(--subtle);
+}
+
+.tree-app[data-theme="midnight"] .details-profile {
+  gap: 16px;
+  padding-block: 12px 15px;
+  padding-inline: 2px;
+  border-block-end: 1px solid var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .details-profile-copy {
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  gap: 4px;
+}
+
+.tree-app[data-theme="midnight"] .details-profile-copy h2 {
+  margin-block-end: 1px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.tree-app[data-theme="midnight"] .details-gender-chip {
+  justify-self: start;
+  min-height: 19px;
+  margin-block-end: 0;
+  padding-inline: 9px;
+}
+
+.tree-app[data-theme="midnight"] .details-parentage,
+.tree-app[data-theme="midnight"] .details-summary-line {
+  color: var(--muted);
+}
+
+.tree-app[data-theme="midnight"] .details-parentage {
+  margin-block-end: 1px;
+}
+
+.tree-app[data-theme="midnight"] .details-profile.is-deceased {
+  --deceased-ring: var(--deceased-ring-theme);
+  --deceased-text: var(--deceased-text-theme);
+}
+
+.tree-app[data-theme="midnight"] .details-links {
+  gap: 7px;
+  margin-block-start: 9px;
+  padding-block-start: 10px;
+  border-block-start-color: var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-heading {
+  min-height: 34px;
+  gap: 8px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-toggle {
+  min-height: 34px;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-toggle > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-body {
+  gap: 3px;
+  padding-block-start: 4px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-body > .relationship-person-button {
+  min-height: 39px;
+  gap: 9px;
+  padding-block: 4px;
+  padding-inline: 6px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-icon {
+  border: 1px solid color-mix(in srgb, var(--section-color) 22%, transparent);
+  background: color-mix(in srgb, var(--section-color) 14%, var(--surface));
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-count {
+  min-width: 20px;
+  height: 20px;
+  border-color: color-mix(in srgb, var(--section-color) 30%, var(--line-soft));
+  background: color-mix(in srgb, var(--section-color) 13%, var(--surface));
+  color: var(--text);
+  font-size: 10px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-toggle {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-toggle:hover .relationship-group-icon {
+  border-color: color-mix(in srgb, var(--section-color) 42%, var(--line));
+  background: color-mix(in srgb, var(--section-color) 20%, var(--surface));
+}
+
+.tree-app[data-theme="midnight"] .relationship-group-toggle:focus-visible,
+.tree-app[data-theme="midnight"] .relationship-link-action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-link-action {
+  min-height: 29px;
+  gap: 6px;
+  padding-inline: 8px;
+  border-radius: var(--radius-control);
+  border-color: color-mix(in srgb, var(--section-color) 34%, var(--line-soft));
+  background: color-mix(in srgb, var(--section-color) 10%, var(--surface));
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tree-app[data-theme="midnight"] .relationship-link-action:hover:not(:disabled),
+.tree-app[data-theme="midnight"] .relationship-link-action[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--section-color) 55%, var(--line));
+  background: color-mix(in srgb, var(--section-color) 17%, var(--surface));
+}
+
+.tree-app[data-theme="midnight"] .relationship-link-action:disabled {
+  border-style: dashed;
+  border-color: var(--line-control);
+  background: color-mix(in srgb, var(--surface-raised) 54%, var(--surface));
+  color: var(--subtle);
+  opacity: 0.82;
+  cursor: not-allowed;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-button {
+  border-color: transparent;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-button:hover {
+  border-color: var(--line-soft);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-avatar,
+.tree-app[data-theme="midnight"] .relationship-person-avatar .family-avatar-art.compact {
+  width: 30px;
+  height: 30px;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-copy > bdi {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-copy > .person-list-metadata {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tree-app[data-theme="midnight"] .details-panel .relationship-picker-empty {
+  min-height: 31px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  margin-block: 3px 1px;
+  margin-inline: 0;
+  padding-block: 6px;
+  padding-inline: 9px;
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--section-color) 5%, var(--surface-raised));
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.tree-app[data-theme="midnight"] .relationship-person-button.is-deceased,
+.tree-app[data-theme="midnight"] .relationship-person-button.is-deceased .relationship-person-copy > bdi,
+.tree-app[data-theme="midnight"] .relationship-person-button.is-deceased .person-list-metadata {
+  color: var(--deceased-text-theme);
+}
+
+.tree-app[data-theme="midnight"] .relationship-picker-empty,
+.tree-app[data-theme="midnight"] .relationship-picker-empty-partners,
+.tree-app[data-theme="midnight"] .relationship-picker-empty-children,
+.tree-app[data-theme="midnight"] .relationship-picker-empty-parents,
+.tree-app[data-theme="midnight"] .relationship-picker-empty-siblings {
+  color: var(--subtle);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog,
+.tree-app[data-theme="midnight"] .edit-person-dialog,
+.tree-app[data-theme="midnight"] .share-tree-dialog,
+.tree-app[data-theme="midnight"] .relationship-calculator-dialog,
+.tree-app[data-theme="midnight"] .keyboard-shortcuts-dialog,
+.tree-app[data-theme="midnight"] .confirm-dialog,
+.tree-app[data-theme="midnight"] .discard-changes-dialog {
+  padding: 18px;
+  border-color: var(--line-control);
+  border-radius: var(--radius-popover);
+  background: var(--surface);
+  box-shadow: var(--shadow-dialog);
+}
+
+.tree-app[data-theme="midnight"] .discard-changes-dialog .confirm-mark {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger-strong);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog .dialog-header,
+.tree-app[data-theme="midnight"] .edit-person-dialog .dialog-header {
+  gap: 14px;
+  margin-block-end: 16px;
+  padding-block-end: 13px;
+  border-block-end: 1px solid var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog .dialog-header h2,
+.tree-app[data-theme="midnight"] .edit-person-dialog .dialog-header h2 {
+  margin-block-start: 6px;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.tree-app[data-theme="midnight"] .member-dialog .dialog-header > button,
+.tree-app[data-theme="midnight"] .edit-person-dialog .dialog-header > button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog .dialog-header > button:hover,
+.tree-app[data-theme="midnight"] .edit-person-dialog .dialog-header > button:hover {
+  border-color: var(--line-control);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.tree-app[data-theme="midnight"] .confirm-dialog h2,
+.tree-app[data-theme="midnight"] .discard-changes-dialog h2 {
+  margin-block: 12px 6px;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.tree-app[data-theme="midnight"] .confirm-dialog > p,
+.tree-app[data-theme="midnight"] .discard-changes-dialog .discard-changes-description {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.tree-app[data-theme="midnight"] .confirm-dialog .dialog-actions,
+.tree-app[data-theme="midnight"] .discard-changes-dialog .dialog-actions {
+  margin-block-start: 17px;
+}
+
+.tree-app[data-theme="midnight"] .member-dialog label,
+.tree-app[data-theme="midnight"] .edit-person-fields .member-form-field > label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tree-app[data-theme="midnight"] .member-dialog input:not([type="file"]),
+.tree-app[data-theme="midnight"] .member-dialog select,
+.tree-app[data-theme="midnight"] .edit-person-fields input:not([type="checkbox"]),
+.tree-app[data-theme="midnight"] .edit-person-fields select,
+.tree-app[data-theme="midnight"] .custom-date-field {
+  border-color: var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog input:not([type="file"]):hover,
+.tree-app[data-theme="midnight"] .member-dialog select:hover,
+.tree-app[data-theme="midnight"] .edit-person-fields input:not([type="checkbox"]):hover,
+.tree-app[data-theme="midnight"] .edit-person-fields select:hover,
+.tree-app[data-theme="midnight"] .custom-date-field:hover {
+  border-color: var(--line);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog input:focus-visible,
+.tree-app[data-theme="midnight"] .member-dialog select:focus-visible,
+.tree-app[data-theme="midnight"] .edit-person-fields input:focus-visible,
+.tree-app[data-theme="midnight"] .edit-person-fields select:focus-visible,
+.tree-app[data-theme="midnight"] .custom-date-field:focus-within {
+  border-color: var(--focus);
+  outline: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 26%, transparent);
+}
+
+.tree-app[data-theme="midnight"] .gender-segmented-control {
+  border-color: var(--line-control);
+  background: var(--surface-raised);
+}
+
+.tree-app[data-theme="midnight"] .gender-segment-option {
+  color: var(--muted);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.tree-app[data-theme="midnight"] .gender-segment-option.male.is-selected {
+  color: var(--gender-male);
+}
+
+.tree-app[data-theme="midnight"] .gender-segment-option.female.is-selected {
+  color: var(--gender-female);
+}
+
+.tree-app[data-theme="midnight"] .family-connection-section {
+  border-block-start-color: var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .family-connection-heading {
+  color: var(--icon-tree);
+}
+
+.tree-app[data-theme="midnight"] .family-connection-heading h3 {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.tree-app[data-theme="midnight"] .dialog-actions {
+  gap: 9px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--line-soft);
+}
+
+.tree-app[data-theme="midnight"] .member-dialog .dialog-actions,
+.tree-app[data-theme="midnight"] .edit-person-dialog .dialog-actions {
+  margin-block-start: 16px;
+}
+
+.tree-app[data-theme="midnight"] .dialog-actions .secondary-button {
+  border-color: var(--line-control);
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.tree-app[data-theme="midnight"] .profile-avatar-menu,
+.tree-app[data-theme="midnight"] .relationship-kind-list,
+.tree-app[data-theme="midnight"] .family-member-picker-list,
+.tree-app[data-theme="midnight"] .surname-suggestions,
+.tree-app[data-theme="midnight"] .custom-calendar,
+.tree-app[data-theme="midnight"] .person-context-menu,
+.tree-app[data-theme="midnight"] .existing-relative-picker,
+.tree-app[data-theme="midnight"] .toolbar-menu,
+.tree-app[data-theme="midnight"] .search-results,
+.custom-calendar[data-theme="midnight"],
+.existing-relative-picker[data-theme="midnight"],
+.person-context-menu[data-theme="midnight"] {
+  border-color: var(--line-control);
+  border-radius: var(--radius-popover);
+  background: var(--surface-popover);
+  box-shadow: var(--shadow-popover);
+}
+
+.relationship-guide-popover[data-theme="midnight"] {
+  --guide-popover-fill: var(--surface-popover);
+  --guide-arrow-line: var(--line-control);
+  border-color: var(--line-control);
+  background: var(--surface-popover);
+  box-shadow: var(--shadow-popover);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-content {
+  scrollbar-color: var(--line-control) var(--surface-popover);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-intro {
+  margin-block: 9px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-list {
+  gap: 0;
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-item {
+  min-height: 48px;
+  gap: 10px;
+  padding-block: 5px;
+  padding-inline: 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-item + .relationship-guide-item {
+  border-block-start: 1px solid var(--line-soft);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .guide-symbol {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.relationship-guide-popover[data-theme="midnight"] .marriage-symbol {
+  background: color-mix(in srgb, var(--rel-partner) 14%, var(--surface-popover));
+  color: var(--rel-partner);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .divorce-symbol {
+  background: color-mix(in srgb, var(--rel-former) 14%, var(--surface-popover));
+  color: var(--rel-former);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .adoption-symbol {
+  background: color-mix(in srgb, var(--rel-adoption) 14%, var(--surface-popover));
+  color: var(--rel-adoption);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .lineage-symbol {
+  background: color-mix(in srgb, var(--rel-parent) 14%, var(--surface-popover));
+  color: var(--rel-parent);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .relationship-guide-line-examples {
+  margin-block-start: 10px;
+  gap: 8px 14px;
+}
+
+.relationship-guide-popover[data-theme="midnight"] .guide-line.solid {
+  border-color: var(--rel-parent);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .guide-line.dashed {
+  border-color: var(--rel-partner);
+}
+
+.relationship-guide-popover[data-theme="midnight"] .guide-line.dotted {
+  border-color: var(--rel-adoption);
+}
+
+.custom-calendar[data-theme="midnight"],
+.existing-relative-picker[data-theme="midnight"],
+.person-context-menu[data-theme="midnight"] {
+  color: var(--text);
+}
+
+.existing-relative-picker[data-theme="midnight"] {
+  --picker-arrow-fill: var(--surface-popover);
+}
+
+.person-context-menu[data-theme="midnight"] {
+  --context-menu-arrow-fill: var(--surface-popover);
+}
+
+.tree-app[data-theme="midnight"] .relationship-kind-option:hover,
+.tree-app[data-theme="midnight"] .relationship-kind-option:focus-visible,
+.tree-app[data-theme="midnight"] .relationship-kind-option[aria-selected="true"],
+.tree-app[data-theme="midnight"] .profile-avatar-menu-actions button:hover,
+.tree-app[data-theme="midnight"] .profile-avatar-menu-actions button:focus-visible,
+.tree-app[data-theme="midnight"] .avatar-preset-option:hover,
+.tree-app[data-theme="midnight"] .toolbar-menu button:hover,
+.tree-app[data-theme="midnight"] .search-results button:hover,
+.tree-app[data-theme="midnight"] .existing-relative-picker-option:hover:not(:disabled) {
+  border-color: var(--line-soft);
+  background-color: var(--surface-hover);
+  color: var(--text);
+}
+
+.tree-app[data-theme="midnight"] .avatar-preset-option[aria-pressed="true"],
+.tree-app[data-theme="midnight"] .relationship-kind-option[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
+  background-color: var(--accent-soft);
+}
+
+.tree-app[data-theme="midnight"] .toolbar-menu button:disabled,
+.tree-app[data-theme="midnight"] .existing-relative-picker-option:disabled,
+.tree-app[data-theme="midnight"] .avatar-preset-option:disabled,
+.tree-app[data-theme="midnight"] .toolbar-cluster button:disabled {
+  color: var(--subtle);
+  opacity: 0.62;
+}
+
+.tree-app[data-theme="midnight"] .tree-toolbar button,
+.tree-app[data-theme="midnight"] .settings-toggle,
+.tree-app[data-theme="midnight"] .toolbar-share-button,
+.tree-app[data-theme="midnight"] .toolbar-guide-button,
+.tree-app[data-theme="midnight"] .sidebar-preference-button,
+.tree-app[data-theme="midnight"] .primary-button,
+.tree-app[data-theme="midnight"] .secondary-button,
+.tree-app[data-theme="midnight"] .person-context-menu-item,
+.tree-app[data-theme="midnight"] .relationship-link-action,
+.tree-app[data-theme="midnight"] .relationship-person-button,
+.tree-app[data-theme="midnight"] .custom-date-trigger,
+.tree-app[data-theme="midnight"] .custom-date-clear,
+.tree-app[data-theme="midnight"] .relationship-kind-trigger,
+.tree-app[data-theme="midnight"] .family-member-picker-trigger,
+.tree-app[data-theme="midnight"] .gender-segment-option {
+  border-radius: var(--radius-control);
+  transition-duration: 140ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-app[data-theme="midnight"] .person-node,
+  .tree-app[data-theme="midnight"] .relationship-person-button,
+  .tree-app[data-theme="midnight"] .gender-segment-option,
+  .tree-app[data-theme="midnight"] .tree-toolbar button,
+  .tree-app[data-theme="midnight"] .primary-button,
+  .tree-app[data-theme="midnight"] .secondary-button {
+    transition: none !important;
+  }
+}
+
+.custom-calendar[data-theme="midnight"],
+.existing-relative-picker[data-theme="midnight"],
+.person-context-menu[data-theme="midnight"] {
+  border-color: var(--line-control);
+  border-radius: var(--radius-popover);
+  background: var(--surface-popover);
+  color: var(--text);
+  box-shadow: var(--shadow-popover);
+}
+
+.custom-calendar[data-theme="midnight"] .custom-calendar-choice.selected,
+.custom-calendar[data-theme="midnight"] .custom-calendar-day.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.custom-calendar[data-theme="midnight"] .custom-calendar-choice.related-year {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line-control));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-popover));
+}
+
+.custom-calendar[data-theme="midnight"] .custom-calendar-header button:hover,
+.custom-calendar[data-theme="midnight"] .custom-calendar-footer button:hover,
+.custom-calendar[data-theme="midnight"] .custom-calendar-choice:hover:not(:disabled),
+.custom-calendar[data-theme="midnight"] .custom-calendar-day:hover:not(:disabled) {
+  border-color: var(--line-control);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.custom-calendar[data-theme="midnight"] .custom-calendar-choice.selected:hover,
+.custom-calendar[data-theme="midnight"] .custom-calendar-day.selected:hover {
+  background: var(--accent-strong);
+  color: var(--on-accent);
+}
+
+.custom-calendar[data-theme="midnight"] .custom-calendar-month-year .calendar-year-toggle {
+  color: var(--icon-history);
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option:hover:not(:disabled),
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option:focus-visible,
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option[aria-selected="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-header {
+  padding-block: 10px 7px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-header h2 {
+  font-size: 12px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-header p {
+  margin-block-start: 3px;
+  font-size: 10px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-search {
+  gap: 8px;
+  padding-block: 9px;
+  padding-inline: 12px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option {
+  min-height: 42px;
+  gap: 9px;
+  padding-block: 6px;
+  padding-inline: 8px;
+  border: 1px solid transparent;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option > .family-avatar-art {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option[aria-selected="true"]:not(:focus-visible) {
+  border-color: var(--line-soft);
+  outline: 0;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-hover));
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-option:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-create {
+  min-height: 42px;
+  padding-block: 8px;
+  padding-inline: 12px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-create,
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-empty button {
+  border-color: var(--line-soft);
+  border-block-start-color: var(--line-soft);
+  background: var(--surface-raised);
+  color: var(--accent-hover);
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-create:hover:not(:disabled),
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-empty button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-search {
+  border-block-end-color: var(--line-soft);
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-search input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.existing-relative-picker[data-theme="midnight"] .existing-relative-picker-list {
+  scrollbar-color: var(--line-control) var(--surface-popover);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-group + .person-context-menu-group {
+  border-block-start-color: var(--line-soft);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-group h3 {
+  color: var(--subtle);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item {
+  color: var(--text);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item:hover:not(:disabled),
+.person-context-menu[data-theme="midnight"] .person-context-menu-item:focus-visible {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-details > svg {
+  color: var(--icon-info);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-edit > svg {
+  color: var(--icon-primary);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-child > svg {
+  color: var(--icon-history);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-partner > svg {
+  color: var(--icon-relationship);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-parent > svg {
+  color: var(--icon-tree);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-sibling > svg {
+  color: var(--icon-info);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-destructive,
+.person-context-menu[data-theme="midnight"] .person-context-menu-item.is-destructive > svg {
+  color: var(--icon-danger);
+}
+
+.person-context-menu[data-theme="midnight"] .person-context-menu-item:disabled,
+.person-context-menu[data-theme="midnight"] .person-context-menu-item:disabled > svg {
+  color: var(--subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-context-menu[data-theme="midnight"] .person-context-menu-item {
+    transition: none;
   }
 }

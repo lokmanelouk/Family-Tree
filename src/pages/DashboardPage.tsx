@@ -76,6 +76,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   const [focusMode, setFocusMode] = useState(false);
   const [branchFocusId, setBranchFocusId] = useState<string | null>(null);
   const [relationshipCalculatorOpen, setRelationshipCalculatorOpen] = useState(false);
+  const [relationshipPathIds, setRelationshipPathIds] = useState<string[] | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [immersive, setImmersive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [navigationTarget, setNavigationTarget] = useState<{
     id: string;
+    pathIds?: string[];
     sequence: number;
   } | null>(null);
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null);
@@ -187,7 +189,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
       if (initialFitDone.current || viewport.clientWidth === 0 || viewport.clientHeight === 0) return;
       const hiddenIds = new Set([...getHiddenIds(members, collapsedIds), ...getHiddenAncestorIds(members, collapsedAncestorIds)]);
       const visibleMembers = members.filter((member) => !hiddenIds.has(member.id));
-      const bounds = getTreeContentBounds(computeTreeLayout(visibleMembers, nodeMode));
+      const bounds = getTreeContentBounds(computeTreeLayout(visibleMembers, nodeMode, { compactCards: theme === 'midnight' }));
       initialFitDone.current = true;
       setZoom(getFitZoom(bounds, viewport.clientWidth, viewport.clientHeight, { maxZoom: 1.25 }));
     };
@@ -196,7 +198,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
     const observer = new ResizeObserver(applyInitialFit);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [members, nodeMode, collapsedIds, collapsedAncestorIds]);
+  }, [members, nodeMode, theme, collapsedIds, collapsedAncestorIds]);
 
   useEffect(() => {
     if (!status) return;
@@ -207,7 +209,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (target.matches('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.isComposing || target.matches('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
       if (event.key === "Escape") {
         if (shortcutsOpen) {
           event.preventDefault();
@@ -362,6 +364,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
   function findMember(member: FamilyMember) {
     showApplicationChrome();
     setBranchFocusId(null);
+    setRelationshipPathIds(null);
     setCollapsedIds(new Set());
     setCollapsedAncestorIds(new Set());
     setSelectedId(member.id);
@@ -372,11 +375,34 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
       sequence: (current?.sequence ?? 0) + 1,
     }));
   }
+  function showRelationshipPath(pathIds: string[]) {
+    const firstPerson = members.find((member) => member.id === pathIds[0]);
+    if (!firstPerson || pathIds.length < 2) return;
+    showApplicationChrome();
+    setBranchFocusId(null);
+    setCollapsedIds(new Set());
+    setCollapsedAncestorIds(new Set());
+    setSelectedId(firstPerson.id);
+    setFocusMode(false);
+    const pathLayout = computeTreeLayout(members, nodeMode, { compactCards: theme === "midnight" });
+    const pathIdSet = new Set(pathIds);
+    const pathPositions = new Map([...pathLayout.positions].filter(([id]) => pathIdSet.has(id)));
+    const pathBounds = getTreeContentBounds({ ...pathLayout, positions: pathPositions });
+    const viewport = document.querySelector<HTMLElement>(".tree-viewport");
+    setZoom(getFitZoom(pathBounds, viewport?.clientWidth ?? window.innerWidth - 320, viewport?.clientHeight ?? window.innerHeight - 230, { padding: 48, maxZoom: 1.15 }));
+    setNavigationTarget((current) => ({
+      id: firstPerson.id,
+      pathIds: [...pathIds],
+      sequence: (current?.sequence ?? 0) + 1,
+    }));
+    setRelationshipPathIds([...pathIds]);
+    setRelationshipCalculatorOpen(false);
+  }
   function fitTree(includeCollapsed = false) {
     showApplicationChrome();
     const hiddenIds = includeCollapsed ? new Set<string>() : new Set([...getHiddenIds(members, collapsedIds), ...getHiddenAncestorIds(members, collapsedAncestorIds)]);
     const visibleMembers = members.filter((member) => !hiddenIds.has(member.id));
-    const bounds = getTreeContentBounds(computeTreeLayout(visibleMembers, nodeMode));
+    const bounds = getTreeContentBounds(computeTreeLayout(visibleMembers, nodeMode, { compactCards: theme === 'midnight' }));
     const viewport = document.querySelector<HTMLElement>(".tree-viewport");
     setZoom(getFitZoom(bounds, viewport?.clientWidth ?? window.innerWidth - 320, viewport?.clientHeight ?? window.innerHeight - 230));
     setLayoutRevision((revision) => revision + 1);
@@ -500,7 +526,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
           onOpenShortcuts={() => { setImmersive(false); setShortcutsOpen(true); }}
           onCanvasInteraction={showApplicationChrome}
         />
-        <div className="tree-workspace">
+        <div className={`tree-workspace${selectedMember && !immersive ? " has-details-panel" : ""}`}>
           <div className="canvas-heading">
             <div>
               <div className="canvas-title-row">
@@ -527,12 +553,15 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
               zoom={zoom}
               selectedId={selectedId}
               focusId={focusMode ? selectedId : null}
+              relationshipPathIds={relationshipPathIds}
               mode={nodeMode}
+              compactCards={theme === 'midnight'}
               layoutRevision={layoutRevision}
               readOnly={!canEdit}
               navigationTarget={navigationTarget}
               onSelect={(member) => {
                 recordCanvasActivity();
+                setRelationshipPathIds(null);
                 setSelectedId((current) =>
                   current === member.id ? null : member.id,
                 );
@@ -698,7 +727,7 @@ export function DashboardPage({ treeId, treeName, initialMembers, userEmail, use
           onConfirm={confirmRestore}
         />
       )}
-      {relationshipCalculatorOpen && <RelationshipCalculatorDialog members={members} onClose={() => setRelationshipCalculatorOpen(false)} />}
+      {relationshipCalculatorOpen && <RelationshipCalculatorDialog members={members} onClose={() => setRelationshipCalculatorOpen(false)} onShowInTree={showRelationshipPath} />}
       {shortcutsOpen && <KeyboardShortcutsDialog canEdit={canEdit} onClose={() => setShortcutsOpen(false)} />}
       <FamilyQuickLinks />
       {shareOpen && canShare && <ShareTreeDialog treeId={treeId} currentUserId={userId} onClose={() => setShareOpen(false)} />}

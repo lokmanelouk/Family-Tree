@@ -78,6 +78,7 @@ export function DatePicker({ id, value, onChange, autoFocus = false, showValidat
   const inputRef = useRef<HTMLInputElement>(null)
   const [calendarPosition, setCalendarPosition] = useState({ top: 0, left: 0, ready: false })
   const [calendarTheme, setCalendarTheme] = useState<Record<string, string>>({})
+  const [themeName, setThemeName] = useState('')
   const selectedDate = parseDate(value)
   const exactSelectedDate = /^\d{4}-\d{2}-\d{2}$/.test(value) ? selectedDate : null
   const hintedDate = parseDate(initialDateHint ?? '')
@@ -120,9 +121,10 @@ export function DatePicker({ id, value, onChange, autoFocus = false, showValidat
       const app = document.querySelector('.tree-app')
       if (app) {
         const computed = getComputedStyle(app)
-        const names = ['--surface', '--surface-raised', '--surface-hover', '--line', '--line-soft', '--text', '--muted', '--subtle', '--accent', '--accent-strong', '--accent-soft', '--calendar-selected-text']
+        const names = ['--surface', '--surface-raised', '--surface-hover', '--surface-popover', '--line', '--line-soft', '--line-control', '--text', '--muted', '--subtle', '--accent', '--accent-strong', '--accent-soft', '--focus', '--on-accent', '--calendar-selected-text', '--shadow-popover', '--radius-popover', '--icon-history']
         const nextTheme = Object.fromEntries(names.map((name) => [name, computed.getPropertyValue(name).trim()]))
         setCalendarTheme((current) => names.every((name) => current[name] === nextTheme[name]) ? current : nextTheme)
+        setThemeName(app.getAttribute('data-theme') ?? '')
       }
       const left = Math.max(12, Math.min(anchor.left, window.innerWidth - calendar.width - 12))
       const availableBelow = window.innerHeight - anchor.bottom - 10
@@ -227,7 +229,7 @@ export function DatePicker({ id, value, onChange, autoFocus = false, showValidat
       <button ref={triggerRef} className="custom-date-trigger" type="button" aria-label={open ? t('Close calendar') : t('Open calendar')} aria-haspopup="dialog" aria-expanded={open} aria-controls={pickerId} onClick={showCalendar}><CalendarDays size={17} /></button>
     </div>
     {dateError && <p className="custom-date-error" id={`${pickerId}-error`} role="alert">{t(dateError)}</p>}
-    {open && createPortal(<div ref={calendarRef} className="custom-calendar custom-calendar-portal" style={{ ...calendarTheme, insetBlockStart: calendarPosition.top, insetInlineStart: calendarPosition.left, visibility: calendarPosition.ready ? 'visible' : 'hidden' } as CSSProperties} id={pickerId} role="dialog" aria-label={t(label ?? 'Choose date')}>
+    {open && createPortal(<div ref={calendarRef} className="custom-calendar custom-calendar-portal" data-theme={themeName} style={{ ...calendarTheme, insetBlockStart: calendarPosition.top, insetInlineStart: calendarPosition.left, visibility: calendarPosition.ready ? 'visible' : 'hidden' } as CSSProperties} id={pickerId} role="dialog" aria-label={t(label ?? 'Choose date')}>
       <div className="custom-calendar-header">
         <button type="button" aria-label={t('Previous month')} disabled={view === 'years' ? yearPageStart <= 1000 : view === 'decades' ? decadeCentury <= 1000 : view === 'centuries' || (view === 'months' ? month.getFullYear() <= 1000 : month.getFullYear() === 1000 && month.getMonth() === 0)} onClick={() => {
           if (view === 'years') moveYearPage(-1)

@@ -257,6 +257,18 @@ test('duplicate matching classifies name, birth year, and parent evidence', () =
   assert.equal(searchFamilyMembers(people, 'Sarah').length, 2)
 })
 
+test('family search matches first names, surnames, full names, accents, and Arabic variants', () => {
+  const accented = { ...familyMembers[0], id: 'accented-search', name: 'Élodie Morgan', firstName: 'Élodie', lastName: 'Morgan' }
+  const arabic = { ...familyMembers[0], id: 'arabic-search', name: 'إليانور مُورغان', firstName: 'إليانور', lastName: 'مُورغان' }
+  const people = [accented, arabic]
+
+  assert.deepEqual(searchFamilyMembers(people, 'elodie').map((person) => person.id), ['accented-search'])
+  assert.deepEqual(searchFamilyMembers(people, 'MORGAN').map((person) => person.id), ['accented-search'])
+  assert.deepEqual(searchFamilyMembers(people, 'ÉLODIE MORGAN').map((person) => person.id), ['accented-search'])
+  assert.deepEqual(searchFamilyMembers(people, 'اليانور').map((person) => person.id), ['arabic-search'])
+  assert.deepEqual(searchFamilyMembers(people, 'مورغان').map((person) => person.id), ['arabic-search'])
+})
+
 test('large trees and collapsed branches receive fresh non-overlapping positions', () => {
   const large = [...familyMembers]
   let previous = 'sarah'
