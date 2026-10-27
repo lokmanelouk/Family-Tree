@@ -49,6 +49,11 @@ type TreeToolbarProps = {
   onAutoOrganize: () => void
   onExport: (branchOnly: boolean) => void
   onImport: (file: File) => void
+  onExportTreeArchive: () => void
+  onBackUpNow: () => void
+  onOpenTreeImport: () => void
+  lastBackupLabel: string
+  showBackupReminder: boolean
   onOpenRelationshipCalculator: () => void
   onOpenShortcuts: () => void
   onCanvasInteraction: () => void
@@ -296,6 +301,20 @@ export function TreeToolbar(props: TreeToolbarProps) {
           </button>
           {menuOpen && (
             <div className="toolbar-menu settings-menu">
+              <button onClick={() => { props.onExportTreeArchive(); setMenuOpen(false) }}>
+                <Download size={14} /> {t('Export tree')}
+              </button>
+              <div className="toolbar-menu-backup-info">
+                <span>{t('Last backup')}: <bdi>{props.lastBackupLabel}</bdi></span>
+                {props.showBackupReminder && <small>{t('This tree has changed and needs a backup.')}</small>}
+              </div>
+              <button onClick={() => { props.onBackUpNow(); setMenuOpen(false) }}>
+                <Download size={14} /> {t('Back up now')}
+              </button>
+              <button onClick={() => { props.onOpenTreeImport(); setMenuOpen(false) }}>
+                <Upload size={14} /> {t('Import tree')}
+              </button>
+              <div className="toolbar-menu-separator" />
               <button onClick={() => { props.onExport(false); setMenuOpen(false) }}>
                 <Download size={14} /> {t('Export full tree')}
               </button>

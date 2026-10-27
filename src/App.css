@@ -8778,6 +8778,192 @@ html[lang="ar"][data-layout-direction="keep"] .relationship-guide-popover :is(p,
   margin-block-start: 0;
 }
 
+.toolbar-menu-backup-info {
+  display: grid;
+  gap: 3px;
+  padding-block: 5px;
+  padding-inline: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.toolbar-menu-backup-info small {
+  color: var(--warning-strong, var(--muted));
+  font-size: 9px;
+}
+
+.toolbar-menu .toolbar-menu-separator {
+  height: 1px;
+  margin-block: 3px;
+  background: var(--line-soft);
+}
+
+.local-tree-backup-date {
+  margin-block: 5px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tree-archive-import-shade {
+  z-index: 1300;
+}
+
+.tree-archive-import-theme-root {
+  display: contents;
+  min-height: 0;
+  background: transparent;
+}
+
+.tree-archive-import-dialog {
+  width: min(500px, calc(100vw - 28px));
+  max-height: min(88vh, 720px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) var(--surface);
+}
+
+.tree-archive-file-button {
+  position: relative;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-block: 14px;
+  padding-inline: 12px;
+  border: 1px solid var(--line-control);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tree-archive-file-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.tree-archive-file-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tree-archive-file-button input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.tree-archive-progress {
+  margin-block: 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tree-archive-preview {
+  display: grid;
+  gap: 5px;
+  margin-block: 10px 14px;
+  padding-block: 11px;
+  padding-inline: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tree-archive-preview strong {
+  margin-block-end: 2px;
+  color: var(--text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.tree-archive-import-options {
+  display: grid;
+  gap: 7px;
+}
+
+.tree-archive-import-options button {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding-block: 9px;
+  padding-inline: 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  text-align: start;
+  cursor: pointer;
+}
+
+.tree-archive-import-options button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.tree-archive-import-options button.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tree-archive-import-options button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.tree-archive-import-options strong {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.tree-archive-import-options small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tree-archive-confirm-name {
+  display: grid;
+  gap: 6px;
+  margin-block-start: 11px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tree-archive-confirm-name input {
+  min-width: 0;
+  min-height: 38px;
+  padding-inline: 10px;
+  border: 1px solid var(--line-control);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+.tree-archive-confirm-name input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  .tree-archive-import-dialog {
+    max-height: 90dvh;
+    padding-inline: 16px;
+  }
+
+  .local-tree-create-row > button {
+    justify-content: center;
+    flex: 1 1 auto;
+  }
+}
+
 @media (max-width: 560px) {
   .local-tree-manager-dialog {
     max-height: 90dvh;

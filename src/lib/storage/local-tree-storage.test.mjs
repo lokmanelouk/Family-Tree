@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { familyMembers } from '../../data/family.ts'
-import { addParentLink, addPartnerLink, addPerson, createTree, deletePerson, deleteTree, editPerson, listTrees, loadTree, removeParentLink, renameTree, saveTreeSettings } from './local-tree-storage.ts'
+import { addParentLink, addPartnerLink, addPerson, createTree, deletePerson, deleteTree, editPerson, importTreeData, listTrees, loadTree, loadTreePhotos, removeParentLink, renameTree, saveTreeSettings } from './local-tree-storage.ts'
+import { createTreeArchive, parseTreeArchive } from '../tree-archive.ts'
 
 class FakeRequest {
   result
@@ -163,4 +164,29 @@ test('profile photos are saved as blobs and restored as local object URLs', asyn
   const restored = (await loadTree(tree.id)).members[0].photo
   assert.match(restored, /^blob:/)
   await deleteTree(tree.id)
+})
+
+test('tree archive round-trip imports people, links, settings and photo blobs into IndexedDB', async () => {
+  const source = await createTree('Archive Morgan family')
+  const father = { ...person('archive-father', 'James Morgan'), gender: 'male', birthDate: '1960' }
+  const child = { ...person('archive-child', 'ليلى Morgan'), gender: 'female', birthDate: '1990', photo: 'data:image/png;base64,iVBORw0KGgoAAAAA' }
+  await addPerson(source.id, father)
+  await addPerson(source.id, child)
+  await addParentLink({ tree_id: source.id, child_id: child.id, parent_id: father.id, kind: 'biological' })
+  await saveTreeSettings(source.id, { theme: 'chocolate', nodeMode: 'rectangle' })
+  const loaded = await loadTree(source.id)
+  const bytes = await createTreeArchive({ tree: loaded.tree, members: loaded.members, settings: loaded.settings, photos: await loadTreePhotos(source.id) })
+  const parsed = parseTreeArchive(bytes)
+  const imported = await importTreeData(parsed, { kind: 'new' })
+  const restored = await loadTree(imported.id)
+
+  assert.equal(restored.tree?.name, 'Archive Morgan family')
+  assert.deepEqual(restored.settings, { theme: 'chocolate', nodeMode: 'rectangle' })
+  assert.deepEqual(restored.members.find((member) => member.id === child.id)?.parentIds, [father.id])
+  assert.equal(restored.members.find((member) => member.id === child.id)?.name, 'ليلى Morgan')
+  const restoredPhoto = (await loadTreePhotos(imported.id)).get(child.id)
+  assert.equal(restoredPhoto?.type, 'image/png')
+  assert.deepEqual(new Uint8Array(await restoredPhoto.arrayBuffer()), new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]))
+  await deleteTree(source.id)
+  await deleteTree(imported.id)
 })

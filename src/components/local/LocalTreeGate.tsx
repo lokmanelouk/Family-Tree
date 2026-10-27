@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { BookOpen, Pencil, Plus, Trash2, TreePine, X } from 'lucide-react'
+import { Archive, BookOpen, Pencil, Plus, Trash2, TreePine, X } from 'lucide-react'
 import { DashboardPage } from '../../pages/DashboardPage'
 import { familyMembers } from '../../data/family'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -8,6 +8,9 @@ import { createTree, deleteTree, getLocalStorageErrorKey, listTrees, loadTree, r
 import { getLayoutDirection } from '../../config/layout'
 import type { FamilyMember } from '../../types/family'
 import { FAMILY_NETWORK_LOADER_CYCLE_MS, FamilyNetworkLoader } from '../auth/FamilyNetworkLoader'
+import { TreeArchiveImportDialog } from './TreeArchiveImportDialog'
+import { createTreeArchive, getTreeArchiveFilename, type ParsedTreeArchive } from '../../lib/tree-archive'
+import { importTreeData, loadTreePhotos, recordTreeBackup } from '../../lib/storage/local-tree-storage'
 
 type Workspace = { tree: TreeRecord; members: FamilyMember[]; settings: TreeSettings }
 type WelcomeIntroMode = 'first-visit' | 'preview' | null
@@ -54,6 +57,7 @@ export function LocalTreeGate() {
   const [loading, setLoading] = useState(true)
   const [storageError, setStorageError] = useState('')
   const [managerOpen, setManagerOpen] = useState(false)
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [welcomeIntroMode, setWelcomeIntroMode] = useState<WelcomeIntroMode>(getWelcomeIntroMode)
   const [loadingScreenVisible, setLoadingScreenVisible] = useState(false)
   const [keepLoadingScreenVisible, setKeepLoadingScreenVisible] = useState(false)
@@ -199,26 +203,76 @@ export function LocalTreeGate() {
     }
   }
 
+  async function exportLocalTree(treeId: string) {
+    const result = await loadTree(treeId)
+    if (!result.tree) throw new Error('LOCAL_TREE_NOT_FOUND')
+    const photos = await loadTreePhotos(treeId)
+    const archive = await createTreeArchive({ tree: result.tree, members: result.members, settings: result.settings, photos })
+    const download = new Blob([archive.slice().buffer as ArrayBuffer], { type: 'application/zip' })
+    const url = URL.createObjectURL(download)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = getTreeArchiveFilename(result.tree.name)
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    const updated = await recordTreeBackup(treeId)
+    const updatedTrees = await listTrees()
+    setTrees(updatedTrees)
+    setWorkspace((current) => current?.tree.id === treeId ? { ...current, tree: updated } : current)
+    setStarterTree((current) => current?.id === treeId ? updated : current)
+  }
+
+  async function finishImport(archive: ParsedTreeArchive, mode: 'new' | 'replace') {
+    const currentTree = workspace?.tree ?? starterTree
+    const destination = mode === 'replace' && currentTree ? { kind: 'replace' as const, treeId: currentTree.id } : { kind: 'new' as const }
+    const imported = await importTreeData({
+      treeName: archive.treeName,
+      members: archive.members,
+      settings: archive.settings,
+      photos: archive.photos,
+      exportDate: archive.exportDate,
+    }, destination)
+    const result = await loadTree(imported.id)
+    const updatedTrees = await listTrees()
+    setTrees(updatedTrees)
+    setActiveTreeId(imported.id)
+    setWorkspace({ tree: result.tree ?? imported, members: result.members, settings: result.settings })
+    setStarterTree(null)
+    setOpenAddAfterStart(false)
+    setManagerOpen(false)
+    setArchiveDialogOpen(false)
+    setStorageError('')
+  }
+
   if (isLoadingScreenActive || keepLoadingScreenVisible) return <LoadingScreen isVisible={keepLoadingScreenVisible} isExiting={loadingScreenExiting} />
   if (loading && !storageError) return <main className="auth-screen auth-loading-screen auth-loading-placeholder" aria-busy="true" />
   if (storageError && !workspace && !starterTree) return <StorageErrorScreen message={t(storageError)} onRetry={() => void refreshLocalTrees()} />
   if (starterTree) return <>
     <TreeStarter tree={starterTree} error={storageError ? t(storageError) : ''} onStart={startWithMembers} onManageTrees={() => setManagerOpen(true)} />
-    {managerOpen && <LocalTreeManagerDialog trees={trees} activeTreeId={starterTree.id} onClose={() => setManagerOpen(false)} onCreate={createLocalTree} onRename={handleRenameTree} onDelete={handleDeleteTree} onSwitch={selectTree} />}
+    {managerOpen && <LocalTreeManagerDialog trees={trees} activeTreeId={starterTree.id} onClose={() => setManagerOpen(false)} onCreate={createLocalTree} onRename={handleRenameTree} onDelete={handleDeleteTree} onSwitch={selectTree} onExport={exportLocalTree} onImport={() => setArchiveDialogOpen(true)} />}
+    {archiveDialogOpen && <TreeArchiveImportDialog currentTree={starterTree} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
   </>
-  if (!workspace) return <CreateTree error={storageError ? t(storageError) : ''} onCreate={(name) => createLocalTree(name).catch((error) => setStorageError(getLocalStorageErrorKey(error)))} />
+  if (!workspace) return <>
+    <CreateTree error={storageError ? t(storageError) : ''} onCreate={(name) => createLocalTree(name).catch((error) => setStorageError(getLocalStorageErrorKey(error)))} onImport={() => setArchiveDialogOpen(true)} />
+    {archiveDialogOpen && <TreeArchiveImportDialog currentTree={null} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
+  </>
 
   return <>
     <DashboardPage
       key={workspace.tree.id}
       treeId={workspace.tree.id}
       treeName={workspace.tree.name}
+      treeCreatedAt={workspace.tree.createdAt}
+      treeUpdatedAt={workspace.tree.updatedAt}
+      lastBackupAt={workspace.tree.lastBackupAt}
       initialMembers={workspace.members}
       initialSettings={workspace.settings}
       openAddPersonOnStart={openAddAfterStart}
       trees={trees}
       onSwitchTree={(treeId) => void selectTree(treeId)}
       onManageTrees={() => setManagerOpen(true)}
+      onExportTreeArchive={() => exportLocalTree(workspace.tree.id)}
+      onOpenTreeImport={() => setArchiveDialogOpen(true)}
     />
     {managerOpen && <LocalTreeManagerDialog
       trees={trees}
@@ -228,7 +282,10 @@ export function LocalTreeGate() {
       onRename={handleRenameTree}
       onDelete={handleDeleteTree}
       onSwitch={selectTree}
+      onExport={exportLocalTree}
+      onImport={() => setArchiveDialogOpen(true)}
     />}
+    {archiveDialogOpen && <TreeArchiveImportDialog currentTree={workspace.tree} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
   </>
 }
 
@@ -244,7 +301,7 @@ function StorageErrorScreen({ message, onRetry }: { message: string; onRetry: ()
   return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card"><span className="auth-brand-mark"><TreePine size={23} /></span><h1>{t('Local storage unavailable')}</h1><p className="auth-error" role="alert">{message}</p><button className="primary-button auth-submit" onClick={onRetry}>{t('Try again')}</button></section></main>
 }
 
-function CreateTree({ onCreate, error }: { onCreate: (name: string) => Promise<void>; error: string }) {
+function CreateTree({ onCreate, onImport, error }: { onCreate: (name: string) => Promise<void>; onImport: () => void; error: string }) {
   const { t, language } = useLanguage()
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -254,7 +311,7 @@ function CreateTree({ onCreate, error }: { onCreate: (name: string) => Promise<v
     await onCreate(name)
     setBusy(false)
   }
-  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card tree-create-card"><span className="auth-brand-mark"><TreePine size={23} /></span><h1>{t('Create your family tree')}</h1><p className="auth-description">{t('Give your private family space a name to get started.')}</p><form className="auth-form" onSubmit={(event) => void submit(event)}><label>{t('Tree name')}<input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} dir="auto" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button auth-submit" disabled={busy}><Plus size={18} />{t(busy ? 'Please wait\u2026' : 'Create tree')}</button></form></section></main>
+  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card tree-create-card"><span className="auth-brand-mark"><TreePine size={23} /></span><h1>{t('Create your family tree')}</h1><p className="auth-description">{t('Give your private family space a name to get started.')}</p><form className="auth-form" onSubmit={(event) => void submit(event)}><label>{t('Tree name')}<input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} dir="auto" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button auth-submit" disabled={busy}><Plus size={18} />{t(busy ? 'Please wait\u2026' : 'Create tree')}</button></form><button className="auth-secondary-action" type="button" onClick={onImport}><Archive size={15} />{t('Import tree')}</button></section></main>
 }
 
 function TreeStarter({ tree, error, onStart, onManageTrees }: { tree: TreeRecord; error: string; onStart: (members: FamilyMember[], openAdd?: boolean) => Promise<void>; onManageTrees: () => void }) {
@@ -281,10 +338,12 @@ type LocalTreeManagerDialogProps = {
   onRename: (treeId: string, name: string) => Promise<void>
   onDelete: (treeId: string) => Promise<void>
   onSwitch: (treeId: string) => Promise<void>
+  onExport: (treeId: string) => Promise<void>
+  onImport: () => void
 }
 
-function LocalTreeManagerDialog({ trees, activeTreeId, onClose, onCreate, onRename, onDelete, onSwitch }: LocalTreeManagerDialogProps) {
-  const { t } = useLanguage()
+function LocalTreeManagerDialog({ trees, activeTreeId, onClose, onCreate, onRename, onDelete, onSwitch, onExport, onImport }: LocalTreeManagerDialogProps) {
+  const { t, language } = useLanguage()
   const [newName, setNewName] = useState('')
   const [renameId, setRenameId] = useState('')
   const [renameValue, setRenameValue] = useState('')
@@ -299,7 +358,7 @@ function LocalTreeManagerDialog({ trees, activeTreeId, onClose, onCreate, onRena
     try {
       await action()
     } catch (cause) {
-      setError(t(getLocalStorageErrorKey(cause)))
+      setError(t(cause instanceof Error ? cause.message : getLocalStorageErrorKey(cause)))
     } finally {
       setBusy(false)
     }
@@ -313,10 +372,12 @@ function LocalTreeManagerDialog({ trees, activeTreeId, onClose, onCreate, onRena
     <form className="local-tree-create-row" onSubmit={(event) => { event.preventDefault(); if (newName.trim()) void run(() => onCreate(newName).then(() => setNewName(''))) }}>
       <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder={t('New tree name')} aria-label={t('New tree name')} dir="auto" maxLength={120} />
       <button type="submit" className="primary-button" disabled={!newName.trim() || busy}><Plus size={16} />{t('Create')}</button>
+      <button type="button" className="secondary-button" disabled={busy} onClick={onImport}><Archive size={15} />{t('Import tree')}</button>
     </form>
     <div className="local-tree-list">
       {trees.map((tree) => <article className="local-tree-row" key={tree.id}>
         <div className="local-tree-row-heading"><strong dir="auto">{tree.name}</strong>{tree.id === activeTreeId && <small>{t('Current')}</small>}</div>
+        <p className="local-tree-backup-date">{t('Last backup')}: <bdi>{tree.lastBackupAt ? new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en', { dateStyle: 'medium' }).format(new Date(tree.lastBackupAt)) : t('Never')}</bdi></p>
         {renameId === tree.id ? <form className="local-tree-rename-row" onSubmit={(event) => { event.preventDefault(); void run(() => onRename(tree.id, renameValue).then(() => setRenameId(''))) }}>
           <input autoFocus value={renameValue} onChange={(event) => setRenameValue(event.target.value)} aria-label={t('Tree name')} dir="auto" maxLength={120} />
           <button className="secondary-button" type="button" onClick={() => setRenameId('')}>{t('Cancel')}</button>
@@ -326,6 +387,7 @@ function LocalTreeManagerDialog({ trees, activeTreeId, onClose, onCreate, onRena
           <div className="dialog-actions"><button type="button" className="secondary-button" onClick={() => { setDeleteTree(null); setConfirmName('') }}>{t('Cancel')}</button><button type="button" className="primary-button danger-button" disabled={confirmName !== tree.name || busy} onClick={() => void run(() => onDelete(tree.id).then(() => { setDeleteTree(null); setConfirmName('') }))}>{t('Delete tree')}</button></div>
         </div> : <div className="local-tree-row-actions">
           {tree.id !== activeTreeId && <button className="secondary-button" type="button" onClick={() => void run(() => onSwitch(tree.id).then(onClose))}>{t('Switch')}</button>}
+          <button className="secondary-button" type="button" onClick={() => void run(() => onExport(tree.id))}><Archive size={14} />{t('Export tree')}</button>
           <button className="secondary-button" type="button" title={t('Rename tree')} aria-label={t('Rename tree')} onClick={() => { setRenameId(tree.id); setRenameValue(tree.name) }}><Pencil size={15} />{t('Rename')}</button>
           <button className="local-tree-delete-button" type="button" title={t('Delete tree')} aria-label={t('Delete tree')} onClick={() => { setDeleteTree(tree); setConfirmName('') }}><Trash2 size={15} />{t('Delete')}</button>
         </div>}

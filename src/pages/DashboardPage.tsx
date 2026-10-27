@@ -23,6 +23,7 @@ import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
 import { getLayoutDirection, layoutDirection } from "../config/layout";
 import { saveTreeSettings } from "../lib/storage/local-tree-storage";
+import { shouldShowBackupReminder } from "../lib/tree-archive";
 
 type AddRequest = {
   targetId: string;
@@ -43,15 +44,20 @@ const INTERACTIVE_CHROME_TARGET = '.person-node, button, a, input, select, texta
 type DashboardPageProps = {
   treeId: string
   treeName: string
+  treeCreatedAt: number
+  treeUpdatedAt: number
+  lastBackupAt?: number
   initialMembers: FamilyMember[]
   initialSettings: { theme?: string; nodeMode?: TreeNodeMode }
   openAddPersonOnStart: boolean
   trees: { id: string; name: string }[]
   onSwitchTree: (treeId: string) => void
   onManageTrees: () => void
+  onExportTreeArchive: () => Promise<void>
+  onOpenTreeImport: () => void
 }
 
-export function DashboardPage({ treeId, treeName, initialMembers, initialSettings, openAddPersonOnStart, trees, onSwitchTree, onManageTrees }: DashboardPageProps) {
+export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, lastBackupAt, initialMembers, initialSettings, openAddPersonOnStart, trees, onSwitchTree, onManageTrees, onExportTreeArchive, onOpenTreeImport }: DashboardPageProps) {
   const { t, language } = useLanguage();
   const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : initialMembers);
   const members = tree.members;
@@ -460,6 +466,11 @@ export function DashboardPage({ treeId, treeName, initialMembers, initialSetting
           onSetMode={(mode) => setNodeMode(mode)}
           onExport={downloadTree}
           onImport={(file) => void restoreTree(file)}
+          onExportTreeArchive={() => { void onExportTreeArchive().catch((error) => setStatus(t(error instanceof Error ? error.message : 'Could not export this tree.'))) }}
+          onBackUpNow={() => { void onExportTreeArchive().catch((error) => setStatus(t(error instanceof Error ? error.message : 'Could not export this tree.'))) }}
+          onOpenTreeImport={onOpenTreeImport}
+          lastBackupLabel={lastBackupAt ? new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en', { dateStyle: 'medium' }).format(new Date(lastBackupAt)) : t('Never')}
+          showBackupReminder={shouldShowBackupReminder({ createdAt: treeCreatedAt, updatedAt: treeUpdatedAt, lastBackupAt })}
           onOpenRelationshipCalculator={() => setRelationshipCalculatorOpen(true)}
           onOpenShortcuts={() => { setImmersive(false); setShortcutsOpen(true); }}
           onCanvasInteraction={showApplicationChrome}

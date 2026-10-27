@@ -11,6 +11,7 @@ export type TreeRecord = {
   name: string
   createdAt: number
   updatedAt: number
+  lastBackupAt?: number
 }
 
 export type ParentLinkInput = { tree_id: string; child_id: string; parent_id: string; kind?: 'biological' | 'adoptive' }
@@ -377,15 +378,148 @@ export async function deleteTree(treeId: string) {
 
 export async function saveTreeSettings(treeId: string, values: Partial<TreeSettings>) {
   const database = await openDatabase()
-  const transaction = database.transaction('settings', 'readwrite')
+  const transaction = database.transaction(['settings', 'trees'], 'readwrite')
   const done = transactionResult<void>(transaction)
-  const store = transaction.objectStore('settings')
+  const settingsStore = transaction.objectStore('settings')
+  const treeStore = transaction.objectStore('trees')
+  let previousSettings: StoredSettings | undefined
+  let tree: TreeRecord | undefined
+  let completedReads = 0
+  const applySettings = () => {
+    completedReads += 1
+    if (completedReads !== 2) return
+    const nextValues = { ...previousSettings?.values, ...values }
+    if (equalRecord(previousSettings?.values ?? {}, nextValues)) return
+    settingsStore.put({ key: treeId, values: nextValues })
+    if (tree) treeStore.put({ ...tree, updatedAt: Date.now() })
+  }
+  const settingsRequest = settingsStore.get(treeId)
+  settingsRequest.onsuccess = () => { previousSettings = settingsRequest.result as StoredSettings | undefined; applySettings() }
+  const treeRequest = treeStore.get(treeId)
+  treeRequest.onsuccess = () => { tree = treeRequest.result as TreeRecord | undefined; applySettings() }
+  await done
+}
+
+export async function loadTreePhotos(treeId: string) {
+  const database = await openDatabase()
+  const transaction = database.transaction('photos', 'readonly')
+  const done = transactionResult<void>(transaction)
+  const photos = await requestValue(transaction.objectStore('photos').index('treeId').getAll(treeId)) as StoredPhoto[]
+  await done
+  return new Map(photos.map((photo) => [photo.personId, photo.blob]))
+}
+
+export async function recordTreeBackup(treeId: string, backedUpAt = Date.now()) {
+  const database = await openDatabase()
+  const transaction = database.transaction('trees', 'readwrite')
+  const done = transactionResult<void>(transaction)
+  const store = transaction.objectStore('trees')
+  let updated: TreeRecord | undefined
+  let missingTree = false
   const request = store.get(treeId)
   request.onsuccess = () => {
-    const previous = request.result as StoredSettings | undefined
-    store.put({ key: treeId, values: { ...previous?.values, ...values } })
+    const tree = request.result as TreeRecord | undefined
+    if (!tree) {
+      missingTree = true
+      transaction.abort()
+      return
+    }
+    updated = { ...tree, lastBackupAt: backedUpAt }
+    store.put(updated)
   }
-  await done
+  try {
+    await done
+  } catch (error) {
+    if (missingTree) throw storageError('LOCAL_TREE_NOT_FOUND')
+    throw error
+  }
+  return updated!
+}
+
+export type ImportedTreeData = {
+  treeName: string
+  members: FamilyMember[]
+  settings: TreeSettings
+  photos: ReadonlyMap<string, Blob>
+  exportDate: string
+}
+
+export type TreeImportDestination = { kind: 'new' } | { kind: 'replace'; treeId: string }
+
+function queueImportedTreeRows(transaction: IDBTransaction, treeId: string, imported: ImportedTreeData) {
+  const rows = toStoredRows(treeId, imported.members)
+  for (const row of rows.people) transaction.objectStore('people').put(row)
+  for (const row of rows.parentLinks) transaction.objectStore('parentLinks').put(row)
+  for (const row of rows.partnerLinks) transaction.objectStore('partnerLinks').put(row)
+  for (const row of rows.siblingLinks) transaction.objectStore('siblingLinks').put(row)
+  for (const [personId, blob] of imported.photos) {
+    if (!imported.members.some((member) => member.id === personId)) continue
+    transaction.objectStore('photos').put({ key: photoKey(treeId, personId), treeId, personId, blob } satisfies StoredPhoto)
+  }
+  transaction.objectStore('settings').put({ key: treeId, values: imported.settings })
+}
+
+export async function importTreeData(imported: ImportedTreeData, destination: TreeImportDestination): Promise<TreeRecord> {
+  const database = await openDatabase()
+  const treeId = destination.kind === 'new' ? crypto.randomUUID() : destination.treeId
+  const transaction = database.transaction(STORE_NAMES, 'readwrite')
+  const done = transactionResult<void>(transaction)
+  const treeStore = transaction.objectStore('trees')
+  const now = Date.now()
+  let result: TreeRecord | undefined
+  let missingTree = false
+  const writeRows = (tree: TreeRecord, replace = false) => {
+    result = tree
+    if (!replace) {
+      treeStore.add(tree)
+      queueImportedTreeRows(transaction, tree.id, imported)
+      return
+    }
+    const stores = ['people', 'parentLinks', 'partnerLinks', 'siblingLinks', 'photos'] as const
+    let pendingStores = stores.length
+    for (const storeName of stores) {
+      const store = transaction.objectStore(storeName)
+      const keys = store.index('treeId').getAllKeys(tree.id)
+      keys.onsuccess = () => {
+        for (const key of keys.result) store.delete(key)
+        pendingStores -= 1
+        if (pendingStores === 0) {
+          transaction.objectStore('settings').delete(tree.id)
+          treeStore.put(tree)
+          queueImportedTreeRows(transaction, tree.id, imported)
+        }
+      }
+    }
+  }
+  if (destination.kind === 'new') {
+    const exportedAt = Date.parse(imported.exportDate)
+    writeRows({ id: treeId, name: imported.treeName, createdAt: now, updatedAt: now, ...(Number.isFinite(exportedAt) ? { lastBackupAt: exportedAt } : {}) })
+  } else {
+    const request = treeStore.get(treeId)
+    request.onsuccess = () => {
+      const current = request.result as TreeRecord | undefined
+      if (!current) {
+        missingTree = true
+        transaction.abort()
+        return
+      }
+      const exportedAt = Date.parse(imported.exportDate)
+      writeRows({ ...current, updatedAt: now, lastBackupAt: Number.isFinite(exportedAt) ? exportedAt : now }, true)
+    }
+  }
+  try {
+    await done
+  } catch (error) {
+    if (missingTree) throw storageError('LOCAL_TREE_NOT_FOUND')
+    throw normalizeStorageError(error)
+  }
+  for (const [key, cached] of photoObjectUrls) {
+    if (key.startsWith(`${treeId}/`)) {
+      URL.revokeObjectURL(cached.url)
+      photoObjectUrls.delete(key)
+    }
+  }
+  return result!
 }
 
 export async function saveGlobalSettings(values: { language?: string; theme?: string }) {
