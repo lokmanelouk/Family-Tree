@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
 import type { FamilyMember } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
@@ -45,16 +45,19 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   const [validationErrors, setValidationErrors] = useState<ValidationIssue[]>([])
   const [validationWarnings, setValidationWarnings] = useState<ValidationIssue[]>([])
   const [discardOpen, setDiscardOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const saveInProgress = useRef(false)
   const [initialDraft] = useState(() => ({ firstName: initialName.firstName, lastName: initialName.lastName, gender: member.gender ?? 'male', birthDate: member.birthDate ?? '', deathDate: member.deathDate ?? '', lifeStatus: isMemberDeceased(member) ? 'deceased' : 'living', photo: member.photo ?? '', avatarId: avatarPresets.find((preset) => sameAvatar(preset.avatar, member.avatar))?.id ?? 'custom', avatar: member.avatar }))
+  const currentDraft = { firstName, lastName, gender, birthDate, deathDate: lifeStatus === 'deceased' ? deathDate : '', lifeStatus, photo, avatarId, avatar }
+  const isDirty = hasUnsavedChanges(initialDraft, currentDraft)
   const closeDialogNow = useCallback(() => onClose(), [onClose])
   const requestClose = useCallback(() => {
-    const draft = { firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatarId, avatar }
-    if (hasUnsavedChanges(initialDraft, draft)) setDiscardOpen(true)
+    if (isDirty) setDiscardOpen(true)
     else closeDialogNow()
-  }, [closeDialogNow, firstName, lastName, gender, birthDate, deathDate, lifeStatus, photo, avatarId, avatar, initialDraft])
+  }, [closeDialogNow, isDirty])
   const birthDateError = getBirthDateError(birthDate)
   const deathDateError = getDeathDateError(deathDate, birthDate)
-  const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
+  const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Enter a four-digit year, year and month, or complete date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
   const deathValidationErrors = validationErrors.filter((issue) => ['Enter a valid death date.', 'Death dates cannot be in the future.', 'Death date must be after birth date.'].includes(issue.messageKey))
   const relationshipValidationErrors = validationErrors.filter((issue) => !birthValidationErrors.includes(issue) && !deathValidationErrors.includes(issue))
   const memberFullName = getFullName(member)
@@ -100,11 +103,21 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
   }
 
   function saveChanges() {
-    onSave(member.id, { name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
-    onClose()
+    if (!isDirty || saveInProgress.current) return
+    saveInProgress.current = true
+    setIsSaving(true)
+    try {
+      onSave(member.id, { name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), gender, birthDate: birthDate || undefined, deathDate: lifeStatus === 'deceased' ? deathDate || undefined : undefined, lifeStatus, bio: member.bio, photo: photo || undefined, avatar })
+      onClose()
+    } catch (error) {
+      saveInProgress.current = false
+      setIsSaving(false)
+      throw error
+    }
   }
 
   function evaluate(allowWarnings = false) {
+    if (!isDirty || saveInProgress.current) return
     setAttemptedSubmit(true)
     const validationMessage = validateGenderChange()
     setRelationshipError(validationMessage)
@@ -149,7 +162,7 @@ export function EditPersonDialog({ member, members, onClose, onSave }: EditPerso
         </div>
         {formRelationIssues.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}
         {formWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`form-warning-${index}`} />)}
-        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={requestClose}>{t('Cancel')}</button><button type={validationWarnings.length ? 'button' : 'submit'} className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} onClick={validationWarnings.length ? () => evaluate(true) : undefined} title={validationErrors.length ? t('Fix the errors above before continuing.') : undefined} disabled={Boolean(validationErrors.length)}>{t(validationWarnings.length ? 'Save anyway' : 'Save changes')}</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary-button" onClick={requestClose}>{t('Cancel')}</button><button type={validationWarnings.length ? 'button' : 'submit'} className={`primary-button${validationWarnings.length ? ' warning-action-button' : ''}`} onClick={validationWarnings.length ? () => evaluate(true) : undefined} title={validationErrors.length ? t('Fix the errors above before continuing.') : undefined} disabled={!isDirty || isSaving || Boolean(validationErrors.length)}>{t(validationWarnings.length ? 'Save anyway' : 'Save changes')}</button></div>
       </form>
     </section>
     {discardOpen && <DiscardChangesDialog onKeepEditing={() => setDiscardOpen(false)} onDiscard={closeDialogNow} />}

@@ -31,6 +31,7 @@ function person(id, options = {}) {
     deathDate: options.deathDate,
     lifeStatus: options.lifeStatus,
     parentIds: options.parentIds ?? [],
+    adoptedParentIds: options.adoptedParentIds ?? [],
     spouseIds: options.spouseIds ?? [],
     siblingIds: options.siblingIds ?? [],
     avatar: { skin: '#c98', hair: '#321', shirt: '#abc', hairstyle: 'waves' },
@@ -222,4 +223,23 @@ test('tree snapshots reject cycles, invalid dates, and duplicate or one-sided pa
   const wifeA = person('wife-a', { gender: 'female', spouseIds: ['husband'] })
   const wifeB = person('wife-b', { gender: 'female', spouseIds: ['husband'] })
   assert.equal(isValidTreeSnapshot([husband, wifeA, wifeB], '2026-10-15'), true)
+})
+
+test('tree snapshots enforce the two-parent limit without rejecting valid adoption', () => {
+  const parentA = person('parent-a', { birthDate: '1950' })
+  const parentB = person('parent-b', { birthDate: '1952' })
+  const parentC = person('parent-c', { birthDate: '1951' })
+  const child = person('child', { birthDate: '1980', parentIds: ['parent-a', 'parent-b'] })
+  const oneParentChild = person('one-parent-child', { birthDate: '1980', parentIds: ['parent-a'] })
+  const adoptedChild = person('adopted-child', { birthDate: '1985', parentIds: ['parent-a', 'parent-b'], adoptedParentIds: ['parent-b'] })
+  const malformed = person('malformed')
+  malformed.parentIds = null
+
+  assert.equal(isValidTreeSnapshot([person('alone')], '2026-10-15'), true)
+  assert.equal(isValidTreeSnapshot([parentA, oneParentChild], '2026-10-15'), true)
+  assert.equal(isValidTreeSnapshot([parentA, parentB, child], '2026-10-15'), true)
+  assert.equal(isValidTreeSnapshot([parentA, parentB, parentC, person('too-many', { parentIds: ['parent-a', 'parent-b', 'parent-c'] })], '2026-10-15'), false)
+  assert.equal(isValidTreeSnapshot([parentA, person('duplicate', { parentIds: ['parent-a', 'parent-a'] })], '2026-10-15'), false)
+  assert.equal(isValidTreeSnapshot([parentA, parentB, adoptedChild], '2026-10-15'), true)
+  assert.equal(isValidTreeSnapshot([malformed], '2026-10-15'), false)
 })

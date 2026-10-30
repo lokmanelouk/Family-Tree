@@ -62,6 +62,7 @@ function imageExtension(blob: Blob) {
   if (blob.type === 'image/png') return 'png'
   if (blob.type === 'image/jpeg') return 'jpg'
   if (blob.type === 'image/webp') return 'webp'
+  if (blob.type === 'image/gif') return 'gif'
   return null
 }
 
@@ -69,6 +70,7 @@ function validImageBytes(bytes: Uint8Array, extension: string) {
   if (extension === 'png') return bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
   if (extension === 'jpg' || extension === 'jpeg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
   if (extension === 'webp') return bytes.length >= 12 && strFromU8(bytes.subarray(0, 4)) === 'RIFF' && strFromU8(bytes.subarray(8, 12)) === 'WEBP'
+  if (extension === 'gif') return bytes.length >= 6 && (strFromU8(bytes.subarray(0, 6)) === 'GIF87a' || strFromU8(bytes.subarray(0, 6)) === 'GIF89a')
   return false
 }
 
@@ -129,8 +131,12 @@ export async function createTreeArchive(input: TreeArchiveInput) {
   if (familyBytes.byteLength > TREE_ARCHIVE_MAX_FAMILY_JSON_BYTES) throw archiveError('The ZIP file is too large.')
   const files: Record<string, Uint8Array> = { 'family.json': familyBytes }
   let totalBytes = familyBytes.byteLength
+  const memberIds = new Set(input.members.map((member) => member.id))
+  for (const member of input.members) {
+    if (member.photo && !input.photos.has(member.id)) throw archiveError('A photo could not be included in the backup.')
+  }
   for (const [personId, blob] of input.photos) {
-    if (!input.members.some((member) => member.id === personId)) continue
+    if (!memberIds.has(personId)) throw archiveError('A photo could not be included in the backup.')
     if (blob.size > TREE_ARCHIVE_MAX_IMAGE_BYTES) throw archiveError('An image is invalid or too large.')
     const extension = imageExtension(blob)
     if (!extension) throw archiveError('A photo uses an unsupported format.')
@@ -170,7 +176,7 @@ export function parseTreeArchive(bytes: Uint8Array, limits: TreeArchiveLimits = 
           return true
         }
         if (file.name === 'images/') return false
-        const imageMatch = file.name.match(/^images\/([^/]+)\.(png|jpe?g|webp)$/i)
+        const imageMatch = file.name.match(/^images\/([^/]+)\.(png|jpe?g|webp|gif)$/i)
         if (!imageMatch) return false
         if (file.originalSize > limits.maxImageBytes) throw archiveError('An image is invalid or too large.')
         if (imagePaths.has(file.name)) throw archiveError('The archive contains a duplicate image path.')
@@ -281,12 +287,12 @@ export function parseTreeArchive(bytes: Uint8Array, limits: TreeArchiveLimits = 
   if (Object.keys(branchColors).length !== ids.size || Object.entries(branchColors).some(([id, color]) => !ids.has(id) || (color !== null && typeof color !== 'string'))) throw archiveError('The archive contains invalid branch colors.')
   const photos = new Map<string, Blob>()
   for (const [path, imageBytes] of Object.entries(files)) {
-    const match = path.match(/^images\/([^/]+)\.(png|jpe?g|webp)$/i)
+    const match = path.match(/^images\/([^/]+)\.(png|jpe?g|webp|gif)$/i)
     if (!match) continue
     const personId = match[1]
     const extension = match[2].toLowerCase()
     if (!ids.has(personId) || photos.has(personId) || !validImageBytes(imageBytes, extension)) throw archiveError('An image is invalid or too large.')
-    const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg'
+    const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : extension === 'gif' ? 'image/gif' : 'image/jpeg'
     photos.set(personId, new Blob([imageBytes.slice().buffer as ArrayBuffer], { type: mimeType }))
   }
   return { treeName: tree.name, members: validatedMembers, settings, photos, branchColors: branchColors as Record<string, string | null>, exportDate: archive.exportDate }

@@ -51,7 +51,7 @@ export function getRelationshipActionAvailability(member: FamilyMember, members:
   const issue = validateRelationshipRules(members, member, candidate, kind).find((outcome) => !outcome.ok)?.result
   if (!issue) return { disabled: false, reason: undefined }
   const reason = issue.messageKey === 'This person already has two parents.'
-    ? 'Already has two parents'
+    ? 'Both parents are already assigned.'
     : issue.messageKey === 'Add a parent first.'
       ? 'Add a parent first'
       : issue.messageKey

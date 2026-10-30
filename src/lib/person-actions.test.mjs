@@ -7,16 +7,20 @@ function member(parentIds = []) {
 }
 
 test('discard check ignores unchanged values and detects edited values', () => {
-  const initial = { name: 'Eleanor Morgan', birthDate: '', photo: '' }
+  const initial = { name: 'Eleanor Morgan', birthDate: '', photo: '', avatar: { hair: 'brown' } }
   assert.equal(hasUnsavedChanges(initial, { ...initial }), false)
   assert.equal(hasUnsavedChanges(initial, { ...initial, name: 'Eleanor Lee' }), true)
+  assert.equal(hasUnsavedChanges(initial, { ...initial, photo: 'blob:photo' }), true)
+  assert.equal(hasUnsavedChanges(initial, { ...initial, avatar: { hair: 'black' } }), true)
+  assert.equal(hasUnsavedChanges(initial, { ...initial, photo: 'blob:photo', avatar: { hair: 'black' } }), true)
+  assert.equal(hasUnsavedChanges(initial, { ...initial, photo: initial.photo, avatar: initial.avatar }), false)
 })
 
 test('context menu exposes the requested actions and disables impossible additions', () => {
   const actions = getPersonContextActions(member(['father', 'mother']))
   assert.deepEqual(actions.map((action) => action.kind), ['details', 'edit', 'child', 'partner', 'parent', 'sibling', 'delete'])
   assert.equal(actions.find((action) => action.kind === 'parent')?.disabled, true)
-  assert.equal(actions.find((action) => action.kind === 'parent')?.reason, 'Already has two parents')
+  assert.equal(actions.find((action) => action.kind === 'parent')?.reason, 'Both parents are already assigned.')
   assert.equal(actions.find((action) => action.kind === 'sibling')?.disabled, false)
 })
 
@@ -30,7 +34,7 @@ test('relationship action availability applies parent, sibling, and partner vali
   const twoParents = member(['father', 'mother'])
   const parentAction = getRelationshipActionAvailability(twoParents, [twoParents], 'parent')
   assert.equal(parentAction.disabled, true)
-  assert.equal(parentAction.reason, 'Already has two parents')
+  assert.equal(parentAction.reason, 'Both parents are already assigned.')
 
   const noParents = member()
   const siblingAction = getRelationshipActionAvailability(noParents, [noParents], 'sibling')

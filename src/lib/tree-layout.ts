@@ -123,10 +123,13 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
   const gapX = mode === 'circle' ? 34 : 34
   const familyGap = mode === 'circle' ? 260 : 340
   const generations = getGenerationMap(members)
+  const membersById = new Map(members.map((member) => [member.id, member]))
   const rows = new Map<number, FamilyMember[]>()
   for (const member of members) {
     const generation = generations.get(member.id) ?? 0
-    rows.set(generation, [...(rows.get(generation) ?? []), member])
+    const row = rows.get(generation) ?? []
+    row.push(member)
+    rows.set(generation, row)
   }
   const levels = [...rows.keys()].sort((a, b) => a - b)
   const parentGroupCounts = new Map<number, Set<string>>()
@@ -152,7 +155,17 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
   const familyGroups = new Map<string, FamilyMember[]>()
   for (const person of members) if (person.parentIds.length) {
     const key = familyKeyFor(person)
-    familyGroups.set(key, [...(familyGroups.get(key) ?? []), person])
+    const group = familyGroups.get(key) ?? []
+    group.push(person)
+    familyGroups.set(key, group)
+  }
+  const childrenByParentKey = new Map<string, FamilyMember[]>()
+  for (const child of members) {
+    if (!child.parentIds.length) continue
+    const key = child.parentIds.slice().sort().join('|')
+    const children = childrenByParentKey.get(key) ?? []
+    children.push(child)
+    childrenByParentKey.set(key, children)
   }
   const siblingOrderFor = (siblings: FamilyMember[]) => siblings.slice().sort(chronological)
   // Marriage links between natal sibling clusters impose outside-edge ordering:
@@ -170,7 +183,7 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
   for (const [key, group] of familyGroups) {
     const siblings = siblingOrderFor(group)
     siblings.forEach((person, index) => [...person.spouseIds, ...(person.formerSpouseIds ?? [])].forEach((spouseId) => {
-      const spouse = members.find((candidate) => candidate.id === spouseId)
+      const spouse = membersById.get(spouseId)
       if (!spouse || !areCoupled(person, spouse) || !spouse.parentIds.length) return
       const spouseKey = familyKeyFor(spouse)
       if (spouseKey === key || !familyGroups.has(spouseKey)) return
@@ -276,11 +289,7 @@ export function computeTreeLayout(members: FamilyMember[], mode: TreeNodeMode = 
     const units = orderedUnits.get(level) ?? []
     const unitFamilies = orderedUnitFamilies.get(level) ?? []
     const targetForUnit = (people: FamilyMember[]) => {
-      const parentIds = new Set(people.map((person) => person.id))
-      const children = members.filter((child) => {
-        const parents = child.parentIds.slice().sort()
-        return parents.length === parentIds.size && parents.every((id) => parentIds.has(id))
-      })
+      const children = childrenByParentKey.get(people.map((person) => person.id).sort().join('|')) ?? []
       const childCenters = children.map((child) => {
         const position = positions.get(child.id)
         return position ? position.x + nodeWidth / 2 : null

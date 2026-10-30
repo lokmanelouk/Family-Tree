@@ -21,23 +21,27 @@ function result(type: ValidationIssue['type'], messageKey: string, values: Recor
 }
 
 function yearOf(value?: string) {
-  const match = value?.trim().match(/^(\d{4})(?:-(\d{2})-(\d{2}))?$/)
+  const match = value?.trim().match(/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/)
   if (!match) return null
   const year = Number(match[1])
-  if (!match[2]) return { year, exact: false, value: match[0] }
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const date = new Date(Date.UTC(year, month - 1, day))
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
-  return { year, exact: true, value: match[0] }
+  const month = match[2] === undefined ? undefined : Number(match[2])
+  const day = match[3] === undefined ? undefined : Number(match[3])
+  if (year < 1000 || (month !== undefined && (month < 1 || month > 12))) return null
+  if (day !== undefined) {
+    const date = new Date(Date.UTC(year, month! - 1, day))
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month! - 1 || date.getUTCDate() !== day) return null
+  }
+  return { year, month, day, exact: day !== undefined, value: match[0] }
 }
 
 function compareDates(left?: string, right?: string) {
   const a = yearOf(left)
   const b = yearOf(right)
   if (!a || !b) return null
-  if (a.exact && b.exact) return a.value.localeCompare(b.value)
-  return a.year - b.year
+  if (a.year !== b.year) return a.year - b.year
+  if (a.month !== undefined && b.month !== undefined && a.month !== b.month) return a.month - b.month
+  if (a.day !== undefined && b.day !== undefined && a.day !== b.day) return a.day - b.day
+  return 0
 }
 
 function ageInYears(birthDate?: string, endDate?: string) {
@@ -266,7 +270,16 @@ export function collectValidationIssues(outcomes: ValidationOutcome[]) {
 }
 
 export function isValidTreeSnapshot(members: FamilyMember[], today: string) {
+  if (!Array.isArray(members)) return false
+  const memberIds = new Set<string>()
+  for (const member of members) {
+    if (!member || typeof member.id !== 'string' || !member.id || memberIds.has(member.id)) return false
+    if (!Array.isArray(member.parentIds) || !Array.isArray(member.spouseIds) || !Array.isArray(member.siblingIds)) return false
+    memberIds.add(member.id)
+  }
   for (const child of members) {
+    if (child.parentIds.length > 2) return false
+    if (child.parentIds.some((id) => typeof id !== 'string') || child.spouseIds.some((id) => typeof id !== 'string') || child.siblingIds.some((id) => typeof id !== 'string')) return false
     if (child.parentIds.includes(child.id) || child.spouseIds.includes(child.id) || child.siblingIds.includes(child.id)) return false
     if (new Set(child.parentIds).size !== child.parentIds.length || new Set(child.spouseIds).size !== child.spouseIds.length || new Set(child.siblingIds).size !== child.siblingIds.length) return false
     const dates = validatePersonDates(child.birthDate, child.deathDate, today)

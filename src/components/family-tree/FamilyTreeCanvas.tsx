@@ -1,20 +1,39 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, PointerEvent, ReactNode, SVGProps, WheelEvent as ReactWheelEvent } from 'react'
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { DragEvent, PointerEvent, ReactNode, SVGProps } from 'react'
 import { GitBranch, Plus } from 'lucide-react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { getBranchFocusIds, getHiddenAncestorIds, getHiddenIds } from '../../lib/tree-logic'
 import { computeTreeLayout, getImmediateFamilyIds, getParentalCoupleColors, getParentChildBranchJunction, getParentChildConnectorPaths, getRootBranchMap, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS, type TreeNodeMode } from '../../lib/tree-layout'
 import { PersonCard } from './PersonCard'
 import { PersonContextMenu } from './PersonContextMenu'
-import { TreeMiniMap } from './TreeMiniMap'
 import { useLanguage } from '../../i18n/useLanguage'
 import { getTreeContentBounds } from '../../lib/canvas-fit'
 import { getRelationshipTooltipPosition } from '../../lib/relationship-tooltip-position'
-import { interpolateSvgPath } from '../../lib/tree-motion'
+import { createSvgPathInterpolator, getExitAnimationIds, getRemovedMemberIds, getStableConnectorSegments, removeMotionArtifactOnFinishOrCancel } from '../../lib/tree-motion'
+import { getCanvasLocalOrigin, getScrollPreservingCanvasCenter } from '../../lib/canvas-viewport'
 
 type NodeMotionSnapshot = { x: number; y: number; width: number; height: number }
 type ShapeMotionSnapshot = { tagName: string; attributes: Record<string, string>; clone?: SVGElement }
 type LayoutMotionSnapshot = { nodes: Map<string, NodeMotionSnapshot>; shapes: Map<string, ShapeMotionSnapshot>; removedNode?: HTMLElement; mode: TreeNodeMode; origin: { left: number; top: number; viewLeft: number; viewTop: number } }
+type ViewportMotionSnapshot = { scrollLeft: number; scrollTop: number; viewportWidth: number; viewportHeight: number; worldLeft: number; worldTop: number; zoomX: number; zoomY: number }
+type MotionBoundaryProps = { motionKey: { members: FamilyMember[] }; viewportKey: object; mode: TreeNodeMode; capture: (mode: TreeNodeMode, removedIds: string[]) => void; captureViewport: () => void; children: ReactNode }
+
+class MotionSnapshotBoundary extends Component<MotionBoundaryProps> {
+  getSnapshotBeforeUpdate(previousProps: MotionBoundaryProps) {
+    if (previousProps.motionKey !== this.props.motionKey) {
+      const removedIds = getRemovedMemberIds(previousProps.motionKey.members.map((member) => member.id), this.props.motionKey.members.map((member) => member.id))
+      this.props.capture(previousProps.mode, removedIds)
+    }
+    if (previousProps.viewportKey !== this.props.viewportKey) this.props.captureViewport()
+    return null
+  }
+
+  componentDidUpdate() {}
+
+  render() {
+    return this.props.children
+  }
+}
 
 const layoutMotionDuration = 320
 
@@ -23,17 +42,22 @@ function getTransformMatrix(element: HTMLElement) {
   return transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(transform)
 }
 
-function readLayoutMotionSnapshot(world: HTMLDivElement, viewport: HTMLDivElement, selectedId: string | null, mode: TreeNodeMode) {
+function readLayoutMotionSnapshot(world: HTMLDivElement, viewport: HTMLDivElement, selectedId: string | null, removedIds: string[], mode: TreeNodeMode) {
   const nodes = new Map<string, NodeMotionSnapshot>()
   const shapes = new Map<string, ShapeMotionSnapshot>()
+  const worldMatrix = getTransformMatrix(world)
+  const worldScaleX = Math.abs(worldMatrix.a) || 1
+  const worldScaleY = Math.abs(worldMatrix.d) || 1
   const lineLayer = world.querySelector<SVGSVGElement>('.tree-lines:not(.tree-exit-lines)')
   const viewBox = (lineLayer?.getAttribute('viewBox') ?? '0 0 0 0').split(/[ ,]+/).map(Number)
+  const localOrigin = getCanvasLocalOrigin(Number.parseFloat(world.style.left) || 0, Number.parseFloat(world.style.top) || 0, worldScaleX, worldScaleY)
   const origin = {
-    left: Number.parseFloat(world.style.left) || 0,
-    top: Number.parseFloat(world.style.top) || 0,
+    left: localOrigin.left,
+    top: localOrigin.top,
     viewLeft: viewBox[0] || 0,
     viewTop: viewBox[1] || 0,
   }
+  const exitIds = new Set(getExitAnimationIds(removedIds, selectedId))
   let removedNode: HTMLElement | undefined
 
   world.querySelectorAll<HTMLElement>('.tree-node-position[data-person-id]').forEach((wrapper) => {
@@ -49,11 +73,10 @@ function readLayoutMotionSnapshot(world: HTMLDivElement, viewport: HTMLDivElemen
       width: card.offsetWidth * Math.abs(matrix.a),
       height: card.offsetHeight * Math.abs(matrix.d),
     })
-    if (selectedId === id) {
+    if (id && exitIds.has(id)) {
       const clone = wrapper.cloneNode(true) as HTMLElement
       const wrapperBounds = wrapper.getBoundingClientRect()
       const viewportBounds = viewport.getBoundingClientRect()
-      const worldMatrix = getTransformMatrix(world)
       clone.classList.add('tree-node-exit-clone')
       clone.setAttribute('aria-hidden', 'true')
       clone.style.animation = 'none'
@@ -96,7 +119,7 @@ function animateSvgOpacity(element: SVGElement, from: number, to: number, durati
     easing: 'ease-out',
     fill: 'forwards',
   })
-  animation.onfinish = () => element.remove()
+  removeMotionArtifactOnFinishOrCancel(animation, element)
 }
 
 function animateExitNode(layer: HTMLDivElement, viewport: HTMLDivElement, clone: HTMLElement) {
@@ -110,7 +133,7 @@ function animateExitNode(layer: HTMLDivElement, viewport: HTMLDivElement, clone:
     { opacity: Number(clone.style.opacity) || 1, transform: clone.style.transform },
     { opacity: 0, transform: `scale(${scaleX * 0.94}, ${scaleY * 0.94})` },
   ], { duration: 190, easing: 'ease-in', fill: 'forwards' })
-  animation.onfinish = () => clone.remove()
+  removeMotionArtifactOnFinishOrCancel(animation, clone)
   return animation
 }
 
@@ -162,10 +185,9 @@ type FamilyTreeCanvasProps = {
   relationshipPathIds: string[] | null
   layoutRevision: number
   navigationTarget: { id: string; pathIds?: string[]; sequence: number } | null
-  onCanvasActivity: () => void
 }
 
-export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget, onCanvasActivity }: FamilyTreeCanvasProps) {
+export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, zoom, selectedId, onSelect, onAddRelative, onProposeRelationship, onEmptyAdd, onEditPerson, onDeletePerson, onLinkRelative, onFocusMember, branchFocusId, onResetBranchFocus, mode, compactCards, focusId, relationshipPathIds, layoutRevision, navigationTarget }: FamilyTreeCanvasProps) {
   const { t } = useLanguage()
   const viewportRef = useRef<HTMLDivElement>(null)
   const treeWorldRef = useRef<HTMLDivElement>(null)
@@ -177,6 +199,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const runningAnimationsRef = useRef<Animation[]>([])
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [emptyStateInteracted, setEmptyStateInteracted] = useState(false)
   const [pulseId, setPulseId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ member: FamilyMember; x: number; y: number } | null>(null)
   const [relationshipTooltip, setRelationshipTooltip] = useState<{ label: string; left: number; top: number; placement: 'above' | 'below' } | null>(null)
@@ -186,10 +209,9 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const relationshipTooltipRef = useRef<HTMLDivElement>(null)
   const tooltipFrame = useRef<number | null>(null)
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
-  const previousViewport = useRef<{ zoom: number; offsetX: number; offsetY: number; width: number; height: number } | null>(null)
+  const previousViewport = useRef<ViewportMotionSnapshot | null>(null)
   const previousLayoutRevision = useRef(layoutRevision)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
-  const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 })
   const hiddenIds = useMemo(() => new Set([...getHiddenIds(members, collapsedIds), ...getHiddenAncestorIds(members, collapsedAncestorIds)]), [members, collapsedIds, collapsedAncestorIds])
   const visibleMembers = useMemo(() => members.filter((member) => !hiddenIds.has(member.id)), [members, hiddenIds])
   const spotlightId = hoveredId ?? selectedId ?? focusId
@@ -198,25 +220,28 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const relationshipPathEdges = useMemo(() => relationshipPathIds?.length
     ? new Set(relationshipPathIds.slice(1).map((id, index) => relationshipPairKey(relationshipPathIds[index], id)))
     : null, [relationshipPathIds])
-  const focusedIds = branchFocusedIds ?? relationshipFocusedIds ?? (spotlightId ? getImmediateFamilyIds(members, spotlightId) : null)
-  const branchColors = getRootBranchMap(members)
-  const coupleColors = getParentalCoupleColors(members)
-  const miniMapColors = useMemo(() => new Map(members.map((member) => {
-    const coupleKey = member.parentIds.slice().sort().join('|')
-    return [member.id, coupleColors.get(coupleKey) ?? branchColors.get(member.id) ?? 'var(--accent)']
-  })), [members, coupleColors, branchColors])
+  const spotlightFamilyIds = useMemo(() => spotlightId ? getImmediateFamilyIds(members, spotlightId) : null, [members, spotlightId])
+  const focusedIds = branchFocusedIds ?? relationshipFocusedIds ?? spotlightFamilyIds
+  const branchColors = useMemo(() => getRootBranchMap(members), [members])
+  const coupleColors = useMemo(() => getParentalCoupleColors(members), [members])
   const activeLineMemberId = hoveredId ?? selectedId
-  const activeLineIds = branchFocusedIds ?? relationshipFocusedIds ?? (activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null)
+  const activeLineFamilyIds = useMemo(() => activeLineMemberId ? getImmediateFamilyIds(members, activeLineMemberId) : null, [members, activeLineMemberId])
+  const activeLineIds = branchFocusedIds ?? relationshipFocusedIds ?? activeLineFamilyIds
+  const membersById = useMemo(() => new Map(members.map((member) => [member.id, member])), [members])
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
+  const handleContextDelete = useCallback((member: FamilyMember) => {
+    exitCandidateIdRef.current = member.id
+    onDeletePerson(member)
+  }, [onDeletePerson])
 
   useLayoutEffect(() => {
     if (selectedId) exitCandidateIdRef.current = selectedId
   }, [selectedId])
 
   const layout = useMemo(() => computeTreeLayout(visibleMembers, mode, { compactCards }), [visibleMembers, mode, compactCards])
+  const layoutMotionKey = useMemo(() => ({ positions: layout.positions, nodeWidth: layout.nodeWidth, nodeHeight: layout.nodeHeight, members, mode }), [layout.positions, layout.nodeWidth, layout.nodeHeight, members, mode])
   const { positions, width, height, nodeWidth, nodeHeight } = layout
   const contentBounds = useMemo(() => getTreeContentBounds(layout), [layout])
-  const contentPositions = useMemo(() => new Map([...positions].map(([id, point]) => [id, { ...point, x: point.x - contentBounds.left, y: point.y - contentBounds.top }])), [positions, contentBounds])
   const canvasPadding = 44
   const zoomedWidth = contentBounds.width * zoom
   const zoomedHeight = contentBounds.height * zoom
@@ -224,6 +249,29 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   const spaceHeight = Math.max(zoomedHeight + canvasPadding * 2, viewportSize.height)
   const offsetX = (spaceWidth - zoomedWidth) / 2
   const offsetY = (spaceHeight - zoomedHeight) / 2
+  const viewportMotionKey = useMemo(() => ({ zoom, offsetX, offsetY, spaceWidth, spaceHeight, viewportSize, layoutRevision, layoutMotionKey }), [zoom, offsetX, offsetY, spaceWidth, spaceHeight, viewportSize, layoutRevision, layoutMotionKey])
+  const captureMotionSnapshot = useCallback((previousMode: TreeNodeMode, removedIds: string[]) => {
+    const world = treeWorldRef.current
+    const viewport = viewportRef.current
+    if (world && viewport) pendingMotionRef.current = readLayoutMotionSnapshot(world, viewport, exitCandidateIdRef.current, removedIds, previousMode)
+  }, [])
+  const captureViewportSnapshot = useCallback(() => {
+    const world = treeWorldRef.current
+    const viewport = viewportRef.current
+    if (!world || !viewport) return
+    const matrix = getTransformMatrix(world)
+    previousViewport.current = {
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+      viewportWidth: viewport.clientWidth,
+      viewportHeight: viewport.clientHeight,
+      worldLeft: Number.parseFloat(world.style.left) || 0,
+      worldTop: Number.parseFloat(world.style.top) || 0,
+      zoomX: Math.abs(matrix.a) || 1,
+      zoomY: Math.abs(matrix.d) || 1,
+    }
+  }, [])
+  const contentPositions = useMemo(() => new Map([...positions].map(([id, point]) => [id, { ...point, x: point.x - contentBounds.left, y: point.y - contentBounds.top }])), [positions, contentBounds])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -255,8 +303,12 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     const shapeByKey = new Map([...world.querySelectorAll<SVGElement>('.tree-lines:not(.tree-exit-lines) [data-layout-key]')].map((shape) => [shape.dataset.layoutKey!, shape]))
     const currentLineLayer = world.querySelector<SVGSVGElement>('.tree-lines:not(.tree-exit-lines)')
     const currentViewBox = (currentLineLayer?.getAttribute('viewBox') ?? '0 0 0 0').split(/[ ,]+/).map(Number)
-    const frameOffsetX = pending ? pending.origin.left - (Number.parseFloat(world.style.left) || 0) + (currentViewBox[0] || 0) - pending.origin.viewLeft : 0
-    const frameOffsetY = pending ? pending.origin.top - (Number.parseFloat(world.style.top) || 0) + (currentViewBox[1] || 0) - pending.origin.viewTop : 0
+    const worldMatrix = getTransformMatrix(world)
+    const currentOrigin = getCanvasLocalOrigin(Number.parseFloat(world.style.left) || 0, Number.parseFloat(world.style.top) || 0, worldMatrix.a, worldMatrix.d)
+    const currentOriginLeft = currentOrigin.left
+    const currentOriginTop = currentOrigin.top
+    const frameOffsetX = pending ? pending.origin.left - currentOriginLeft + (currentViewBox[0] || 0) - pending.origin.viewLeft : 0
+    const frameOffsetY = pending ? pending.origin.top - currentOriginTop + (currentViewBox[1] || 0) - pending.origin.viewTop : 0
     const animations: Animation[] = []
     const tasks: Array<(progress: number) => void> = []
 
@@ -268,8 +320,8 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
         if (!wrapper) return
         const card = wrapper.querySelector<HTMLElement>('.person-node')
         if (!card) return
-        const x = (Number.parseFloat(wrapper.style.left) || 0) + (Number.parseFloat(world.style.left) || 0)
-        const y = (Number.parseFloat(wrapper.style.top) || 0) + (Number.parseFloat(world.style.top) || 0)
+        const x = (Number.parseFloat(wrapper.style.left) || 0) + currentOriginLeft
+        const y = (Number.parseFloat(wrapper.style.top) || 0) + currentOriginTop
         const dx = previous.x - x
         const dy = previous.y - y
         const scaleX = previous.width > 0 && card.offsetWidth > 0 ? previous.width / card.offsetWidth : 1
@@ -304,12 +356,12 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
           const from = previous.attributes.d
           const to = shape.getAttribute('d')
           if (from === to && !frameOffsetX && !frameOffsetY) return
-          const startPath = from && to ? interpolateSvgPath(from, to, 0) : null
-          if (from && to && startPath !== null) {
+          const interpolatePath = from && to ? createSvgPathInterpolator(from, to) : null
+          if (from && to && interpolatePath) {
             shape.setAttribute('d', from)
             if (frameOffsetX || frameOffsetY) shape.setAttribute('transform', `translate(${frameOffsetX} ${frameOffsetY})`)
             tasks.push((progress) => {
-              if (from !== to) shape.setAttribute('d', interpolateSvgPath(from, to, progress) ?? to)
+              if (from !== to) shape.setAttribute('d', interpolatePath(progress))
               if (frameOffsetX || frameOffsetY) {
                 if (progress >= 1) shape.removeAttribute('transform')
                 else shape.setAttribute('transform', `translate(${frameOffsetX * (1 - progress)} ${frameOffsetY * (1 - progress)})`)
@@ -371,9 +423,6 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     }
     runningAnimationsRef.current.push(...animations)
     return () => {
-      if (world && viewport && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        pendingMotionRef.current = readLayoutMotionSnapshot(world, viewport, exitCandidateIdRef.current, mode)
-      }
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
@@ -457,10 +506,9 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     const previous = previousViewport.current
     const shouldCenter = previousLayoutRevision.current !== layoutRevision
     if (previous && !shouldCenter) {
-      const centerX = (viewport.scrollLeft + previous.width / 2 - previous.offsetX) / previous.zoom
-      const centerY = (viewport.scrollTop + previous.height / 2 - previous.offsetY) / previous.zoom
-      viewport.scrollLeft = centerX * zoom + offsetX - viewport.clientWidth / 2
-      viewport.scrollTop = centerY * zoom + offsetY - viewport.clientHeight / 2
+      const scroll = getScrollPreservingCanvasCenter(previous, { width: viewport.clientWidth, height: viewport.clientHeight }, { zoomX: zoom, zoomY: zoom, offsetX, offsetY })
+      viewport.scrollLeft = Math.max(0, scroll.left)
+      viewport.scrollTop = Math.max(0, scroll.top)
     } else {
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       viewport.scrollTo({
@@ -470,7 +518,6 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
       })
     }
     previousLayoutRevision.current = layoutRevision
-    previousViewport.current = { zoom, offsetX, offsetY, width: viewport.clientWidth, height: viewport.clientHeight }
   }, [zoom, width, height, offsetX, offsetY, spaceWidth, spaceHeight, layoutRevision])
 
   useLayoutEffect(() => {
@@ -519,22 +566,16 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
     if (event.button !== 0 || (event.target as HTMLElement).closest('.person-node, button, a, [role="button"], .relationship-badge-tooltip')) return
     const viewport = viewportRef.current
     if (!viewport) return
-    onCanvasActivity()
     pan.current = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
   function movePan(event: PointerEvent<HTMLDivElement>) {
     if (!pan.current || !viewportRef.current) return
-    onCanvasActivity()
     viewportRef.current.scrollLeft = pan.current.left - (event.clientX - pan.current.x)
     viewportRef.current.scrollTop = pan.current.top - (event.clientY - pan.current.y)
     scheduleRelationshipTooltipPosition()
   }
-  function stopPan() { if (pan.current) onCanvasActivity(); pan.current = null }
-  function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if ((event.target as HTMLElement).closest('.person-node, button, a, [role="button"], .relationship-badge-tooltip')) return
-    onCanvasActivity()
-  }
+  function stopPan() { pan.current = null }
   function showRelationshipTooltip(target: SVGGElement, label: string) {
     relationshipTooltipAnchor.current = target
     relationshipTooltipLabel.current = label
@@ -559,9 +600,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
   return (
     <div className="tree-canvas-frame">
     {branchFocusId && <button type="button" className="tree-branch-focus-reset" onClick={onResetBranchFocus}><GitBranch size={16} />{t('Reset View')}</button>}
-    <div className="tree-viewport" ref={viewportRef} onScroll={(event) => setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop })} onWheel={handleCanvasWheel} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
-      {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card"><span><GitBranch size={29} /></span><h2>{t('Start your family tree')}</h2><p>{t('Begin by adding your first ancestor or family founder')}</p><button onClick={onEmptyAdd}><Plus size={17} /> {t('Add your first family member')}</button></div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
-        <div ref={treeWorldRef} className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX / zoom, top: offsetY / zoom, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+    <div className="tree-viewport" ref={viewportRef} onWheel={() => { if (members.length === 0) setEmptyStateInteracted(true) }} onPointerDownCapture={() => { if (members.length === 0) setEmptyStateInteracted(true) }} onFocusCapture={() => { if (members.length === 0) setEmptyStateInteracted(true) }} onKeyDownCapture={() => { if (members.length === 0) setEmptyStateInteracted(true) }} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onPointerLeave={stopPan}>
+      <MotionSnapshotBoundary motionKey={layoutMotionKey} viewportKey={viewportMotionKey} mode={mode} capture={captureMotionSnapshot} captureViewport={captureViewportSnapshot}>
+      {members.length === 0 ? <div className="tree-empty"><div className="tree-empty-card" onPointerEnter={() => setEmptyStateInteracted(true)} onFocusCapture={() => setEmptyStateInteracted(true)} onKeyDownCapture={() => setEmptyStateInteracted(true)}><span className="tree-empty-illustration"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 11v11M24 22H12v11M24 22h12v11" /><circle cx="24" cy="9" r="4" /><circle cx="12" cy="35" r="4" /><circle cx="36" cy="35" r="4" /><circle cx="24" cy="22" r="3" /></svg></span><h2>{t('Your family tree starts here')}</h2><p>{t('Every family begins with someone. Add your first family member to start growing your tree.')}</p><button type="button" className={`empty-state-primary${emptyStateInteracted ? '' : ' has-attention'}`} onClick={() => { setEmptyStateInteracted(true); onEmptyAdd() }}><Plus size={17} aria-hidden="true" /> {t('Add your first family member')}</button></div></div> : <div className="tree-zoom-space" style={{ width: spaceWidth, height: spaceHeight }}>
+        <div ref={treeWorldRef} className="tree-world" style={{ width: contentBounds.width, height: contentBounds.height, left: offsetX, top: offsetY, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
           <svg className={`tree-lines${activeLineIds ? ' has-active-line-focus' : ''}${branchFocusedIds ? ' is-branch-focus' : ''}`} width={contentBounds.width} height={contentBounds.height} viewBox={`${contentBounds.left} ${contentBounds.top} ${contentBounds.width} ${contentBounds.height}`}>
             {(() => {
               const links: ReactNode[] = []
@@ -601,10 +643,10 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
                 const groupActive = relationshipFocusedIds
                   ? pathUsesParentEdge || pathUsesSiblingBus
                   : Boolean(activeLineIds && (parentIds.some((id) => activeLineIds.has(id)) || children.some((child) => activeLineIds.has(child.id))))
-                getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset).forEach((path, index) => {
-                  const pathChild = index >= 2 ? children[index - 2] : undefined
-                  const pathSegmentActive = groupActive && (!relationshipFocusedIds || index < 2 || Boolean(pathChild && relationshipFocusedIds.has(pathChild.id)))
-                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${pathSegmentActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-parent-child-${index}`} data-layout-key={`${groupKey}-parent-child-${index}`} d={path} />)
+                const connectorSegments = getStableConnectorSegments(getParentChildConnectorPaths(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset), children.map((child) => child.id))
+                connectorSegments.forEach(({ key, path, childId }) => {
+                  const pathSegmentActive = groupActive && (!relationshipFocusedIds || !childId || relationshipFocusedIds.has(childId))
+                  links.push(<path className={`relationship-line parent-child-line${adopted ? ' adopted-parent-line' : ''}${pathSegmentActive ? ' is-active-line' : ''}`} style={color === null ? undefined : { stroke: color }} key={`${groupKey}-${key}`} data-layout-key={`${groupKey}-${key}`} d={path} />)
                 })
                 if (adopted) {
                   const junction = getParentChildBranchJunction(parents, childPoints, nodeWidth, nodeHeight, lane, coupleAnchorOffset)
@@ -619,7 +661,7 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
               // cards merely being neighbors on the same generation row.
               const renderedSpousePairs = new Set<string>()
               visibleMembers.forEach((member) => [...member.spouseIds, ...(member.formerSpouseIds ?? [])].forEach((spouseId) => {
-                const spouse = members.find((candidate) => candidate.id === spouseId)
+                const spouse = membersById.get(spouseId)
                 const pairKey = [member.id, spouseId].sort().join('|')
                 // Imported or stale one-way references do not establish a
                 // marriage. Require the exact reciprocal person ID as well.
@@ -670,31 +712,11 @@ export function FamilyTreeCanvas({ members, collapsedIds, collapsedAncestorIds, 
           })}
         </div>
       </div>}
+      </MotionSnapshotBoundary>
       <div ref={exitNodeLayerRef} className="tree-node-exit-layer" aria-hidden="true" />
       {relationshipTooltip && <div ref={relationshipTooltipRef} className={`relationship-badge-tooltip is-${relationshipTooltip.placement}`} role="tooltip" style={{ left: relationshipTooltip.left, top: relationshipTooltip.top }}>{relationshipTooltip.label}</div>}
-      {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={onDeletePerson} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
+      {contextMenu && <PersonContextMenu member={contextMenu.member} members={members} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} onOpenDetails={onFocusMember} onEdit={onEditPerson} onDelete={handleContextDelete} onAddRelative={(sourceId, kind) => { const source = members.find((person) => person.id === sourceId); if (source) onAddRelative(source, kind) }} onLinkRelative={onLinkRelative} />}
     </div>
-    {members.length > 0 && viewportSize.width > 0 && <TreeMiniMap
-      members={branchFocusedIds ? visibleMembers.filter((member) => branchFocusedIds.has(member.id)) : visibleMembers}
-      positions={contentPositions}
-      colors={miniMapColors}
-      width={contentBounds.width}
-      height={contentBounds.height}
-      nodeWidth={nodeWidth}
-      nodeHeight={nodeHeight}
-      zoom={zoom}
-      offsetX={offsetX}
-      offsetY={offsetY}
-      scrollLeft={scrollPosition.left}
-      scrollTop={scrollPosition.top}
-      viewportWidth={viewportSize.width}
-      viewportHeight={viewportSize.height}
-      onNavigate={(x, y) => {
-        const viewport = viewportRef.current
-        if (!viewport) return
-        viewport.scrollTo({ left: Math.max(0, offsetX + x * zoom - viewport.clientWidth / 2), top: Math.max(0, offsetY + y * zoom - viewport.clientHeight / 2), behavior: 'auto' })
-      }}
-    />}
     </div>
   )
 }

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/lib/tree-logic.test.mjs src/lib/family-validation.test.mjs src/lib/family-picker.test.mjs src/lib/person-name.test.mjs src/config/layout.test.mjs src/lib/person-actions.test.mjs src/lib/relationship-calculator.test.mjs src/lib/context-submenu-position.test.mjs src/lib/anchored-popover-position.test.mjs src/lib/minimap-geometry.test.mjs src/lib/details-panel.test.mjs src/lib/display-date.test.mjs src/lib/canvas-fit.test.mjs src/lib/relationship-tooltip-position.test.mjs src/lib/tree-archive.test.mjs src/lib/storage/local-tree-storage.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/tree-logic.test.mjs src/lib/family-validation.test.mjs src/lib/family-picker.test.mjs src/lib/person-name.test.mjs src/config/layout.test.mjs src/lib/person-actions.test.mjs src/lib/relationship-calculator.test.mjs src/lib/context-submenu-position.test.mjs src/lib/anchored-popover-position.test.mjs src/lib/birth-date.test.mjs src/lib/details-panel.test.mjs src/lib/display-date.test.mjs src/lib/canvas-fit.test.mjs src/lib/relationship-tooltip-position.test.mjs src/lib/canvas-viewport.test.mjs src/lib/tree-motion.test.mjs src/lib/tree-archive.test.mjs src/lib/storage/local-tree-storage.test.mjs src/i18n/translation-coverage.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

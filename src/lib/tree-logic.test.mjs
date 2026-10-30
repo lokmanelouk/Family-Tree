@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { familyMembers } from '../data/family.ts'
-import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getBranchFocusIds, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, validateRelationship } from './tree-logic.ts'
+import { applyRelationship, createRelatedMember, createRelatedMemberWithNames, getBranchFocusIds, getGenerationMap, getHiddenIds, getSiblingConnectorPairs, getSiblingPairs, linkRecordedParentCouples, resolveChildRelationshipTarget, validateRelationship } from './tree-logic.ts'
+import { isSupportedPhotoType } from './photo-file.ts'
 import { recordTreeChange, redoTreeChange, undoTreeChange } from './tree-history.ts'
 import { computeTreeLayout, getParentChildConnectorPaths, getRootBranchMap, getRootBranches, getSiblingConnectorPath, getSpouseConnector, MARRIAGE_ANCHOR_RADIUS, CIRCULAR_AVATAR_CENTER_Y, CIRCULAR_AVATAR_RADIUS } from './tree-layout.ts'
 import { interpolateSvgPath } from './tree-motion.ts'
@@ -120,6 +121,27 @@ test('adding a second parent links a valid father and mother as spouses', () => 
   const completedFamily = createRelatedMember(withFather, child.id, 'parent', 'Test Mother', 'test-mother', undefined, undefined, undefined, 'female')
   assert.ok(completedFamily.find((member) => member.id === 'test-father')?.spouseIds.includes('test-mother'))
   assert.ok(completedFamily.find((member) => member.id === 'test-mother')?.spouseIds.includes('test-father'))
+})
+
+test('adding a child to the selected person preserves that relationship target', () => {
+  const targetId = resolveChildRelationshipTarget('david', 'david', 'linda')
+  assert.equal(targetId, 'david')
+  const tree = createRelatedMemberWithNames(familyMembers, targetId, 'child', 'New', 'David Child', 'targeted-child', undefined, undefined, undefined, 'female', 'david', 'linda')
+  assert.deepEqual(tree.find((member) => member.id === 'targeted-child')?.parentIds, ['david', 'linda'])
+})
+
+test('manual child parents replace an unrelated target and create the child under those parents', () => {
+  const targetId = resolveChildRelationshipTarget('nora', 'james', 'eleanor')
+  assert.equal(targetId, '')
+  const tree = createRelatedMemberWithNames(familyMembers, targetId, 'child', 'David', 'Hassan', 'manual-parent-child', undefined, undefined, undefined, 'male', 'james', 'eleanor')
+  assert.deepEqual(tree.find((member) => member.id === 'manual-parent-child')?.parentIds, ['james', 'eleanor'])
+  assert.equal(tree.find((member) => member.id === 'manual-parent-child')?.relationship, 'Son')
+  assert.equal(tree.some((member) => member.id === 'manual-parent-child' && member.parentIds.includes('nora')), false)
+})
+
+test('photo uploads accept PNG, JPEG, and WebP MIME types only', () => {
+  for (const type of ['image/png', 'image/jpeg', 'image/webp']) assert.equal(isSupportedPhotoType(type), true)
+  for (const type of ['image/gif', 'image/bmp', 'image/svg+xml', '']) assert.equal(isSupportedPhotoType(type), false)
 })
 
 test('a new sibling can keep one shared parent while selecting another parent', () => {

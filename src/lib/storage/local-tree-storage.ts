@@ -11,6 +11,7 @@ export type TreeRecord = {
   name: string
   createdAt: number
   updatedAt: number
+  revision?: number
   lastBackupAt?: number
 }
 
@@ -37,6 +38,8 @@ const DATABASE_NAME = 'rootly-local-family-trees'
 const DATABASE_VERSION = 1
 const STORE_NAMES: StoreName[] = ['trees', 'people', 'parentLinks', 'partnerLinks', 'siblingLinks', 'photos', 'settings']
 const GLOBAL_SETTINGS_KEY = '__rootly_global_settings__'
+const TREE_REVISION_CHANNEL_NAME = 'rootly-local-tree-revisions'
+const TREE_REVISION_CLIENT_ID = crypto.randomUUID()
 let databasePromise: Promise<IDBDatabase> | undefined
 const photoObjectUrls = new Map<string, { blob: Blob; url: string }>()
 
@@ -47,7 +50,7 @@ function storageError(key: string) {
 }
 
 function normalizeStorageError(error: unknown) {
-  if (error instanceof Error && (error.message === 'LOCAL_STORAGE_UNAVAILABLE' || error.message === 'LOCAL_STORAGE_FULL' || error.message === 'LOCAL_TREE_NOT_FOUND')) return error
+  if (error instanceof Error && (error.message === 'LOCAL_STORAGE_UNAVAILABLE' || error.message === 'LOCAL_STORAGE_FULL' || error.message === 'LOCAL_TREE_NOT_FOUND' || error.message === 'LOCAL_TREE_CONFLICT')) return error
   const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : ''
   if (name === 'QuotaExceededError') return storageError('LOCAL_STORAGE_FULL')
   if (name === 'SecurityError' || name === 'InvalidStateError' || name === 'NotAllowedError') return storageError('LOCAL_STORAGE_UNAVAILABLE')
@@ -191,6 +194,40 @@ function equalRecord(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
+function treeRevision(tree: TreeRecord) {
+  return Number.isSafeInteger(tree.revision) && (tree.revision ?? 0) >= 0 ? tree.revision! : 0
+}
+
+function withTreeRevision(tree: TreeRecord): TreeRecord {
+  return { ...tree, revision: treeRevision(tree) }
+}
+
+function notifyTreeRevision(treeId: string, revision: number) {
+  if (typeof BroadcastChannel === 'undefined') return
+  try {
+    const channel = new BroadcastChannel(TREE_REVISION_CHANNEL_NAME)
+    channel.postMessage({ treeId, revision, source: TREE_REVISION_CLIENT_ID })
+    channel.close()
+  } catch {
+    return
+  }
+}
+
+export function subscribeToTreeRevisions(listener: (treeId: string, revision: number) => void) {
+  if (typeof BroadcastChannel === 'undefined') return () => undefined
+  let channel: BroadcastChannel
+  try {
+    channel = new BroadcastChannel(TREE_REVISION_CHANNEL_NAME)
+  } catch {
+    return () => undefined
+  }
+  channel.onmessage = ({ data }: MessageEvent<{ treeId?: unknown; revision?: unknown; source?: unknown }>) => {
+    if (data?.source === TREE_REVISION_CLIENT_ID || typeof data?.treeId !== 'string' || !Number.isSafeInteger(data.revision) || (data.revision as number) < 0) return
+    listener(data.treeId, data.revision as number)
+  }
+  return () => channel.close()
+}
+
 async function photoToBlob(photo: string) {
   const comma = photo.indexOf(',')
   if (photo.startsWith('data:') && comma >= 0) {
@@ -237,7 +274,7 @@ export async function listTrees(): Promise<TreeRecord[]> {
   const done = transactionResult<void>(transaction)
   const trees = await requestValue(transaction.objectStore('trees').getAll()) as TreeRecord[]
   await done
-  return trees.sort((left, right) => left.createdAt - right.createdAt)
+  return trees.map(withTreeRevision).sort((left, right) => left.createdAt - right.createdAt)
 }
 
 export async function loadTree(treeId?: string): Promise<{ tree: TreeRecord | null; members: FamilyMember[]; settings: TreeSettings }> {
@@ -311,7 +348,7 @@ export async function createTree(name: string): Promise<TreeRecord> {
   const transaction = database.transaction('trees', 'readwrite')
   const done = transactionResult<void>(transaction)
   const now = Date.now()
-  const tree = { id: crypto.randomUUID(), name: cleanName, createdAt: now, updatedAt: now }
+  const tree = { id: crypto.randomUUID(), name: cleanName, createdAt: now, updatedAt: now, revision: 0 }
   await requestValue(transaction.objectStore('trees').add(tree))
   await done
   return tree
@@ -493,7 +530,7 @@ export async function importTreeData(imported: ImportedTreeData, destination: Tr
   }
   if (destination.kind === 'new') {
     const exportedAt = Date.parse(imported.exportDate)
-    writeRows({ id: treeId, name: imported.treeName, createdAt: now, updatedAt: now, ...(Number.isFinite(exportedAt) ? { lastBackupAt: exportedAt } : {}) })
+    writeRows({ id: treeId, name: imported.treeName, createdAt: now, updatedAt: now, revision: 0, ...(Number.isFinite(exportedAt) ? { lastBackupAt: exportedAt } : {}) })
   } else {
     const request = treeStore.get(treeId)
     request.onsuccess = () => {
@@ -504,7 +541,7 @@ export async function importTreeData(imported: ImportedTreeData, destination: Tr
         return
       }
       const exportedAt = Date.parse(imported.exportDate)
-      writeRows({ ...current, updatedAt: now, lastBackupAt: Number.isFinite(exportedAt) ? exportedAt : now }, true)
+      writeRows({ ...current, revision: treeRevision(current) + 1, updatedAt: now, lastBackupAt: Number.isFinite(exportedAt) ? exportedAt : now }, true)
     }
   }
   try {
@@ -519,6 +556,7 @@ export async function importTreeData(imported: ImportedTreeData, destination: Tr
       photoObjectUrls.delete(key)
     }
   }
+  if (destination.kind === 'replace') notifyTreeRevision(treeId, result!.revision ?? 0)
   return result!
 }
 
@@ -538,13 +576,13 @@ export async function saveGlobalSettings(values: { language?: string; theme?: st
 export async function addPerson(treeId: string, member: FamilyMember) {
   const current = await loadTree(treeId)
   if (!current.tree) throw storageError('LOCAL_TREE_NOT_FOUND')
-  await saveTreeChanges(treeId, current.members, [...current.members.filter((item) => item.id !== member.id), member])
+  await saveTreeChanges(treeId, current.members, [...current.members.filter((item) => item.id !== member.id), member], current.tree.revision ?? 0)
 }
 
 export async function editPerson(treeId: string, member: FamilyMember) {
   const current = await loadTree(treeId)
   if (!current.tree) throw storageError('LOCAL_TREE_NOT_FOUND')
-  await saveTreeChanges(treeId, current.members, current.members.map((item) => item.id === member.id ? member : item))
+  await saveTreeChanges(treeId, current.members, current.members.map((item) => item.id === member.id ? member : item), current.tree.revision ?? 0)
 }
 
 export async function deletePerson(treeId: string, personId: string) {
@@ -558,7 +596,7 @@ export async function deletePerson(treeId: string, personId: string) {
     adoptedParentIds: member.adoptedParentIds?.filter((id) => id !== personId),
     siblingIds: member.siblingIds.filter((id) => id !== personId),
   }))
-  await saveTreeChanges(treeId, current.members, members)
+  await saveTreeChanges(treeId, current.members, members, current.tree.revision ?? 0)
 }
 
 export async function addParentLink(link: ParentLinkInput) {
@@ -570,7 +608,7 @@ export async function addParentLink(link: ParentLinkInput) {
     parentIds: [...new Set([...member.parentIds, parentId])],
     adoptedParentIds: kind === 'adoptive' ? [...new Set([...(member.adoptedParentIds ?? []), parentId])] : member.adoptedParentIds,
   } : member)
-  await saveTreeChanges(treeId, current.members, members)
+  await saveTreeChanges(treeId, current.members, members, current.tree.revision ?? 0)
 }
 
 export async function removeParentLink(treeId: string, childId: string, parentId: string) {
@@ -581,7 +619,7 @@ export async function removeParentLink(treeId: string, childId: string, parentId
     parentIds: member.parentIds.filter((id) => id !== parentId),
     adoptedParentIds: member.adoptedParentIds?.filter((id) => id !== parentId),
   } : member)
-  await saveTreeChanges(treeId, current.members, members)
+  await saveTreeChanges(treeId, current.members, members, current.tree.revision ?? 0)
 }
 
 export async function addPartnerLink(link: PartnerLinkInput) {
@@ -593,7 +631,7 @@ export async function addPartnerLink(link: PartnerLinkInput) {
     if (member.id === personB) return status === 'former' ? { ...member, spouseIds: member.spouseIds.filter((id) => id !== personA), formerSpouseIds: [...new Set([...(member.formerSpouseIds ?? []), personA])] } : { ...member, spouseIds: [...new Set([...member.spouseIds, personA])], formerSpouseIds: member.formerSpouseIds?.filter((id) => id !== personA) }
     return member
   })
-  await saveTreeChanges(treeId, current.members, members)
+  await saveTreeChanges(treeId, current.members, members, current.tree.revision ?? 0)
 }
 
 export async function removePartnerLink(treeId: string, personA: string, personB: string) {
@@ -604,14 +642,14 @@ export async function removePartnerLink(treeId: string, personA: string, personB
     spouseIds: member.id === personA ? member.spouseIds.filter((id) => id !== personB) : member.id === personB ? member.spouseIds.filter((id) => id !== personA) : member.spouseIds,
     formerSpouseIds: member.id === personA ? member.formerSpouseIds?.filter((id) => id !== personB) : member.id === personB ? member.formerSpouseIds?.filter((id) => id !== personA) : member.formerSpouseIds,
   }))
-  await saveTreeChanges(treeId, current.members, members)
+  await saveTreeChanges(treeId, current.members, members, current.tree.revision ?? 0)
 }
 
 export async function changePartnerLink(treeId: string, personA: string, personB: string, status: 'married' | 'former') {
   await addPartnerLink({ tree_id: treeId, person_a: personA, person_b: personB, status })
 }
 
-export async function saveTreeChanges(treeId: string, before: FamilyMember[], after: FamilyMember[]) {
+export async function saveTreeChanges(treeId: string, before: FamilyMember[], after: FamilyMember[], expectedRevision: number): Promise<number> {
   const old = rowsFromMembers(treeId, before)
   const next = rowsFromMembers(treeId, after)
   const oldPhotos = new Map(old.photos)
@@ -628,6 +666,8 @@ export async function saveTreeChanges(treeId: string, before: FamilyMember[], af
   const done = transactionResult<void>(transaction)
   const treeStore = transaction.objectStore('trees')
   let missingTree = false
+  let staleRevision = false
+  let savedRevision = expectedRevision
   const treeRequest = treeStore.get(treeId)
   treeRequest.onsuccess = () => {
     const tree = treeRequest.result as TreeRecord | undefined
@@ -636,7 +676,13 @@ export async function saveTreeChanges(treeId: string, before: FamilyMember[], af
       transaction.abort()
       return
     }
-    treeStore.put({ ...tree, updatedAt: Date.now() })
+    if (treeRevision(tree) !== expectedRevision) {
+      staleRevision = true
+      transaction.abort()
+      return
+    }
+    savedRevision = expectedRevision + 1
+    treeStore.put({ ...tree, revision: savedRevision, updatedAt: Date.now() })
     syncStoreImmediately(transaction.objectStore('people'), old.rows.people, next.rows.people)
     syncStoreImmediately(transaction.objectStore('parentLinks'), old.rows.parentLinks, next.rows.parentLinks)
     syncStoreImmediately(transaction.objectStore('partnerLinks'), old.rows.partnerLinks, next.rows.partnerLinks)
@@ -652,6 +698,7 @@ export async function saveTreeChanges(treeId: string, before: FamilyMember[], af
     await done
   } catch (error) {
     if (missingTree) throw storageError('LOCAL_TREE_NOT_FOUND')
+    if (staleRevision) throw storageError('LOCAL_TREE_CONFLICT')
     throw error
   }
   for (const [personId] of photoChanges) {
@@ -662,10 +709,13 @@ export async function saveTreeChanges(treeId: string, before: FamilyMember[], af
       photoObjectUrls.delete(key)
     }
   }
+  notifyTreeRevision(treeId, savedRevision)
+  return savedRevision
 }
 
 export function getLocalStorageErrorKey(error: unknown) {
   if (error instanceof Error && error.message === 'LOCAL_STORAGE_FULL') return 'Browser storage is full. Free some space and try again.'
   if (error instanceof Error && (error.message === 'LOCAL_STORAGE_UNAVAILABLE' || error.message === 'LOCAL_PHOTO_UNAVAILABLE')) return 'Local storage is unavailable or blocked. Check your browser settings and try again.'
+  if (error instanceof Error && error.message === 'LOCAL_TREE_CONFLICT') return 'This tree was updated in another tab. Reload the latest version before editing.'
   return 'Could not save, try again'
 }

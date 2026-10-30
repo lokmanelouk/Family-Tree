@@ -1,5 +1,5 @@
 import { ArrowLeft, Baby, ChevronDown, ChevronRight, GitBranch, HeartHandshake, Pencil, Plus, Trash2, UsersRound, X } from 'lucide-react'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { FamilyMember, RelationshipKind } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
 import { ProfileAvatarPicker } from './ProfileAvatarPicker'
@@ -210,9 +210,12 @@ function RelationshipGroup({ t, memberId, icon, title, people, collapsed, onTogg
 function RelativePickerAction({ source, members, kind, label, active, onToggle }: { source: FamilyMember; members: FamilyMember[]; kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>; label: string; active: boolean; onToggle: (kind: Extract<RelationshipKind, 'child' | 'parent' | 'partner' | 'sibling'>, anchor: HTMLButtonElement) => void }) {
   const { t } = useLanguage()
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const tooltipId = useId()
   const availability = getRelationshipActionAvailability(source, members, kind)
   const disabledReason = availability.reason ? t(availability.reason) : undefined
-  return <>
-    <span className="relationship-link-action-wrap" title={availability.disabled ? disabledReason : undefined}><button ref={buttonRef} type="button" className="relationship-link-action" disabled={availability.disabled} aria-label={availability.disabled ? `${label}: ${disabledReason}` : label} aria-expanded={active} onClick={() => { if (buttonRef.current) onToggle(kind, buttonRef.current) }}><Plus size={13} />{label}</button></span>
-  </>
+  const disabled = Boolean(availability.disabled)
+  return <span className={`relationship-link-action-wrap${disabled ? ' is-disabled' : ''}`} tabIndex={disabled ? 0 : undefined} role={disabled ? 'group' : undefined} aria-label={disabled ? `${label}: ${disabledReason}` : undefined} aria-describedby={disabled ? tooltipId : undefined}>
+    <button ref={buttonRef} type="button" className="relationship-link-action" disabled={disabled} aria-label={disabled ? `${label}: ${disabledReason}` : label} aria-expanded={active} onClick={() => { if (buttonRef.current) onToggle(kind, buttonRef.current) }}><Plus size={14} />{label}</button>
+    {disabled && disabledReason && <span id={tooltipId} className="relationship-badge-tooltip relationship-action-tooltip" role="tooltip">{disabledReason}</span>}
+  </span>
 }

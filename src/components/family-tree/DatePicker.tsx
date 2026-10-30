@@ -25,7 +25,17 @@ function parseDate(value: string) {
     date.setHours(12, 0, 0, 0)
     return date
   }
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const yearMonth = /^(\d{4})-(\d{2})$/.exec(value.trim())
+  if (yearMonth) {
+    const year = Number(yearMonth[1])
+    const month = Number(yearMonth[2])
+    if (month < 1 || month > 12) return null
+    const date = new Date(0)
+    date.setFullYear(year, month - 1, 1)
+    date.setHours(12, 0, 0, 0)
+    return date
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
   if (!match) return null
   const date = new Date(0)
   date.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
@@ -81,6 +91,7 @@ export function DatePicker({ id, value, onChange, autoFocus = false, showValidat
   const [themeName, setThemeName] = useState('')
   const selectedDate = parseDate(value)
   const exactSelectedDate = /^\d{4}-\d{2}-\d{2}$/.test(value) ? selectedDate : null
+  const selectedMonth = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(value.trim())
   const hintedDate = parseDate(initialDateHint ?? '')
   const selectedYear = /^\d{4}$/.test(value.trim()) ? Number(value.trim()) : selectedDate?.getFullYear()
   const relatedYear = selectedYear === undefined ? hintedDate?.getFullYear() : undefined
@@ -256,7 +267,7 @@ export function DatePicker({ id, value, onChange, autoFocus = false, showValidat
       </div> : view === 'years' ? <div className="custom-calendar-choice-grid year-choice-grid">
         {years.map((year) => <button type="button" key={year} className={`custom-calendar-choice${year === selectedYear ? ' selected' : ''}${year === relatedYear ? ' related-year' : ''}`} aria-pressed={year === selectedYear} disabled={year > currentYear} onClick={() => chooseYear(year)}><bdi>{formatYear(year, locale)}</bdi></button>)}
       </div> : view === 'months' ? <div className="custom-calendar-choice-grid month-choice-grid">
-        {months.map((name, index) => <button type="button" key={index} className={`custom-calendar-choice${exactSelectedDate?.getFullYear() === month.getFullYear() && index === exactSelectedDate.getMonth() ? ' selected' : ''}`} aria-pressed={exactSelectedDate?.getFullYear() === month.getFullYear() && index === exactSelectedDate.getMonth()} disabled={index > monthLimit} onClick={() => chooseMonth(index)}>{name}</button>)}
+        {months.map((name, index) => <button type="button" key={index} className={`custom-calendar-choice${selectedMonth && Number(selectedMonth[1]) === month.getFullYear() && Number(selectedMonth[2]) - 1 === index || exactSelectedDate?.getFullYear() === month.getFullYear() && index === exactSelectedDate.getMonth() ? ' selected' : ''}`} aria-pressed={Boolean(selectedMonth && Number(selectedMonth[1]) === month.getFullYear() && Number(selectedMonth[2]) - 1 === index || exactSelectedDate?.getFullYear() === month.getFullYear() && index === exactSelectedDate.getMonth())} disabled={index > monthLimit} onClick={() => chooseMonth(index)}>{name}</button>)}
       </div> : <div className="custom-calendar-grid">
         {weekDays.map((day, index) => <span className="custom-calendar-weekday" key={`${day}-${index}`} aria-hidden="true">{day}</span>)}
         {days.map((day) => {

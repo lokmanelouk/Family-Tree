@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Archive, BookOpen, Pencil, Plus, Trash2, TreePine, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Archive, BookOpen, Languages, Pencil, Plus, Trash2, TreePine, X } from 'lucide-react'
 import { DashboardPage } from '../../pages/DashboardPage'
 import { familyMembers } from '../../data/family'
 import { useLanguage } from '../../i18n/useLanguage'
@@ -8,6 +8,7 @@ import { createTree, deleteTree, getLocalStorageErrorKey, listTrees, loadTree, r
 import { getLayoutDirection } from '../../config/layout'
 import type { FamilyMember } from '../../types/family'
 import { FAMILY_NETWORK_LOADER_CYCLE_MS, FamilyNetworkLoader } from '../auth/FamilyNetworkLoader'
+import { AvatarIllustration } from '../family-tree/AvatarIllustration'
 import { TreeArchiveImportDialog } from './TreeArchiveImportDialog'
 import { createTreeArchive, getTreeArchiveFilename, type ParsedTreeArchive } from '../../lib/tree-archive'
 import { importTreeData, loadTreePhotos, recordTreeBackup } from '../../lib/storage/local-tree-storage'
@@ -20,10 +21,20 @@ const ACTIVE_TREE_STORAGE_KEY = 'rootly-active-local-tree'
 const WELCOME_PREVIEW_DURATION_MS = 5_000
 const LOADING_SCREEN_SHOW_DELAY_MS = 180
 const LOADING_SCREEN_EXIT_MS = 260
+const NEW_TREE_TRANSITION_MS = 5_000
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
+}
+
+function isOnboardingPreviewEnabled() {
+  return typeof window !== 'undefined' && import.meta.env.DEV && new URLSearchParams(window.location.search).get('previewOnboarding') === '1'
+}
 
 function getWelcomeIntroMode(): WelcomeIntroMode {
   if (typeof window === 'undefined') return null
   try {
+    if (isOnboardingPreviewEnabled()) return null
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('previewWelcome') === '1') return 'preview'
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null
     return window.localStorage.getItem(WELCOME_INTRO_STORAGE_KEY) === 'true' ? null : 'first-visit'
@@ -49,7 +60,8 @@ function getActiveTreeId() {
 }
 
 export function LocalTreeGate() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const previewOnboarding = isOnboardingPreviewEnabled()
   const [trees, setTrees] = useState<TreeRecord[]>([])
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [starterTree, setStarterTree] = useState<TreeRecord | null>(null)
@@ -59,6 +71,8 @@ export function LocalTreeGate() {
   const [managerOpen, setManagerOpen] = useState(false)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [welcomeIntroMode, setWelcomeIntroMode] = useState<WelcomeIntroMode>(getWelcomeIntroMode)
+  const [previewOnboardingDismissed, setPreviewOnboardingDismissed] = useState(false)
+  const [treeCreationTransitionStage, setTreeCreationTransitionStage] = useState<'animation' | 'exiting' | null>(null)
   const [loadingScreenVisible, setLoadingScreenVisible] = useState(false)
   const [keepLoadingScreenVisible, setKeepLoadingScreenVisible] = useState(false)
   const [loadingScreenExiting, setLoadingScreenExiting] = useState(false)
@@ -79,14 +93,14 @@ export function LocalTreeGate() {
       const selectedTree = availableTrees.find((tree) => tree.id === activeTreeId) ?? availableTrees[0]
       const result = await loadTree(selectedTree.id)
       if (!result.tree) throw new Error('LOCAL_TREE_NOT_FOUND')
-      setActiveTreeId(selectedTree.id)
+      if (!previewOnboarding) setActiveTreeId(selectedTree.id)
       setWorkspace({ tree: result.tree, members: result.members, settings: result.settings })
     } catch (error) {
       setStorageError(getLocalStorageErrorKey(error))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [previewOnboarding])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refreshLocalTrees(), 0)
@@ -168,10 +182,29 @@ export function LocalTreeGate() {
     setManagerOpen(false)
   }
 
+  async function createFirstTree(name: string) {
+    const tree = await createTree(name)
+    const [result, availableTrees] = await Promise.all([loadTree(tree.id), listTrees()])
+    if (!result.tree) throw new Error('LOCAL_TREE_NOT_FOUND')
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reducedMotion) setTreeCreationTransitionStage('animation')
+    setTrees(availableTrees)
+    setActiveTreeId(tree.id)
+    setStarterTree(null)
+    setOpenAddAfterStart(false)
+    setWorkspace({ tree: result.tree, members: result.members, settings: result.settings })
+    setPreviewOnboardingDismissed(true)
+    if (reducedMotion) return
+    await wait(NEW_TREE_TRANSITION_MS)
+    setTreeCreationTransitionStage('exiting')
+    await wait(LOADING_SCREEN_EXIT_MS)
+    setTreeCreationTransitionStage(null)
+  }
+
   async function startWithMembers(members: FamilyMember[], openAdd = false) {
     if (!starterTree) return
     try {
-      if (members.length) await saveTreeChanges(starterTree.id, [], members)
+      if (members.length) await saveTreeChanges(starterTree.id, [], members, starterTree.revision ?? 0)
       const result = await loadTree(starterTree.id)
       setWorkspace({ tree: result.tree ?? starterTree, members: result.members, settings: result.settings })
       setOpenAddAfterStart(openAdd)
@@ -242,28 +275,41 @@ export function LocalTreeGate() {
     setManagerOpen(false)
     setArchiveDialogOpen(false)
     setStorageError('')
+    setPreviewOnboardingDismissed(true)
   }
 
   if (isLoadingScreenActive || keepLoadingScreenVisible) return <LoadingScreen isVisible={keepLoadingScreenVisible} isExiting={loadingScreenExiting} />
   if (loading && !storageError) return <main className="auth-screen auth-loading-screen auth-loading-placeholder" aria-busy="true" />
   if (storageError && !workspace && !starterTree) return <StorageErrorScreen message={t(storageError)} onRetry={() => void refreshLocalTrees()} />
+  if (treeCreationTransitionStage === 'animation') return <main className="auth-screen auth-loading-screen is-visible" lang={language} dir={getLayoutDirection(language)}><FamilyNetworkLoader label={t('Loading')} /></main>
+  if (previewOnboarding && !previewOnboardingDismissed) return <>
+    <CreateTree onCreate={async (name) => {
+      try {
+        await createFirstTree(name)
+      } catch (error) {
+        setStorageError(getLocalStorageErrorKey(error))
+      }
+    }} onImport={() => setArchiveDialogOpen(true)} error={storageError ? t(storageError) : ''} />
+    {archiveDialogOpen && <TreeArchiveImportDialog currentTree={null} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
+  </>
   if (starterTree) return <>
     <TreeStarter tree={starterTree} error={storageError ? t(storageError) : ''} onStart={startWithMembers} onManageTrees={() => setManagerOpen(true)} />
     {managerOpen && <LocalTreeManagerDialog trees={trees} activeTreeId={starterTree.id} onClose={() => setManagerOpen(false)} onCreate={createLocalTree} onRename={handleRenameTree} onDelete={handleDeleteTree} onSwitch={selectTree} onExport={exportLocalTree} onImport={() => setArchiveDialogOpen(true)} />}
     {archiveDialogOpen && <TreeArchiveImportDialog currentTree={starterTree} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
   </>
   if (!workspace) return <>
-    <CreateTree error={storageError ? t(storageError) : ''} onCreate={(name) => createLocalTree(name).catch((error) => setStorageError(getLocalStorageErrorKey(error)))} onImport={() => setArchiveDialogOpen(true)} />
+    <CreateTree error={storageError ? t(storageError) : ''} onCreate={(name) => createFirstTree(name).catch((error) => setStorageError(getLocalStorageErrorKey(error)))} onImport={() => setArchiveDialogOpen(true)} />
     {archiveDialogOpen && <TreeArchiveImportDialog currentTree={null} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
   </>
 
   return <>
     <DashboardPage
-      key={workspace.tree.id}
+      key={`${workspace.tree.id}:${workspace.tree.revision ?? 0}`}
       treeId={workspace.tree.id}
       treeName={workspace.tree.name}
       treeCreatedAt={workspace.tree.createdAt}
       treeUpdatedAt={workspace.tree.updatedAt}
+      initialRevision={workspace.tree.revision ?? 0}
       lastBackupAt={workspace.tree.lastBackupAt}
       initialMembers={workspace.members}
       initialSettings={workspace.settings}
@@ -286,6 +332,7 @@ export function LocalTreeGate() {
       onImport={() => setArchiveDialogOpen(true)}
     />}
     {archiveDialogOpen && <TreeArchiveImportDialog currentTree={workspace.tree} onClose={() => setArchiveDialogOpen(false)} onImport={finishImport} />}
+    {treeCreationTransitionStage === 'exiting' && <main className="auth-screen auth-loading-screen is-visible is-exiting tree-creation-transition-overlay" lang={language} dir={getLayoutDirection(language)}><FamilyNetworkLoader label={t('Loading')} /></main>}
   </>
 }
 
@@ -302,16 +349,67 @@ function StorageErrorScreen({ message, onRetry }: { message: string; onRetry: ()
 }
 
 function CreateTree({ onCreate, onImport, error }: { onCreate: (name: string) => Promise<void>; onImport: () => void; error: string }) {
-  const { t, language } = useLanguage()
+  const { t, language, setLanguage } = useLanguage()
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [nameError, setNameError] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (busy) return
+    if (!name.trim()) {
+      setNameError(true)
+      inputRef.current?.focus()
+      return
+    }
     setBusy(true)
-    await onCreate(name)
-    setBusy(false)
+    try {
+      await onCreate(name)
+    } finally {
+      if (mounted.current) setBusy(false)
+    }
   }
-  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card tree-create-card"><span className="auth-brand-mark"><TreePine size={23} /></span><h1>{t('Create your family tree')}</h1><p className="auth-description">{t('Give your private family space a name to get started.')}</p><form className="auth-form" onSubmit={(event) => void submit(event)}><label>{t('Tree name')}<input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} dir="auto" /></label>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button auth-submit" disabled={busy}><Plus size={18} />{t(busy ? 'Please wait\u2026' : 'Create tree')}</button></form><button className="auth-secondary-action" type="button" onClick={onImport}><Archive size={15} />{t('Import tree')}</button></section></main>
+  const languageAction = language === 'en' ? 'Switch language to Arabic' : 'Switch language to English'
+  return <main className="auth-screen tree-create-screen" lang={language} dir={getLayoutDirection(language)}>
+    <button className="auth-language-toggle tree-create-language-toggle" type="button" dir="ltr" title={t(languageAction)} aria-label={t(languageAction)} onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}>
+      <Languages size={16} aria-hidden="true" />
+      <span>{language === 'en' ? 'العربية' : 'English'}</span>
+    </button>
+    <section className="auth-card tree-create-card">
+    <WelcomeTreeIllustration />
+    <h1>{t('Every family has a story.')}</h1>
+    <p className="auth-description">{t('Start yours by creating your first family tree.')}</p>
+    <form className="auth-form" onSubmit={(event) => void submit(event)}>
+      <label>{t('Name your family tree')}<input ref={inputRef} required maxLength={120} value={name} onChange={(event) => { setName(event.target.value); setNameError(false) }} onInvalid={(event) => { event.preventDefault(); setNameError(true) }} placeholder={t('My Family Tree')} dir="auto" aria-invalid={nameError || undefined} aria-describedby={nameError ? 'tree-name-error' : undefined} /></label>
+      {nameError && <p id="tree-name-error" className="auth-error tree-name-error" role="alert">{t('Tree name is required.')}</p>}
+      {error && <p className="auth-error" role="alert">{error}</p>}
+      <button className="primary-button auth-submit" disabled={busy}><Plus size={18} aria-hidden="true" />{t(busy ? 'Please wait\u2026' : 'Create my tree')}</button>
+    </form>
+    <div className="tree-create-separator"><span aria-hidden="true" /><span>{t('or')}</span><span aria-hidden="true" /></div>
+    <button className="auth-secondary-action tree-import-action" type="button" disabled={busy} onClick={onImport}><Archive size={15} aria-hidden="true" /><span>{t('Import an existing tree')}</span></button>
+    </section>
+  </main>
+}
+
+function WelcomeTreeIllustration() {
+  const people = familyMembers.slice(0, 4)
+  return <div className="tree-welcome-illustration" aria-hidden="true">
+    <svg className="tree-welcome-connections" viewBox="0 0 320 180" focusable="false">
+      <path className="tree-welcome-connection is-partner" pathLength={1} d="M80 45H240" />
+      <path className="tree-welcome-connection is-trunk" pathLength={1} d="M160 45V92" />
+      <path className="tree-welcome-connection is-children" pathLength={1} d="M126 92H194" />
+      <path className="tree-welcome-connection is-child-one" pathLength={1} d="M126 92V120" />
+      <path className="tree-welcome-connection is-child-two" pathLength={1} d="M194 92V120" />
+    </svg>
+    {people.map((person, index) => <span className={`tree-welcome-person tree-welcome-person-${index + 1}`} key={person.id}>
+      <span className="tree-welcome-avatar"><AvatarIllustration avatar={person.avatar} name={person.name} decorative /></span>
+    </span>)}
+  </div>
 }
 
 function TreeStarter({ tree, error, onStart, onManageTrees }: { tree: TreeRecord; error: string; onStart: (members: FamilyMember[], openAdd?: boolean) => Promise<void>; onManageTrees: () => void }) {
@@ -327,7 +425,7 @@ function TreeStarter({ tree, error, onStart, onManageTrees }: { tree: TreeRecord
     await onStart(cloneMembersWithNewIds(familyMembers))
     setBusy(false)
   }
-  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card tree-starter-card"><span className="auth-brand-mark"><BookOpen size={22} /></span><p className="auth-kicker">{tree.name}</p><h1>{t('Your family tree is ready')}</h1><p className="auth-description">{t('Start with a person from your family, or explore the app with a sample tree.')}</p>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button auth-submit" disabled={busy} onClick={() => void addFirstPerson()}><TreePine size={18} />{t('Add first person')}</button><button className="auth-secondary-action" disabled={busy} onClick={() => void tryExample()}>{t(busy ? 'Please wait\u2026' : 'Try the example tree')}</button><button className="auth-mode-toggle" type="button" onClick={onManageTrees}>{t('Manage trees')}</button></section></main>
+  return <main className="auth-screen" lang={language} dir={getLayoutDirection(language)}><section className="auth-card tree-starter-card"><span className="auth-brand-mark"><BookOpen size={22} /></span><p className="auth-kicker">{tree.name}</p><h1>{t('Your family tree is ready')}</h1><p className="auth-description">{t('Start with a person from your family, or explore the app with a sample tree.')}</p>{error && <p className="auth-error" role="alert">{error}</p>}<button className="primary-button auth-submit" disabled={busy} onClick={() => void addFirstPerson()}><TreePine size={18} />{t('Add your first family member')}</button><button className="auth-secondary-action" disabled={busy} onClick={() => void tryExample()}>{t(busy ? 'Please wait\u2026' : 'Try the example tree')}</button><button className="auth-mode-toggle" type="button" onClick={onManageTrees}>{t('Manage trees')}</button></section></main>
 }
 
 type LocalTreeManagerDialogProps = {

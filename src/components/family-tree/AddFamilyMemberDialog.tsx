@@ -15,6 +15,7 @@ import { GenderSegmentedControl } from './GenderSegmentedControl'
 import { collectValidationIssues, validateAgeLimit, validateChildBornAfterParentDeath, validateNewPersonRelations, validateParentAge, validateParentDeath, validatePersonDates, validateRelationshipRules, type ValidationIssue } from '../../lib/family-validation'
 import { ValidationNotice } from './ValidationFeedback'
 import { getParentPickerOptions } from '../../lib/family-picker'
+import { resolveChildRelationshipTarget } from '../../lib/tree-logic'
 import { capitalizeLatinWordStarts } from '../../lib/name-capitalization'
 import { PersonName } from './PersonName'
 import { FamilyAvatar } from './FamilyAvatar'
@@ -50,7 +51,10 @@ function getChildParentChoices(target: FamilyMember | undefined, members: Family
 
 export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initialKind = 'child', contextual = false, initialLastName = '', initialFatherId, initialMotherId, onClose, onAdd, onSelectExisting }: AddFamilyMemberDialogProps) {
   const { t } = useLanguage()
-  const startingTargetId = initialTargetId ?? members[0]?.id ?? ''
+  const requestedTargetId = initialTargetId ?? members[0]?.id ?? ''
+  const startingTargetId = initialKind === 'child' && (initialFatherId !== undefined || initialMotherId !== undefined)
+    ? resolveChildRelationshipTarget(requestedTargetId, initialFatherId ?? '', initialMotherId ?? '')
+    : requestedTargetId
   const startingTarget = members.find((member) => member.id === startingTargetId)
   const contextualParents = initialKind === 'sibling'
     ? getSiblingParentChoices(members, startingTarget)
@@ -106,7 +110,7 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const duplicateGroups = (['strong', 'possible'] as const).map((type) => ({ type, matches: duplicates.filter((match) => match.type === type) })).filter((group) => group.matches.length > 0)
   const birthDateError = getBirthDateError(birthDate)
   const deathDateError = getDeathDateError(deathDate, birthDate)
-  const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
+  const birthValidationErrors = validationErrors.filter((issue) => ['Enter a valid birth date.', 'Enter a four-digit year, year and month, or complete date.', 'Birth dates cannot be in the future.'].includes(issue.messageKey))
   const deathValidationErrors = validationErrors.filter((issue) => ['Enter a valid death date.', 'Death dates cannot be in the future.', 'Death date must be after birth date.'].includes(issue.messageKey))
   const isParentDateIssue = (issue: ValidationIssue) => ['{parent} must be older than {child}.', 'Both parents must be older than {child}.', '{parent} is less than {years} years older than {child}.', 'Both parents are less than {years} years older than {child}.', '{parent} died before {child} was born.', 'Child was born after parent died.'].includes(issue.messageKey) || issue.messageKey.startsWith('Mother age at birth:') || issue.messageKey.startsWith('Father age at birth:')
   const relationshipValidationErrors = validationErrors.filter((issue) => !birthValidationErrors.includes(issue) && !deathValidationErrors.includes(issue) && !isParentDateIssue(issue))
@@ -134,7 +138,9 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   const fatherCandidates = fatherOptions.members
   const motherCandidates = motherOptions.members
   const hasSelectedParent = Boolean(fatherId || motherId)
-  const parentsValid = !needsParents || !hasSelectedParent || Boolean(fatherId !== motherId && targetFitsParentPair)
+  const parentsValid = !needsParents || (kind === 'child'
+    ? (!hasSelectedParent || fatherId !== motherId) && (!targetId || targetFitsParentPair)
+    : Boolean(targetId && fatherId !== motherId && targetFitsParentPair))
   const parentValidationChild: FamilyMember = { id: 'new-parent-validation-child', name: fullName, firstName: firstName.trim(), lastName: lastName.trim(), initials: '', relationship: '', gender: gender ?? undefined, parentIds: [fatherId, motherId].filter(Boolean), spouseIds: [], siblingIds: [], avatar: defaultAvatar, ...(birthDate ? { birthDate } : {}) }
   const showParentDateFeedback = hasSubmitted || birthDateTouched
   const fieldIssues = (parent: FamilyMember | undefined, role: 'father' | 'mother') => {
@@ -170,6 +176,12 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
   }
   function changeFather(nextFatherId: string) {
     setFatherId(nextFatherId)
+    if (kind === 'child') setTargetId((current) => resolveChildRelationshipTarget(current, nextFatherId, motherId))
+    setValidationErrors([])
+  }
+  function changeMother(nextMotherId: string) {
+    setMotherId(nextMotherId)
+    if (kind === 'child') setTargetId((current) => resolveChildRelationshipTarget(current, fatherId, nextMotherId))
     setValidationErrors([])
   }
   function performAdd() {
@@ -262,8 +274,8 @@ export function AddFamilyMemberDialog({ isOpen, members, initialTargetId, initia
             <label dir="auto">{relationshipLabel ? <>{relationshipLabel[0]}<PersonName name={selectedTarget ? getFullName(selectedTarget) : ''} />{relationshipLabel[1]}</> : t('Relationship to')}</label>
             <div className="relationship-creation-fields"><RelationshipKindPicker value={kind} onChange={changeRelationshipKind} />{needsParents ? <div className="parent-choice-grid">
               <ParentChoiceField label={t('Father')} candidates={fatherCandidates} value={fatherId} placeholder={t(fatherCandidates.length ? 'Select father' : 'No male in the tree')} optionNote={(member) => { const key = fatherOptions.warningKeys.get(member.id); return key ? t(key) : undefined }} fieldIssues={fatherFieldIssues} members={members} onChange={changeFather} />
-              <ParentChoiceField label={t('Mother')} candidates={motherCandidates} value={motherId} placeholder={t(motherCandidates.length ? 'Select mother' : 'No female in the tree')} optionNote={(member) => { const key = motherOptions.warningKeys.get(member.id); return key ? t(key) : undefined }} fieldIssues={motherFieldIssues} members={members} onChange={(id) => { setMotherId(id); setValidationErrors([]) }} />
-            </div> : <FamilyMemberPicker members={members} value={targetId} onChange={changeTarget} />}{needsParents && hasSubmitted && !parentsValid && <ValidationNotice issue={{ type: 'error', messageKey: 'Selected parents do not match the relationship target.', values: {} }} members={members} />}{relationshipValidationErrors.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}{relationshipWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`relationship-warning-${index}`} />)}</div></div>
+              <ParentChoiceField label={t('Mother')} candidates={motherCandidates} value={motherId} placeholder={t(motherCandidates.length ? 'Select mother' : 'No female in the tree')} optionNote={(member) => { const key = motherOptions.warningKeys.get(member.id); return key ? t(key) : undefined }} fieldIssues={motherFieldIssues} members={members} onChange={changeMother} />
+            </div> : <FamilyMemberPicker members={members} value={targetId} onChange={changeTarget} />}{needsParents && hasSubmitted && !parentsValid && <ValidationNotice issue={{ type: 'error', messageKey: kind === 'sibling' ? 'A sibling must share at least one parent with the selected person.' : 'Selected parents do not match the relationship target.', values: {} }} members={members} />}{relationshipValidationErrors.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`${issue.messageKey}-${index}`} />)}{relationshipWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`relationship-warning-${index}`} />)}</div></div>
           </section> : <p className="form-hint family-founder-hint">{t('This person will start your family tree.')}</p>}
         </div>
         {formWarnings.map((issue, index) => <ValidationNotice issue={issue} members={members} key={`form-warning-${index}`} />)}

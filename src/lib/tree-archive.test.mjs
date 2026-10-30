@@ -28,6 +28,12 @@ function person(id, name, gender, birthDate) {
 }
 
 const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])
+const imageFixtures = [
+  ['image/png', 'png', pngBytes],
+  ['image/jpeg', 'jpg', Uint8Array.from([0xff, 0xd8, 0xff, 0xd9])],
+  ['image/webp', 'webp', Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])],
+  ['image/gif', 'gif', Uint8Array.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0x80, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0x21, 0xf9, 4, 1, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 1, 0, 0x3b])],
+]
 
 async function archiveFor(members = [person('person-a', 'أمين Morgan', 'male', '1960')]) {
   const photos = new Map([[members[0]?.id ?? 'person-a', new Blob([pngBytes.slice().buffer], { type: 'image/png' })]])
@@ -60,6 +66,43 @@ test('tree ZIP export and import preserve Unicode names, links, photos, settings
   assert.deepEqual(imported.members.find((item) => item.id === 'father').spouseIds, ['mother'])
   assert.equal(imported.photos.get('father').type, 'image/png')
   assert.deepEqual(imported.branchColors, { father: 'var(--branch-0)', mother: 'var(--branch-0)', child: 'var(--branch-0)' })
+})
+
+test('tree ZIP export and import preserve PNG, JPEG, WebP, and GIF photos', async () => {
+  for (const [mimeType, extension, bytes] of imageFixtures) {
+    const member = { ...person(`photo-${extension}`, `Photo ${extension}`, 'female', '1990'), photo: `blob:${extension}` }
+    const archive = await createTreeArchive({
+      tree: { id: 'tree-id', name: 'Image tree', createdAt: 1, updatedAt: 2 },
+      members: [member],
+      settings: {},
+      photos: new Map([[member.id, new Blob([bytes], { type: mimeType })]]),
+      exportDate: '2026-10-26T12:00:00.000Z',
+    })
+    const zipEntries = unzipSync(archive)
+    assert.ok(zipEntries[`images/${member.id}.${extension}`])
+    const imported = parseTreeArchive(archive)
+    const photo = imported.photos.get(member.id)
+    assert.equal(photo.type, mimeType)
+    assert.deepEqual(new Uint8Array(await photo.arrayBuffer()), bytes)
+  }
+})
+
+test('tree ZIP export rejects unsupported or missing photos instead of omitting them', async () => {
+  const member = { ...person('unsupported-photo', 'Unsupported Photo', 'female', '1990'), photo: 'blob:unsupported' }
+  const input = { tree: { id: 'tree-id', name: 'Image tree', createdAt: 1, updatedAt: 2 }, members: [member], settings: {}, photos: new Map() }
+  await assert.rejects(createTreeArchive(input), /A photo could not be included in the backup\./)
+  await assert.rejects(createTreeArchive({ ...input, photos: new Map([[member.id, new Blob([pngBytes], { type: 'image/bmp' })]]) }), /A photo uses an unsupported format\./)
+  await assert.rejects(createTreeArchive({ ...input, photos: new Map([[member.id, new Blob([pngBytes], { type: 'image/gif' })]]) }), /An image is invalid or too large\./)
+  await assert.rejects(createTreeArchive({ ...input, members: [person('no-photo', 'No Photo', 'female', '1990')], photos: new Map([[member.id, new Blob([pngBytes], { type: 'image/png' })]]) }), /A photo could not be included in the backup\./)
+})
+
+test('version 1 archives without a revision field remain importable', async () => {
+  const legacyBytes = await archiveFor([person('legacy-person', 'Legacy Person', 'male', '1960')])
+  const legacyEntries = unzipSync(legacyBytes)
+  const family = JSON.parse(new TextDecoder().decode(legacyEntries['family.json']))
+  assert.equal(family.version, 1)
+  assert.equal(Object.hasOwn(family.tree, 'revision'), false)
+  assert.equal(parseTreeArchive(legacyBytes).members[0].id, 'legacy-person')
 })
 
 test('tree ZIP parser rejects broken ZIP data', () => {

@@ -283,10 +283,10 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
     { skin: '#ecc09d', hair: '#6c4d3b', shirt: '#a9c8db', hairstyle: 'curls' as const },
     { skin: '#bd8062', hair: '#3f3935', shirt: '#c4b5dc', hairstyle: 'side' as const },
   ]
-  if (!target && members.length > 0) return members
+  if (!target && members.length > 0 && kind !== 'child') return members
   const newMember: FamilyMember = {
     id, name: cleanName, firstName: cleanFirstName, lastName: cleanLastName, initials: names.slice(0, 2).map((part) => part[0]).join('').toUpperCase(), gender, ...(birthDate ? { birthDate } : {}), ...(deathDate ? { deathDate } : {}), ...(lifeStatus ? { lifeStatus } : {}), ...(photo ? { photo } : {}),
-    relationship: !target ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : gender === 'female' ? 'Wife' : 'Partner' : kind === 'parent' ? gender === 'male' ? 'Father' : gender === 'female' ? 'Mother' : 'Parent' : gender === 'male' ? 'Son' : gender === 'female' ? 'Daughter' : 'Child',
+    relationship: !target && !(kind === 'child' && (father || mother)) ? 'Family founder' : kind === 'partner' ? gender === 'male' ? 'Husband' : gender === 'female' ? 'Wife' : 'Partner' : kind === 'parent' ? gender === 'male' ? 'Father' : gender === 'female' ? 'Mother' : 'Parent' : gender === 'male' ? 'Son' : gender === 'female' ? 'Daughter' : 'Child',
     parentIds: isDescendant && members.length ? [father?.id, mother?.id].filter((parentId): parentId is string => Boolean(parentId)) : [], spouseIds: target && kind === 'partner' ? [target.id] : [], siblingIds: [],
     avatar: avatar ?? looks[cleanName.length % looks.length],
   }
@@ -317,6 +317,10 @@ export function createRelatedMemberWithNames(members: FamilyMember[], targetId: 
     return result
   }
   return result
+}
+
+export function resolveChildRelationshipTarget(targetId: string, fatherId: string, motherId: string) {
+  return targetId && [fatherId, motherId].includes(targetId) ? targetId : ''
 }
 
 export function removeMember(members: FamilyMember[], memberId: string) {

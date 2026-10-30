@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { familyMembers } from '../../data/family.ts'
-import { addParentLink, addPartnerLink, addPerson, createTree, deletePerson, deleteTree, editPerson, importTreeData, listTrees, loadTree, loadTreePhotos, removeParentLink, renameTree, saveTreeSettings } from './local-tree-storage.ts'
+import { addParentLink, addPartnerLink, addPerson, createTree, deletePerson, deleteTree, editPerson, importTreeData, listTrees, loadTree, loadTreePhotos, removeParentLink, renameTree, saveTreeChanges, saveTreeSettings } from './local-tree-storage.ts'
 import { createTreeArchive, parseTreeArchive } from '../tree-archive.ts'
 
 class FakeRequest {
@@ -34,7 +34,8 @@ class FakeStore {
   run(operation) {
     const request = new FakeRequest()
     this.transaction.pending += 1
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
+      await this.transaction.ready
       if (this.transaction.aborted) return
       try {
         request.result = operation()
@@ -60,7 +61,7 @@ class FakeTransaction {
   pending = 0
   aborted = false
   completionTimer = null
-  constructor(database, names) { this.database = database; this.names = new Set(Array.isArray(names) ? names : [names]) }
+  constructor(database, names, ready = Promise.resolve(), release = () => {}) { this.database = database; this.names = new Set(Array.isArray(names) ? names : [names]); this.ready = ready; this.release = release }
   objectStore(name) {
     if (!this.names.has(name)) throw new Error('NotFoundError')
     return new FakeStore(this, name, this.database.definitions.get(name), this.database.records.get(name))
@@ -70,13 +71,17 @@ class FakeTransaction {
     this.aborted = true
     this.error = error ?? new Error('AbortError')
     clearTimeout(this.completionTimer)
+    this.release()
     queueMicrotask(() => { this.onerror?.({ target: this }); this.onabort?.({ target: this }) })
   }
   scheduleComplete() {
     if (this.aborted || this.pending || this.completionTimer) return
     this.completionTimer = setTimeout(() => {
       this.completionTimer = null
-      if (!this.aborted && !this.pending) this.oncomplete?.({ target: this })
+      if (!this.aborted && !this.pending) {
+        this.release()
+        this.oncomplete?.({ target: this })
+      }
     }, 0)
   }
 }
@@ -85,12 +90,18 @@ class FakeDatabase {
   objectStoreNames = { contains: (name) => this.definitions.has(name) }
   definitions = new Map()
   records = new Map()
+  transactionTail = Promise.resolve()
   createObjectStore(name, options) {
     this.definitions.set(name, { keyPath: options.keyPath, indexes: new Map() })
     this.records.set(name, new Map())
     return new FakeStore(new FakeTransaction(this, [name]), name, this.definitions.get(name), this.records.get(name))
   }
-  transaction(names) { return new FakeTransaction(this, names) }
+  transaction(names) {
+    const ready = this.transactionTail
+    let release
+    this.transactionTail = new Promise((resolve) => { release = resolve })
+    return new FakeTransaction(this, names, ready, release)
+  }
   close() {}
 }
 
@@ -155,6 +166,82 @@ test('local storage creates, reloads, edits, links, deletes and switches trees',
   assert.equal((await loadTree(firstTree.id)).tree, null)
   await deleteTree(secondTree.id)
   assert.equal((await listTrees()).length, 0)
+})
+
+test('tree revisions allow normal saves and isolate separate trees', async () => {
+  const firstTree = await createTree('Revision tree one')
+  const secondTree = await createTree('Revision tree two')
+  const firstMember = person('revision-first', 'Revision First')
+  const secondMember = person('revision-second', 'Revision Second')
+
+  const [firstRevision, secondRevision] = await Promise.all([
+    saveTreeChanges(firstTree.id, [], [firstMember], firstTree.revision ?? 0),
+    saveTreeChanges(secondTree.id, [], [secondMember], secondTree.revision ?? 0),
+  ])
+
+  assert.equal(firstRevision, 1)
+  assert.equal(secondRevision, 1)
+  assert.deepEqual((await loadTree(firstTree.id)).members.map((member) => member.id), [firstMember.id])
+  assert.deepEqual((await loadTree(secondTree.id)).members.map((member) => member.id), [secondMember.id])
+  await deleteTree(firstTree.id)
+  await deleteTree(secondTree.id)
+})
+
+test('stale and simultaneous same-tree writes cannot overwrite a newer revision', async () => {
+  const tree = await createTree('Concurrent revision tree')
+  const initial = await loadTree(tree.id)
+  const first = person('concurrent-first', 'Concurrent First')
+  const second = person('concurrent-second', 'Concurrent Second')
+  const results = await Promise.allSettled([
+    saveTreeChanges(tree.id, initial.members, [first], initial.tree.revision ?? 0),
+    saveTreeChanges(tree.id, initial.members, [second], initial.tree.revision ?? 0),
+  ])
+
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
+  assert.equal(results.filter((result) => result.status === 'rejected' && result.reason.message === 'LOCAL_TREE_CONFLICT').length, 1)
+  const latest = await loadTree(tree.id)
+  assert.equal(latest.tree.revision, 1)
+  assert.equal(latest.members.length, 1)
+
+  const recovered = [...latest.members, person('after-reload', 'After Reload')]
+  const nextRevision = await saveTreeChanges(tree.id, latest.members, recovered, latest.tree.revision)
+  assert.equal(nextRevision, 2)
+  assert.equal((await loadTree(tree.id)).members.length, 2)
+  await deleteTree(tree.id)
+})
+
+test('legacy tree records without revisions load at revision zero and upgrade on save', async () => {
+  const tree = await createTree('Legacy revision tree')
+  const database = databases.get('rootly-local-family-trees')
+  const stored = database.records.get('trees').get(tree.id)
+  const { revision, ...legacyRecord } = stored
+  assert.equal(revision, 0)
+  database.records.get('trees').set(tree.id, legacyRecord)
+
+  const loaded = await loadTree(tree.id)
+  assert.equal(loaded.tree.revision, 0)
+  const nextRevision = await saveTreeChanges(tree.id, loaded.members, [person('legacy-person', 'Legacy Person')], loaded.tree.revision)
+  assert.equal(nextRevision, 1)
+  assert.equal((await loadTree(tree.id)).members[0].name, 'Legacy Person')
+  await deleteTree(tree.id)
+})
+
+test('failed photo conversion leaves the tree revision and family rows unchanged', async () => {
+  const tree = await createTree('Failed revision tree')
+  const invalidPhoto = { ...person('failed-photo', 'Failed Photo'), photo: 'blob:missing-photo' }
+  await assert.rejects(saveTreeChanges(tree.id, [], [invalidPhoto], tree.revision ?? 0), /LOCAL_PHOTO_UNAVAILABLE/)
+  const loaded = await loadTree(tree.id)
+  assert.equal(loaded.tree.revision, 0)
+  assert.deepEqual(loaded.members, [])
+  await deleteTree(tree.id)
+})
+
+test('a failed write to a removed tree does not recreate or partially write its data', async () => {
+  const tree = await createTree('Removed revision tree')
+  const member = person('removed-tree-person', 'Removed Tree Person')
+  await deleteTree(tree.id)
+  await assert.rejects(saveTreeChanges(tree.id, [], [member], tree.revision ?? 0), /LOCAL_TREE_NOT_FOUND/)
+  assert.equal((await loadTree(tree.id)).tree, null)
 })
 
 test('profile photos are saved as blobs and restored as local object URLs', async () => {

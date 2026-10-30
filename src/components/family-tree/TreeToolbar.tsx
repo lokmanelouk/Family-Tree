@@ -56,7 +56,6 @@ type TreeToolbarProps = {
   showBackupReminder: boolean
   onOpenRelationshipCalculator: () => void
   onOpenShortcuts: () => void
-  onCanvasInteraction: () => void
 }
 
 export function TreeToolbar(props: TreeToolbarProps) {
@@ -222,17 +221,17 @@ export function TreeToolbar(props: TreeToolbarProps) {
       <div className="toolbar-center-group">
         <div className="toolbar-divider" />
         <div className="toolbar-cluster zoom-controls">
-        <button title={t('Zoom out')} aria-label={t('Zoom out')} onClick={() => { props.onCanvasInteraction(); props.onZoom(-.1) }}>
+        <button title={t('Zoom out')} aria-label={t('Zoom out')} onClick={() => props.onZoom(-.1)}>
             <Minus size={19} />
           </button>
           <span className="zoom-value">{Math.round(props.zoom * 100)}%</span>
-          <button title={t('Zoom in')} aria-label={t('Zoom in')} onClick={() => { props.onCanvasInteraction(); props.onZoom(.1) }}>
+          <button title={t('Zoom in')} aria-label={t('Zoom in')} onClick={() => props.onZoom(.1)}>
             <Plus size={19} />
           </button>
           <button title={t('Fit tree to screen')} aria-label={t('Fit tree to screen')} onClick={props.onFit}>
             <Maximize2 size={18} />
           </button>
-          <button title={t('Layout')} aria-label={t('Auto-organize and center tree')} onClick={() => { props.onCanvasInteraction(); props.onAutoOrganize() }}>
+          <button title={t('Layout')} aria-label={t('Auto-organize and center tree')} onClick={props.onAutoOrganize}>
             <Workflow size={19} />
           </button>
         </div>

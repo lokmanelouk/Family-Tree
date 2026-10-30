@@ -40,7 +40,7 @@ export function TreeSidebar({ theme, onSetTheme, treeName, treeId, trees, onSwit
   const languageLabel = language === 'ar' ? arabicLanguageLabel : 'English'
 
   return <aside className={`tree-sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
-    <a className="sidebar-brand" href="#tree" title={`Kinfolk · ${treeName}`}><span className="brand-icon">k</span>{!collapsed && <span>Kinfolk</span>}</a>
+    <a className="sidebar-brand" href="#tree" title={`Rootly · ${treeName}`}><span className="brand-icon">R</span>{!collapsed && <span>Rootly</span>}</a>
     {!collapsed && trees.length > 1 && <label className="sidebar-tree-switcher"><span>{t('Current family tree')}</span><select value={treeId} onChange={(event) => onSwitchTree(event.target.value)} aria-label={t('Switch family tree')}>{trees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name}</option>)}</select></label>}
     <button className="sidebar-tree-manage" type="button" onClick={onManageTrees} title={t('Manage trees')} aria-label={t('Manage trees')}><Settings2 size={17} />{!collapsed && <span>{t('Manage trees')}</span>}</button>
     <div className="sidebar-content">
@@ -82,7 +82,7 @@ export function TreeSidebar({ theme, onSetTheme, treeName, treeId, trees, onSwit
       </button>
     </section>
     <footer className="sidebar-bottom">
-      {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span className="sidebar-info-copy"><strong>Kinfolk</strong><small>{t('Family tree preview')}</small></span></div>}
+      {!collapsed && <div className="sidebar-info"><span className="sidebar-info-icon"><HelpCircle size={15} /></span><span className="sidebar-info-copy"><strong>Rootly</strong><small>{t('Family tree preview')}</small></span></div>}
       <button className="collapse-sidebar" onClick={() => setCollapsed(!collapsed)} title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')} aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}><span className="sidebar-collapse-icon">{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</span></button>
     </footer>
   </aside>

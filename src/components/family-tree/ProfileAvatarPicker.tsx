@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, Check, ChevronRight, ImagePlus, Upload } from 'lucid
 import type { FamilyMember } from '../../types/family'
 import { avatarPresets } from '../../data/avatar-presets'
 import { useLanguage } from '../../i18n/useLanguage'
+import { isSupportedPhotoType } from '../../lib/photo-file'
 import { AvatarIllustration } from './AvatarIllustration'
 
 const avatarGroups = [
@@ -60,8 +61,8 @@ export function ProfileAvatarPicker({ avatarId, avatar, photo, error, onChange, 
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
-      onError(t('Choose a JPG, PNG, WebP, or GIF image.'))
+    if (!isSupportedPhotoType(file.type)) {
+      onError(t('Choose a PNG, JPG, or WebP image.'))
       return
     }
     if (file.size > 2 * 1024 * 1024) {
@@ -115,7 +116,7 @@ export function ProfileAvatarPicker({ avatarId, avatar, photo, error, onChange, 
       </> : <div className="profile-avatar-menu-actions">
         <button ref={presetMenuItemRef} type="button" onClick={openPresets}><ImagePlus size={15} aria-hidden="true" /><span>{t('Choose preset avatar')}</span><ChevronRight className="submenu-chevron" size={14} aria-hidden="true" /></button>
         <button type="button" onClick={() => fileInputRef.current?.click()}><Upload size={15} aria-hidden="true" /><span>{t('Upload photo')}</span></button>
-        <input ref={fileInputRef} className="profile-avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label={t('Upload photo')} onChange={handleFileChange} />
+        <input ref={fileInputRef} className="profile-avatar-file-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label={t('Upload photo')} onChange={handleFileChange} />
       </div>}
     </div>}
     {error && <p className="photo-upload-error" role="alert">{error}</p>}

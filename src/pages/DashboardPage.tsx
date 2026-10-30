@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddFamilyMemberDialog } from "../components/family-tree/AddFamilyMemberDialog";
 import { FamilyTreeCanvas } from "../components/family-tree/FamilyTreeCanvas";
 import { MemberDetailsPanel } from "../components/family-tree/MemberDetailsPanel";
@@ -22,7 +22,7 @@ import type { FamilyMember, RelationshipKind } from "../types/family";
 import { isAppTheme, type AppTheme } from "../types/theme";
 import { useLanguage } from "../i18n/useLanguage";
 import { getLayoutDirection, layoutDirection } from "../config/layout";
-import { saveTreeSettings } from "../lib/storage/local-tree-storage";
+import { loadTree, saveTreeSettings } from "../lib/storage/local-tree-storage";
 import { shouldShowBackupReminder } from "../lib/tree-archive";
 
 type AddRequest = {
@@ -39,13 +39,13 @@ type RestoreRequest = { members: FamilyMember[]; fileName: string };
 
 const DEBUG_EMPTY_STATE = false;
 const EMPTY_MEMBERS: FamilyMember[] = [];
-const INTERACTIVE_CHROME_TARGET = '.person-node, button, a, input, select, textarea, [tabindex], [role="button"], [role="menuitem"], [role="dialog"], [role="img"], .tree-sidebar, .tree-toolbar, .details-panel, .tree-minimap, .tree-branch-focus-reset, .relationship-badge-tooltip, .existing-relative-picker, .toolbar-menu';
 
 type DashboardPageProps = {
   treeId: string
   treeName: string
   treeCreatedAt: number
   treeUpdatedAt: number
+  initialRevision?: number
   lastBackupAt?: number
   initialMembers: FamilyMember[]
   initialSettings: { theme?: string; nodeMode?: TreeNodeMode }
@@ -57,12 +57,12 @@ type DashboardPageProps = {
   onOpenTreeImport: () => void
 }
 
-export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, lastBackupAt, initialMembers, initialSettings, openAddPersonOnStart, trees, onSwitchTree, onManageTrees, onExportTreeArchive, onOpenTreeImport }: DashboardPageProps) {
+export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, initialRevision = 0, lastBackupAt, initialMembers, initialSettings, openAddPersonOnStart, trees, onSwitchTree, onManageTrees, onExportTreeArchive, onOpenTreeImport }: DashboardPageProps) {
   const { t, language } = useLanguage();
   const tree = useFamilyTree(DEBUG_EMPTY_STATE ? EMPTY_MEMBERS : initialMembers);
   const members = tree.members;
   const { undo, redo } = tree;
-  const persistence = useTreePersistence(treeId, members, !DEBUG_EMPTY_STATE, tree.rollback);
+  const persistence = useTreePersistence(treeId, members, !DEBUG_EMPTY_STATE, tree.rollback, initialRevision);
   const [theme, setTheme] = useState<AppTheme>(() => {
     if (isAppTheme(initialSettings.theme ?? null)) return initialSettings.theme as AppTheme
     try {
@@ -81,7 +81,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
   const [relationshipCalculatorOpen, setRelationshipCalculatorOpen] = useState(false);
   const [relationshipPathIds, setRelationshipPathIds] = useState<string[] | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [immersive, setImmersive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [collapsedAncestorIds, setCollapsedAncestorIds] = useState<Set<string>>(
@@ -97,17 +96,15 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
   } | null>(null);
   const [addRequest, setAddRequest] = useState<AddRequest | null>(() => openAddPersonOnStart ? { targetId: initialMembers[0]?.id ?? "", kind: "child", contextual: false } : null);
   const addMemory = useRef<AddMemory | null>(null);
-  const immersiveTimer = useRef<number | null>(null);
-  const blockingOverlayRef = useRef(false);
-  const pointerPosition = useRef<{ x: number; y: number } | null>(null);
   const [pendingDrop, setPendingDrop] = useState<DropRequest | null>(null);
   const [deletePending, setDeletePending] = useState<FamilyMember | null>(null);
   const [editPending, setEditPending] = useState<FamilyMember | null>(null);
   const [restorePending, setRestorePending] = useState<RestoreRequest | null>(
     null,
   );
+  const [reloadLatestPending, setReloadLatestPending] = useState(false);
   const [status, setStatus] = useState("");
-  const hasBlockingOverlay = Boolean(addRequest || editPending || pendingDrop || deletePending || restorePending || relationshipCalculatorOpen || shortcutsOpen);
+  const hasBlockingOverlay = Boolean(addRequest || editPending || pendingDrop || deletePending || restorePending || reloadLatestPending || relationshipCalculatorOpen || shortcutsOpen);
   const selectedMember =
     members.find((member) => member.id === selectedId) ?? null;
   const activeBranchFocusId = branchFocusId && members.some((member) => member.id === branchFocusId) ? branchFocusId : null;
@@ -187,8 +184,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
       if (event.key === "?" || (event.shiftKey && event.code === "Slash")) {
         if (hasBlockingOverlay && !shortcutsOpen) return;
         event.preventDefault();
-        setImmersive(false);
-        if (immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
         setShortcutsOpen((open) => !open);
         return;
       }
@@ -219,62 +214,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
     hasBlockingOverlay,
     undo,
   ]);
-  useEffect(() => {
-    const revealChrome = () => {
-      if (immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
-      immersiveTimer.current = null;
-      setImmersive(false);
-    };
-    const onPointerMove = (event: PointerEvent) => {
-      pointerPosition.current = { x: event.clientX, y: event.clientY };
-      const edge = 44;
-      const nearEdge = event.clientX <= edge || event.clientX >= window.innerWidth - edge || event.clientY <= edge || event.clientY >= window.innerHeight - edge;
-      const target = document.elementFromPoint(event.clientX, event.clientY);
-      if (nearEdge || target?.closest(INTERACTIVE_CHROME_TARGET)) revealChrome();
-    };
-    const onPointerOver = (event: PointerEvent) => {
-      if ((event.target as Element).closest?.(INTERACTIVE_CHROME_TARGET)) revealChrome();
-    };
-    const onFocusIn = (event: FocusEvent) => {
-      if ((event.target as Element).closest?.(INTERACTIVE_CHROME_TARGET)) revealChrome();
-    };
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
-    document.addEventListener("pointerover", onPointerOver, true);
-    document.addEventListener("focusin", onFocusIn, true);
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerover", onPointerOver, true);
-      document.removeEventListener("focusin", onFocusIn, true);
-      if (immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
-    };
-  }, []);
-  useEffect(() => {
-    blockingOverlayRef.current = hasBlockingOverlay;
-    if (hasBlockingOverlay && immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
-    if (hasBlockingOverlay) immersiveTimer.current = null;
-  }, [hasBlockingOverlay]);
-  const showApplicationChrome = useCallback(() => {
-    if (immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
-    immersiveTimer.current = null;
-    setImmersive(false);
-  }, []);
-  const recordCanvasActivity = useCallback(() => {
-    const pointer = pointerPosition.current;
-    const target = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null;
-    if (target?.closest(INTERACTIVE_CHROME_TARGET)) {
-      showApplicationChrome();
-      return;
-    }
-    setImmersive(false);
-    if (immersiveTimer.current !== null) window.clearTimeout(immersiveTimer.current);
-    immersiveTimer.current = window.setTimeout(() => {
-      immersiveTimer.current = null;
-      const latestPointer = pointerPosition.current;
-      const latestTarget = latestPointer ? document.elementFromPoint(latestPointer.x, latestPointer.y) : null;
-      const overInteractive = latestTarget?.closest(INTERACTIVE_CHROME_TARGET);
-      if (!blockingOverlayRef.current && !overInteractive) setImmersive(true);
-    }, 1000);
-  }, [showApplicationChrome]);
   useEffect(() => {
     try {
       localStorage.setItem("family-tree-theme", theme);
@@ -310,7 +249,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
     setAddRequest({ targetId, kind, initialLastName: contextualLastName, contextual: true });
   }
   function findMember(member: FamilyMember) {
-    showApplicationChrome();
     setBranchFocusId(null);
     setRelationshipPathIds(null);
     setCollapsedIds(new Set());
@@ -326,7 +264,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
   function showRelationshipPath(pathIds: string[]) {
     const firstPerson = members.find((member) => member.id === pathIds[0]);
     if (!firstPerson || pathIds.length < 2) return;
-    showApplicationChrome();
     setBranchFocusId(null);
     setCollapsedIds(new Set());
     setCollapsedAncestorIds(new Set());
@@ -347,7 +284,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
     setRelationshipCalculatorOpen(false);
   }
   function fitTree(includeCollapsed = false) {
-    showApplicationChrome();
     const hiddenIds = includeCollapsed ? new Set<string>() : new Set([...getHiddenIds(members, collapsedIds), ...getHiddenAncestorIds(members, collapsedAncestorIds)]);
     const visibleMembers = members.filter((member) => !hiddenIds.has(member.id));
     const bounds = getTreeContentBounds(computeTreeLayout(visibleMembers, nodeMode, { compactCards: theme === 'midnight' }));
@@ -415,10 +351,28 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
     setRestorePending(null);
     setStatus(t("Family tree backup restored."));
   }
+  async function confirmReloadLatest() {
+    try {
+      const latest = await loadTree(treeId);
+      if (!latest.tree) throw new Error('LOCAL_TREE_NOT_FOUND');
+      tree.replaceMembers(latest.members);
+      persistence.adoptSnapshot(latest.members, latest.tree.revision ?? 0);
+      if (isAppTheme(latest.settings.theme ?? null)) setTheme(latest.settings.theme as AppTheme);
+      if (latest.settings.nodeMode === 'circle' || latest.settings.nodeMode === 'rectangle') setNodeMode(latest.settings.nodeMode);
+      setSelectedId(null);
+      setBranchFocusId(null);
+      setCollapsedIds(new Set());
+      setCollapsedAncestorIds(new Set());
+      setReloadLatestPending(false);
+      setStatus('');
+    } catch {
+      setStatus(t('Could not reload the latest tree. Try again.'));
+    }
+  }
 
   return (
     <main
-      className={`tree-app${immersive && !hasBlockingOverlay ? " is-immersive" : ""}`}
+      className="tree-app"
       data-theme={theme}
       data-layout-direction={layoutDirection}
       lang={language}
@@ -472,18 +426,22 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
           lastBackupLabel={lastBackupAt ? new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en', { dateStyle: 'medium' }).format(new Date(lastBackupAt)) : t('Never')}
           showBackupReminder={shouldShowBackupReminder({ createdAt: treeCreatedAt, updatedAt: treeUpdatedAt, lastBackupAt })}
           onOpenRelationshipCalculator={() => setRelationshipCalculatorOpen(true)}
-          onOpenShortcuts={() => { setImmersive(false); setShortcutsOpen(true); }}
-          onCanvasInteraction={showApplicationChrome}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
-        <div className={`tree-workspace${selectedMember && !immersive ? " has-details-panel" : ""}`}>
+        <div className={`tree-workspace${selectedMember ? " has-details-panel" : ""}`}>
           <div className="canvas-heading">
             <div>
               <div className="canvas-title-row">
-                <h2>{t("Family tree")}</h2>
+                <div className="canvas-title-copy">
+                  <span className="canvas-tree-name" dir="auto" title={treeName}>{treeName}</span>
+                  <span className="canvas-title-divider" aria-hidden="true">·</span>
+                  <h2>{t("Family tree")}</h2>
+                </div>
                 <span className={`tree-save-status tree-save-status-${persistence.status}`} role="status" aria-live="polite">
-                  {persistence.status === 'error' ? t(persistence.error) : t(persistence.status === 'saving' ? 'Saving…' : 'Saved')}
+                  {persistence.status === 'error' || persistence.status === 'conflict' ? t(persistence.error) : t(persistence.status === 'saving' ? 'Saving…' : 'Saved')}
                 </span>
                 {persistence.status === 'error' && <button type="button" className="save-retry-button" onClick={persistence.retry}>{t('Try again')}</button>}
+                {persistence.status === 'conflict' && <button type="button" className="save-retry-button" onClick={() => setReloadLatestPending(true)}>{t('Reload latest')}</button>}
               </div>
               <span className="generation-badge quick-stats-pill" aria-label={t("Family tree statistics")}>
                 <span><bdi>{members.length}</bdi> {t(`stats people ${members.length === 1 ? "one" : "other"}`)}</span>
@@ -508,7 +466,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
               layoutRevision={layoutRevision}
               navigationTarget={navigationTarget}
               onSelect={(member) => {
-                recordCanvasActivity();
                 setRelationshipPathIds(null);
                 setSelectedId((current) =>
                   current === member.id ? null : member.id,
@@ -525,7 +482,6 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
               onFocusMember={findMember}
               branchFocusId={activeBranchFocusId}
               onResetBranchFocus={() => setBranchFocusId(null)}
-              onCanvasActivity={recordCanvasActivity}
               onLinkRelative={(memberId, relativeId, kind) => {
                 tree.updateRelationship(memberId, relativeId, kind);
                 setStatus("Family relationship updated.");
@@ -670,6 +626,15 @@ export function DashboardPage({ treeId, treeName, treeCreatedAt, treeUpdatedAt, 
           confirmLabel="Restore backup"
           onCancel={() => setRestorePending(null)}
           onConfirm={confirmRestore}
+        />
+      )}
+      {reloadLatestPending && (
+        <ConfirmationDialog
+          title={t('Reload the latest tree?')}
+          message="Reloading will discard your unsaved local changes and load the latest saved tree."
+          confirmLabel="Reload latest"
+          onCancel={() => setReloadLatestPending(false)}
+          onConfirm={() => { void confirmReloadLatest(); }}
         />
       )}
       {relationshipCalculatorOpen && <RelationshipCalculatorDialog members={members} onClose={() => setRelationshipCalculatorOpen(false)} onShowInTree={showRelationshipPath} />}
